@@ -24,11 +24,19 @@ export interface ResumenCatalogo {
  */
 export async function aplicarCatalogo(db: Db, cursos: CursoImportado[]): Promise<ResumenCatalogo> {
   const existentes = await db.curso.findMany({ select: { codigo: true, _count: { select: { votos: true } } } });
+  const procesos = await db.procesoVotacion.findMany({
+    where: { catalogo: { not: Prisma.DbNull } },
+    select: { catalogo: true },
+  });
+  const congelados = new Set(
+    procesos.flatMap((p) => (Array.isArray(p.catalogo) ? p.catalogo.map((c) => (c as { codigo: string }).codigo) : [])),
+  );
   const codigosArchivo = new Set(cursos.map((c) => c.codigo));
   const existentesSet = new Set(existentes.map((c) => c.codigo));
 
   for (const c of cursos) {
     const datos = {
+      activo: true,
       nombre: c.nombre,
       creditos: new Prisma.Decimal(c.creditos),
       tipo: c.tipo,
@@ -57,7 +65,10 @@ export async function aplicarCatalogo(db: Db, cursos: CursoImportado[]): Promise
   if (requisitos.length) await db.requisito.createMany({ data: requisitos });
 
   const sobrantes = existentes.filter((c) => !codigosArchivo.has(c.codigo));
-  const eliminables = sobrantes.filter((c) => c._count.votos === 0).map((c) => c.codigo);
+  const conservados = sobrantes.filter((c) => c._count.votos > 0 || congelados.has(c.codigo)).map((c) => c.codigo);
+  if (conservados.length)
+    await db.curso.updateMany({ where: { codigo: { in: conservados } }, data: { activo: false } });
+  const eliminables = sobrantes.filter((c) => c._count.votos === 0 && !congelados.has(c.codigo)).map((c) => c.codigo);
   if (eliminables.length) await db.curso.deleteMany({ where: { codigo: { in: eliminables } } });
 
   return {
@@ -107,7 +118,15 @@ export async function aplicarCuentas(
   }
 
   await db.padronAlumno.deleteMany({ where: { procesoId } });
-  await db.padronAlumno.createMany({ data: ids.map((usuarioId) => ({ procesoId, usuarioId })) });
+  await db.padronAlumno.createMany({
+    data: ids.map((usuarioId, i) => ({
+      procesoId,
+      usuarioId,
+      ingreso: cuentas[i].ingreso,
+      craest: cuentas[i].craest,
+      matriculado: cuentas[i].matriculado,
+    })),
+  });
 
   return {
     creadas: cuentas.filter((c) => !yaExisten.has(c.codigo)).length,

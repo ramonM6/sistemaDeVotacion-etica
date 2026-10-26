@@ -1,3 +1,5 @@
+> **Actualización:** las reglas modificadas al integrar VotaInf están en [NUEVOS_REQUISITOS.md](NUEVOS_REQUISITOS.md) y prevalecen sobre las secciones históricas de este documento. En particular, los votos ahora se pueden editar/retirar durante la apertura, los resultados de alumnos se muestran al cierre y los reportes del coordinador no incluyen elecciones individuales identificadas.
+
 # Sistema de Votación de Cursos Electivos — Ingeniería Informática PUCP
 
 > Especificación para implementar con Claude Code. MVP para una práctica de desarrollo de software. Corre solo en **localhost**, sin integraciones externas.

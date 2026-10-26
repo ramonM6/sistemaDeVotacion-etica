@@ -10,7 +10,7 @@ export class EmitirVotoDto {
 
   @IsArray({ message: 'Debes elegir al menos una franja' })
   @ArrayMinSize(1, { message: 'Debes elegir al menos una franja' })
-  @ArrayMaxSize(5)
+  @ArrayMaxSize(2)
   @ArrayUnique({ message: 'Las franjas no pueden repetirse' })
   @IsEnum(Franja, { each: true, message: 'Franja inválida' })
   franjas: Franja[];

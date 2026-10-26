@@ -1,3 +1,4 @@
+import { FiltrosResultadosDto } from '../resultados/filtros.dto';
 import { Controller, Get, Param, ParseUUIDPipe, Query, Res, StreamableFile } from '@nestjs/common';
 import { Response } from 'express';
 import { Roles } from '../../common/auth.decorators';
@@ -10,7 +11,14 @@ const MIME_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
 export class ExportController {
   constructor(private readonly exportar: ExportService) {}
 
-  /** Hojas: Ranking, Matriz franjas, Votos detallados. */
+  @Get('resultados.pdf')
+  async pdf(@Res({ passthrough: true }) res: Response, @Query() filtros: FiltrosResultadosDto) {
+    const { buffer, nombre } = await this.exportar.resultadosPdf(filtros.procesoId, filtros);
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${nombre}"` });
+    return new StreamableFile(buffer);
+  }
+
+  /** Hojas agregadas: Ranking y Matriz franjas. */
   @Get('resultados.xlsx')
   async resultados(
     @Res({ passthrough: true }) res: Response,
@@ -21,7 +29,7 @@ export class ExportController {
     return new StreamableFile(buffer);
   }
 
-  /** Votantes de un curso. */
+  /** Resumen agregado de un curso; nunca incluye elecciones identificadas. */
   @Get('cursos/:codigo/votantes.xlsx')
   async curso(
     @Param('codigo') codigo: string,

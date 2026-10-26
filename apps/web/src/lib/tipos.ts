@@ -19,6 +19,7 @@ export interface Proceso {
   id: string;
   nombre: string;
   cicloObjetivo: string;
+  cicloActual?: string;
   fechaInicio: string;
   fechaFin: string;
   maxCursos: number;
@@ -49,6 +50,8 @@ export interface Creditos {
 }
 
 export interface ElectivoAlumno {
+  dependencias?: string[];
+  avisos?: string[];
   codigo: string;
   nombre: string;
   creditos: number;
@@ -85,6 +88,9 @@ export interface FilaResultado {
   nombre: string;
   creditos: number;
   total: number;
+  seleccion?: string;
+  consejo?: string;
+  dictado?: string;
   confirmados: number;
   condicionales: number;
   franjas: ConteoFranjas;
@@ -93,7 +99,10 @@ export interface FilaResultado {
 export interface ResultadosPublicos {
   proceso: Pick<Proceso, 'id' | 'nombre' | 'cicloObjetivo' | 'estado' | 'fechaFin'>;
   totalVotos: number;
-  ranking: Pick<FilaResultado, 'codigo' | 'nombre' | 'creditos' | 'total' | 'franjas'>[];
+  ranking: Pick<
+    FilaResultado,
+    'codigo' | 'nombre' | 'creditos' | 'total' | 'franjas' | 'seleccion' | 'consejo' | 'dictado'
+  >[];
 }
 
 export interface Aviso {
@@ -102,6 +111,7 @@ export interface Aviso {
 }
 
 export interface ResultadosCoord {
+  agrupaciones: { codigo: string; grupo: string; votos: number; alumnos: number; poblacion: number }[];
   proceso: Proceso;
   indicadores: { habilitados: number; votaron: number; participacion: number; totalVotos: number };
   ranking: FilaResultado[];
@@ -111,7 +121,14 @@ export interface ResultadosCoord {
 
 export interface DetalleCursoCoord {
   proceso: Pick<Proceso, 'id' | 'nombre' | 'estado'>;
-  curso: { codigo: string; nombre: string; creditos: number; tipo: TipoCurso; requisitosTexto: string | null; descripcion: string | null };
+  curso: {
+    codigo: string;
+    nombre: string;
+    creditos: number;
+    tipo: TipoCurso;
+    requisitosTexto: string | null;
+    descripcion: string | null;
+  };
   total: number;
   confirmados: number;
   condicionales: number;
@@ -167,7 +184,9 @@ export interface DetalleAlumno {
     enCurso: boolean;
     aprobado: boolean;
   }[];
-  electivos: (Omit<ElectivoAlumno, 'voto'> & { voto: { aptitud: Aptitud; franjas: Franja[]; createdAt: string } | null })[];
+  electivos: (Omit<ElectivoAlumno, 'voto'> & {
+    voto: { aptitud: Aptitud; franjas: Franja[]; createdAt: string } | null;
+  })[];
 }
 
 export type TipoImportacion = 'catalogo' | 'cuentas' | 'historial';

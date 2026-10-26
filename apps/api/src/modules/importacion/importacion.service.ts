@@ -1,15 +1,22 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { cifrarArchivo, descifrarArchivo } from './archivos';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
 import { config } from '../../config';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ProcesosService } from '../procesos/procesos.service';
 import { ResultadosGateway } from '../resultados/resultados.gateway';
 import { aplicarCatalogo, aplicarCuentas, aplicarHistorial, hashearCuentas } from './aplicar';
 import { leerHoja } from './excel';
-import { COLUMNAS_CATALOGO, COLUMNAS_CATALOGO_OPCIONALES, CursoImportado, validarCatalogo } from './validadores/catalogo';
+import {
+  COLUMNAS_CATALOGO,
+  COLUMNAS_CATALOGO_OPCIONALES,
+  CursoImportado,
+  validarCatalogo,
+} from './validadores/catalogo';
 import { COLUMNAS_CUENTAS, COLUMNAS_CUENTAS_OPCIONALES, CuentaImportada, validarCuentas } from './validadores/cuentas';
 import {
   COLUMNAS_HISTORIAL,
@@ -40,6 +47,8 @@ interface Vista {
   procesoId: string | null;
   expira: number;
   pendiente: Pendiente;
+  archivo: Buffer;
+  nombre: string;
 }
 
 /** Directorio de las plantillas Excel (docs/plantillas en la raíz del repositorio). */
@@ -74,16 +83,25 @@ export class ImportacionService {
     return { ruta, nombre: PLANTILLAS[tipo] };
   }
 
-  async preview(tipo: TipoImportacion, archivo: Buffer, coordinadorId: string, procesoId?: string) {
+  async preview(
+    tipo: TipoImportacion,
+    archivo: Buffer,
+    coordinadorId: string,
+    procesoId?: string,
+    nombre = 'archivo.xlsx',
+  ) {
     this.limpiarVencidas();
     const proceso = tipo === 'catalogo' ? null : await this.procesos.resolver(procesoId);
 
+    if (proceso?.primeraApertura)
+      throw new BadRequestException('Los datos académicos y el padrón están bloqueados desde la primera apertura');
+    const formato = nombre.toLowerCase().endsWith('.csv') ? 'csv' : 'xlsx';
     let resultado: ResultadoValidacion<unknown>;
     let pendiente: Pendiente;
     let columnas: string[];
 
     if (tipo === 'catalogo') {
-      const hoja = await leerHoja(archivo, 'cursos', COLUMNAS_CATALOGO, COLUMNAS_CATALOGO_OPCIONALES);
+      const hoja = await leerHoja(archivo, 'cursos', COLUMNAS_CATALOGO, COLUMNAS_CATALOGO_OPCIONALES, formato);
       const r = validarCatalogo(hoja);
       const codigos = new Set(r.filas.map((f) => f.datos.codigo));
       const conVotos = await this.prisma.curso.findMany({
@@ -100,17 +118,23 @@ export class ImportacionService {
       pendiente = { tipo, datos: r.filas.map((f) => f.datos) };
       columnas = [...COLUMNAS_CATALOGO, ...COLUMNAS_CATALOGO_OPCIONALES];
     } else if (tipo === 'cuentas') {
-      const hoja = await leerHoja(archivo, 'alumnos', COLUMNAS_CUENTAS, COLUMNAS_CUENTAS_OPCIONALES);
-      const coordinadores = await this.prisma.usuario.findMany({ where: { rol: 'COORDINADOR' }, select: { codigo: true } });
+      const hoja = await leerHoja(archivo, 'alumnos', COLUMNAS_CUENTAS, COLUMNAS_CUENTAS_OPCIONALES, formato);
+      const coordinadores = await this.prisma.usuario.findMany({
+        where: { rol: 'COORDINADOR' },
+        select: { codigo: true },
+      });
       const r = validarCuentas(hoja, new Set(coordinadores.map((c) => c.codigo)));
       pendiente = { tipo, datos: r.filas.map((f) => f.datos) };
       // La vista previa nunca devuelve contraseñas.
       resultado = { ...r, filas: r.filas.map((f) => ({ ...f, datos: { ...f.datos, password: '••••••••' } })) };
-      columnas = ['codigo', 'nombres', 'apellidos', 'correo', 'password'];
+      columnas = ['codigo', 'nombres', 'apellidos', 'correo', 'password', 'ingreso', 'craest', 'matriculado'];
     } else {
-      const hoja = await leerHoja(archivo, 'historial', COLUMNAS_HISTORIAL, COLUMNAS_HISTORIAL_OPCIONALES);
+      const hoja = await leerHoja(archivo, 'historial', COLUMNAS_HISTORIAL, COLUMNAS_HISTORIAL_OPCIONALES, formato);
       const [padron, cursos] = await Promise.all([
-        this.prisma.padronAlumno.findMany({ where: { procesoId: proceso!.id }, select: { usuario: { select: { codigo: true } } } }),
+        this.prisma.padronAlumno.findMany({
+          where: { procesoId: proceso!.id },
+          select: { usuario: { select: { codigo: true } } },
+        }),
         this.prisma.curso.findMany({ select: { codigo: true } }),
       ]);
       const r = validarHistorial(
@@ -135,6 +159,8 @@ export class ImportacionService {
         procesoId: proceso?.id ?? null,
         expira: Date.now() + VIGENCIA_TOKEN_MS,
         pendiente,
+        archivo,
+        nombre: nombre.split(/[\\/]/).pop()!.slice(0, 180),
       });
     }
 
@@ -169,7 +195,14 @@ export class ImportacionService {
 
     try {
       if (pendiente.tipo === 'catalogo') {
-        const resumen = await this.prisma.$transaction((tx) => aplicarCatalogo(tx, pendiente.datos), { timeout: 60_000 });
+        const resumen = await this.prisma.$transaction(
+          async (tx) => {
+            const resumen = await aplicarCatalogo(tx, pendiente.datos);
+            await this.archivar(tx, vista, coordinadorId);
+            return resumen;
+          },
+          { timeout: 60_000 },
+        );
         await this.audit.registrar('IMPORT_CATALOGO', coordinadorId, { ...resumen, filas: pendiente.datos.length });
         this.gateway.notificar('importacion');
         return { tipo, ...resumen };
@@ -177,25 +210,87 @@ export class ImportacionService {
       if (pendiente.tipo === 'cuentas') {
         await this.procesos.obtener(procesoId!);
         const hasheadas = await hashearCuentas(pendiente.datos, config.bcryptCost);
-        const resumen = await this.prisma.$transaction((tx) => aplicarCuentas(tx, procesoId!, hasheadas), {
-          timeout: 60_000,
-        });
+        const resumen = await this.prisma.$transaction(
+          async (tx) => {
+            await this.validarBorrador(tx, procesoId!);
+            const resumen = await aplicarCuentas(tx, procesoId!, hasheadas);
+            await this.archivar(tx, vista, coordinadorId);
+            return resumen;
+          },
+          {
+            timeout: 60_000,
+          },
+        );
         await this.audit.registrar('IMPORT_CUENTAS', coordinadorId, { procesoId, ...resumen });
         this.gateway.notificar('importacion', procesoId!);
         return { tipo, ...resumen };
       }
       await this.procesos.obtener(procesoId!);
-      const resumen = await this.prisma.$transaction((tx) => aplicarHistorial(tx, procesoId!, pendiente.datos), {
-        timeout: 60_000,
-      });
+      const resumen = await this.prisma.$transaction(
+        async (tx) => {
+          await this.validarBorrador(tx, procesoId!);
+          const resumen = await aplicarHistorial(tx, procesoId!, pendiente.datos);
+          await this.archivar(tx, vista, coordinadorId);
+          return resumen;
+        },
+        {
+          timeout: 60_000,
+        },
+      );
       await this.audit.registrar('IMPORT_HISTORIAL', coordinadorId, { procesoId, ...resumen });
       this.gateway.notificar('importacion', procesoId!);
       return { tipo, ...resumen };
     } catch (e) {
       if (e instanceof NotFoundException) throw e;
       // Los datos cambiaron entre la vista previa y la confirmación (p. ej. el padrón).
-      throw new ConflictException(`No se pudo aplicar la importación: ${(e as Error).message}. Vuelve a generar la vista previa.`);
+      throw new ConflictException(
+        `No se pudo aplicar la importación: ${(e as Error).message}. Vuelve a generar la vista previa.`,
+      );
     }
+  }
+
+  private async archivar(tx: Prisma.TransactionClient, vista: Vista, actorId: string) {
+    await tx.archivoCarga.create({
+      data: {
+        nombre: vista.nombre,
+        tipo: vista.pendiente.tipo,
+        procesoId: vista.procesoId,
+        actorId,
+        filas: vista.pendiente.datos.length,
+        ...cifrarArchivo(vista.archivo),
+      },
+    });
+  }
+
+  listarArchivos(procesoId?: string) {
+    return this.prisma.archivoCarga.findMany({
+      where: procesoId ? { OR: [{ procesoId }, { procesoId: null }] } : {},
+      select: {
+        id: true,
+        nombre: true,
+        tipo: true,
+        procesoId: true,
+        actorId: true,
+        sha256: true,
+        filas: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+  }
+
+  async descargarArchivo(id: string) {
+    const archivo = await this.prisma.archivoCarga.findUnique({ where: { id } });
+    if (!archivo) throw new NotFoundException('Archivo no encontrado');
+    return { nombre: archivo.nombre, buffer: descifrarArchivo(Buffer.from(archivo.contenido)) };
+  }
+
+  private async validarBorrador(tx: Prisma.TransactionClient, procesoId: string) {
+    await tx.$queryRaw`SELECT 1 FROM "ProcesoVotacion" WHERE id = ${procesoId} FOR UPDATE`;
+    const proceso = await tx.procesoVotacion.findUniqueOrThrow({ where: { id: procesoId } });
+    if (proceso.primeraApertura || proceso.estado !== 'BORRADOR')
+      throw new BadRequestException('Los datos académicos y el padrón están bloqueados desde la primera apertura');
   }
 
   private sinTerminos({ terminos: _, ...resto }: CursoImportado) {

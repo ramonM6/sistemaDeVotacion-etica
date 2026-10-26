@@ -1,3 +1,4 @@
+import { Select } from '@/components/ui/select';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Lock, Pencil, Play, Plus, RotateCcw } from 'lucide-react';
@@ -9,7 +10,14 @@ import { Cargando, ErrorCarga, Titulo, Vacio } from '@/components/Estados';
 import { EstadoProcesoBadge } from '@/components/Insignias';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -20,13 +28,21 @@ import type { EstadoProceso, Proceso } from '@/lib/tipos';
 const esquema = z
   .object({
     nombre: z.string().trim().min(3, 'Mínimo 3 caracteres').max(120),
+    cicloActual: z
+      .string()
+      .regex(/^\d{4}-[0-2]$/, 'Formato AAAA-N')
+      .or(z.literal(''))
+      .optional(),
     cicloObjetivo: z.string().regex(/^\d{4}-[0-2]$/, 'Formato AAAA-N, por ejemplo 2027-1'),
     fechaInicio: z.string().min(1, 'Requerido'),
     fechaFin: z.string().min(1, 'Requerido'),
-    maxCursos: z.coerce.number().int().min(1).max(20),
-    maxFranjas: z.coerce.number().int().min(1).max(5),
+    maxCursos: z.coerce.number().int().min(1).max(5),
+    maxFranjas: z.coerce.number().int().min(1).max(2),
   })
-  .refine((d) => new Date(d.fechaFin) > new Date(d.fechaInicio), { path: ['fechaFin'], message: 'Debe ser posterior al inicio' });
+  .refine((d) => new Date(d.fechaFin) > new Date(d.fechaInicio), {
+    path: ['fechaFin'],
+    message: 'Debe ser posterior al inicio',
+  });
 type Datos = z.infer<typeof esquema>;
 
 function FormularioProceso({ proceso, alTerminar }: { proceso: Proceso | null; alTerminar: () => void }) {
@@ -38,6 +54,7 @@ function FormularioProceso({ proceso, alTerminar }: { proceso: Proceso | null; a
       ? {
           nombre: proceso.nombre,
           cicloObjetivo: proceso.cicloObjetivo,
+          cicloActual: proceso.cicloActual ?? '',
           fechaInicio: aInputFecha(proceso.fechaInicio),
           fechaFin: aInputFecha(proceso.fechaFin),
           maxCursos: proceso.maxCursos,
@@ -46,6 +63,7 @@ function FormularioProceso({ proceso, alTerminar }: { proceso: Proceso | null; a
       : {
           nombre: '',
           cicloObjetivo: '',
+          cicloActual: '',
           fechaInicio: aInputFecha(ahora),
           fechaFin: aInputFecha(new Date(ahora.getTime() + 7 * 86_400_000)),
           maxCursos: 5,
@@ -55,7 +73,12 @@ function FormularioProceso({ proceso, alTerminar }: { proceso: Proceso | null; a
 
   const guardar = useMutation({
     mutationFn: (d: Datos) => {
-      const datos = { ...d, fechaInicio: new Date(d.fechaInicio).toISOString(), fechaFin: new Date(d.fechaFin).toISOString() };
+      const datos = {
+        ...d,
+        cicloActual: d.cicloActual || undefined,
+        fechaInicio: new Date(d.fechaInicio).toISOString(),
+        fechaFin: new Date(d.fechaFin).toISOString(),
+      };
       return proceso ? api.editarProceso(proceso.id, datos) : api.crearProceso(datos);
     },
     onSuccess: () => {
@@ -77,14 +100,21 @@ function FormularioProceso({ proceso, alTerminar }: { proceso: Proceso | null; a
   return (
     <form onSubmit={handleSubmit((d) => guardar.mutate(d))} className="space-y-4" noValidate>
       {campo('nombre', 'Nombre', { placeholder: 'Electivos 2027-1' })}
-      {campo('cicloObjetivo', 'Ciclo objetivo', { placeholder: '2027-1' })}
+      {campo('cicloActual', 'Ciclo actual', {
+        placeholder: '2026-2',
+        disabled: !!proceso && proceso.estado !== 'BORRADOR',
+      })}
+      {campo('cicloObjetivo', 'Ciclo objetivo', {
+        placeholder: '2027-1',
+        disabled: !!proceso && proceso.estado !== 'BORRADOR',
+      })}
       <div className="grid gap-4 sm:grid-cols-2">
         {campo('fechaInicio', 'Inicio', { type: 'datetime-local' })}
         {campo('fechaFin', 'Fin (cierre automático)', { type: 'datetime-local' })}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        {campo('maxCursos', 'Máximo de cursos por alumno', { type: 'number', min: 1, max: 20 })}
-        {campo('maxFranjas', 'Máximo de franjas por voto', { type: 'number', min: 1, max: 5 })}
+        {campo('maxCursos', 'Máximo de cursos por alumno', { type: 'number', min: 1, max: 5 })}
+        {campo('maxFranjas', 'Máximo de franjas por voto', { type: 'number', min: 1, max: 2 })}
       </div>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={alTerminar}>
@@ -104,6 +134,14 @@ export default function Procesos() {
   const procesos = useQuery({ queryKey: ['coord', 'procesos'], queryFn: api.procesos });
   const [editando, setEditando] = useState<Proceso | null | undefined>(undefined);
 
+  const reutilizar = useMutation({
+    mutationFn: ({ id, origenId }: { id: string; origenId: string }) => api.reutilizarCatalogo(id, origenId),
+    onSuccess: () => {
+      toast.success('Catálogo reutilizado');
+      queryClient.invalidateQueries({ queryKey: ['coord'] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
   const cambiar = useMutation({
     mutationFn: ({ id, estado }: { id: string; estado: EstadoProceso }) => api.cambiarEstado(id, estado),
     onSuccess: (p) => {
@@ -166,16 +204,50 @@ export default function Procesos() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => setEditando(p)} aria-label={`Editar ${p.nombre}`}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditando(p)}
+                        aria-label={`Editar ${p.nombre}`}
+                      >
                         <Pencil />
                       </Button>
                       {p.estado === 'BORRADOR' && (
-                        <Button size="sm" disabled={hayAbierto || cambiar.isPending} onClick={() => cambiar.mutate({ id: p.id, estado: 'ABIERTO' })}>
+                        <Select
+                          aria-label={`Reutilizar catálogo en ${p.nombre}`}
+                          value=""
+                          disabled={reutilizar.isPending}
+                          className="w-48"
+                          onChange={(e) => {
+                            if (e.target.value) reutilizar.mutate({ id: p.id, origenId: e.target.value });
+                          }}
+                        >
+                          <option value="">Reutilizar catálogo de…</option>
+                          {procesos
+                            .data!.filter((o) => o.id !== p.id && o.estado !== 'BORRADOR')
+                            .map((o) => (
+                              <option value={o.id} key={o.id}>
+                                {o.nombre}
+                              </option>
+                            ))}
+                        </Select>
+                      )}
+                      {p.estado === 'BORRADOR' && (
+                        <Button
+                          size="sm"
+                          disabled={hayAbierto || cambiar.isPending}
+                          onClick={() => cambiar.mutate({ id: p.id, estado: 'ABIERTO' })}
+                        >
                           <Play /> Abrir
                         </Button>
                       )}
                       {p.estado === 'ABIERTO' && (
-                        <Button size="sm" variant="destructive" disabled={cambiar.isPending} onClick={() => cambiar.mutate({ id: p.id, estado: 'CERRADO' })}>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={cambiar.isPending}
+                          onClick={() => cambiar.mutate({ id: p.id, estado: 'CERRADO' })}
+                        >
                           <Lock /> Cerrar
                         </Button>
                       )}
@@ -204,7 +276,9 @@ export default function Procesos() {
           <DialogHeader>
             <DialogTitle>{editando ? 'Editar proceso' : 'Nuevo proceso'}</DialogTitle>
             <DialogDescription>
-              {editando ? 'Para extender el plazo de un proceso cerrado, cambia la fecha de fin y luego reábrelo.' : 'El proceso se crea en borrador.'}
+              {editando
+                ? 'Para extender el plazo de un proceso cerrado, cambia la fecha de fin y luego reábrelo.'
+                : 'El proceso se crea en borrador.'}
             </DialogDescription>
           </DialogHeader>
           {editando !== undefined && <FormularioProceso proceso={editando} alTerminar={() => setEditando(undefined)} />}

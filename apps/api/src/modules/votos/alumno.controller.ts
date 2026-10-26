@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Patch, Get, Param, Post } from '@nestjs/common';
 import { Roles, UsuarioActual, UsuarioSesion } from '../../common/auth.decorators';
 import { EmitirVotoDto } from './votos.dto';
 import { VotosService } from './votos.service';
@@ -32,6 +32,16 @@ export class AlumnoController {
   @Post('votos')
   emitir(@UsuarioActual() u: UsuarioSesion, @Body() dto: EmitirVotoDto) {
     return this.votos.emitir(u.id, dto);
+  }
+
+  @Patch('votos/:codigo')
+  editar(@UsuarioActual() u: UsuarioSesion, @Param('codigo') codigo: string, @Body() dto: EmitirVotoDto) {
+    return this.votos.cambiar(u.id, codigo, dto);
+  }
+
+  @Delete('votos/:codigo')
+  retirar(@UsuarioActual() u: UsuarioSesion, @Param('codigo') codigo: string) {
+    return this.votos.cambiar(u.id, codigo);
   }
 
   @Get('votos')

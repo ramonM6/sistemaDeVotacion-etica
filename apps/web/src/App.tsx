@@ -1,3 +1,4 @@
+import Seguimiento from '@/pages/coordinador/Seguimiento';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Cargando } from '@/components/Estados';
 import { RequiereRol, inicioPorRol } from '@/components/RequiereRol';
@@ -46,6 +47,7 @@ export default function App() {
           <Route index element={<Panel />} />
           <Route path="resultados" element={<CoordResultados />} />
           <Route path="resultados/:codigo" element={<DetalleCurso />} />
+          <Route path="seguimiento" element={<Seguimiento />} />
           <Route path="procesos" element={<Procesos />} />
           <Route path="carga" element={<CargaDatos />} />
           <Route path="cursos" element={<Cursos />} />

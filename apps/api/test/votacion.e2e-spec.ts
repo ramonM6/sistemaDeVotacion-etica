@@ -35,15 +35,21 @@ describe('Votación (e2e)', () => {
     });
 
     it('un código inexistente y una contraseña errónea dan el mismo mensaje genérico', async () => {
-      const a = await request(app.getHttpServer()).post('/api/auth/login').send({ codigo: '12345678', password: 'xxxxxxxx' });
-      const b = await request(app.getHttpServer()).post('/api/auth/login').send({ codigo: '20000001', password: 'incorrecta' });
+      const a = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ codigo: '12345678', password: 'xxxxxxxx' });
+      const b = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ codigo: '20000001', password: 'incorrecta' });
       expect(a.status).toBe(401);
       expect(b.status).toBe(401);
       expect(a.body.message).toBe(b.body.message);
     });
 
     it('la sesión va en una cookie httpOnly SameSite=Strict de 8 horas', async () => {
-      const res = await request(app.getHttpServer()).post('/api/auth/login').send({ codigo: '20000001', password: PASSWORD });
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ codigo: '20000001', password: PASSWORD });
       expect(res.status).toBe(200);
       const cookie = ([] as string[]).concat(res.headers['set-cookie'] as unknown as string[])[0];
       expect(cookie).toMatch(/^sesion=/);
@@ -72,7 +78,10 @@ describe('Votación (e2e)', () => {
       const porCodigo = Object.fromEntries(res.body.electivos.map((e: any) => [e.codigo, e]));
       expect(porCodigo['INF310'].elegibilidad.aptitud).toBe('CONFIRMADO');
       expect(porCodigo['1INF02'].elegibilidad.aptitud).toBe('NO_APTO');
-      expect(porCodigo['1INF02'].elegibilidad.requisitos[0]).toMatchObject({ cumple: false, detalle: 'No registra 1INF24' });
+      expect(porCodigo['1INF02'].elegibilidad.requisitos[0]).toMatchObject({
+        cumple: false,
+        detalle: 'No registra 1INF24',
+      });
     });
 
     it('marca CONDICIONAL y lista el curso en curso', async () => {
@@ -96,9 +105,12 @@ describe('Votación (e2e)', () => {
       expect((await alumno.get('/api/alumno/estado')).body.terminos.aceptados).toBe(false);
       expect((await alumno.post('/api/alumno/terminos')).status).toBe(201);
       const fila = await prisma.aceptacionTerminos.findFirstOrThrow({ where: { usuarioId: esc.alumnos['20000001'] } });
-      expect(fila.version).toBe(1);
+      expect(fila.version).toBe(2);
       expect(fila.aceptadoEn).toBeInstanceOf(Date);
-      expect((await alumno.get('/api/alumno/estado')).body).toMatchObject({ terminos: { aceptados: true }, puedeVotar: true });
+      expect((await alumno.get('/api/alumno/estado')).body).toMatchObject({
+        terminos: { aceptados: true },
+        puedeVotar: true,
+      });
     });
 
     it.each([
@@ -170,7 +182,9 @@ describe('Votación (e2e)', () => {
       await aceptarTerminos(prisma, esc.procesoId, esc.alumnos['20000001']);
       const alumno = await sesion(app, '20000001');
       const cursos = ['1INF02', '1INF64', 'DER349', 'INF310', 'INF356', 'INF372', 'INF373'];
-      const respuestas = await Promise.all(cursos.map((c) => alumno.post('/api/alumno/votos').send(voto(c, ['NOCHE']))));
+      const respuestas = await Promise.all(
+        cursos.map((c) => alumno.post('/api/alumno/votos').send(voto(c, ['NOCHE']))),
+      );
       expect(respuestas.filter((r) => r.status === 201)).toHaveLength(5);
       expect(await prisma.voto.count({ where: { usuarioId: esc.alumnos['20000001'] } })).toBe(5);
     });
@@ -178,24 +192,36 @@ describe('Votación (e2e)', () => {
     it('con peticiones simultáneas por el mismo curso solo se registra un voto', async () => {
       await aceptarTerminos(prisma, esc.procesoId, esc.alumnos['20000004']);
       const alumno = await sesion(app, '20000004');
-      const respuestas = await Promise.all([1, 2, 3, 4].map(() => alumno.post('/api/alumno/votos').send(voto('INF310', ['NOCHE']))));
+      const respuestas = await Promise.all(
+        [1, 2, 3, 4].map(() => alumno.post('/api/alumno/votos').send(voto('INF310', ['NOCHE']))),
+      );
       expect(respuestas.filter((r) => r.status === 201)).toHaveLength(1);
       expect(respuestas.filter((r) => r.status === 409)).toHaveLength(3);
     });
 
-    it('los votos no se pueden editar ni eliminar', async () => {
+    it('permite editar y retirar solo las elecciones propias mientras esté abierto', async () => {
       await aceptarTerminos(prisma, esc.procesoId, esc.alumnos['20000001']);
       const alumno = await sesion(app, '20000001');
-      const { body } = await alumno.post('/api/alumno/votos').send(voto('INF310', ['NOCHE']));
-      const intentos = [
-        () => alumno.put(`/api/alumno/votos/${body.id}`).send(voto('INF310', ['TARDE'])),
-        () => alumno.patch(`/api/alumno/votos/${body.id}`).send({ franjas: ['TARDE'] }),
-        () => alumno.delete(`/api/alumno/votos/${body.id}`),
-        () => alumno.delete('/api/alumno/votos'),
-      ];
-      for (const intento of intentos) expect((await intento()).status).toBe(404);
-      const v = await prisma.voto.findUniqueOrThrow({ where: { id: body.id }, include: { franjas: true } });
-      expect(v.franjas.map((f) => f.franja)).toEqual(['NOCHE']);
+      await alumno
+        .post('/api/alumno/votos')
+        .send(voto('INF310', ['NOCHE']))
+        .expect(201);
+      await alumno
+        .patch('/api/alumno/votos/INF310')
+        .send(voto('INF310', ['TARDE']))
+        .expect(200);
+      expect((await alumno.get('/api/alumno/votos')).body[0].franjas).toEqual(['TARDE']);
+      const otro = await sesion(app, '20000002');
+      await otro.delete('/api/alumno/votos/INF310').expect(404);
+      await prisma.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'CERRADO' } });
+      await alumno.delete('/api/alumno/votos/INF310').expect(400);
+      await alumno
+        .patch('/api/alumno/votos/INF310')
+        .send(voto('INF310', ['MANANA']))
+        .expect(400);
+      await prisma.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'ABIERTO' } });
+      await alumno.delete('/api/alumno/votos/INF310').expect(200);
+      expect(await prisma.voto.count()).toBe(0);
     });
 
     it('no se puede votar si el proceso está cerrado o si pasó la fecha de fin', async () => {
@@ -224,18 +250,27 @@ describe('Votación (e2e)', () => {
 
     it('los resultados públicos no incluyen datos de los votantes', async () => {
       const alumno = await votar('20000001', [['INF310', ['NOCHE', 'TARDE']]]);
+      expect((await alumno.get('/api/resultados/publicos')).body.ranking).toEqual([]);
+      await prisma.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'CERRADO' } });
       const res = await alumno.get('/api/resultados/publicos');
       expect(res.status).toBe(200);
       expect(res.body.ranking).toEqual([
-        expect.objectContaining({ codigo: 'INF310', total: 1, franjas: { MANANA: 0, MEDIA_MANANA: 0, MEDIODIA: 0, TARDE: 1, NOCHE: 1 } }),
+        expect.objectContaining({
+          codigo: 'INF310',
+          total: 1,
+          franjas: { MANANA: 0, MEDIA_MANANA: 0, MEDIODIA: 0, TARDE: 1, NOCHE: 1 },
+        }),
       ]);
       const texto = JSON.stringify(res.body);
       expect(texto).not.toContain('20000001');
       expect(texto).not.toContain('Nombre');
     });
 
-    it('el coordinador ve indicadores, ranking confirmados/condicionales y votantes por curso', async () => {
-      await votar('20000001', [['1INF02', ['NOCHE']], ['INF310', ['NOCHE', 'MANANA']]]);
+    it('el coordinador ve indicadores, ranking confirmados/condicionales sin identidades de votantes', async () => {
+      await votar('20000001', [
+        ['1INF02', ['NOCHE']],
+        ['INF310', ['NOCHE', 'MANANA']],
+      ]);
       await votar('20000002', [['1INF02', ['TARDE', 'NOCHE']]]);
       const coord = await sesion(app, process.env.COORD_USER!, process.env.COORD_PASSWORD!);
 
@@ -253,7 +288,7 @@ describe('Votación (e2e)', () => {
       expect(soloConfirmados.body.ranking.find((f: any) => f.codigo === '1INF02').total).toBe(1);
 
       const detalle = await coord.get('/api/coord/resultados/1INF02');
-      expect(detalle.body.votantes.map((v: any) => v.codigo).sort()).toEqual(['20000001', '20000002']);
+      expect(detalle.body.votantes).toEqual([]);
     });
 
     it('emite resultados:actualizados por Socket.IO al registrar un voto', async () => {

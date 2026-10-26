@@ -1,10 +1,11 @@
+import PDFDocument from 'pdfkit';
+import { FiltrosResultadosDto } from '../resultados/filtros.dto';
+import { Aptitud } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
 import { FRANJAS } from '../../common/franjas';
 import { ProcesosService } from '../procesos/procesos.service';
 import { ResultadosService } from '../resultados/resultados.service';
-
-const etiquetaFranja = (valor: string) => FRANJAS.find((f) => f.valor === valor)?.etiqueta ?? valor;
 
 function estilizarEncabezado(hoja: ExcelJS.Worksheet) {
   const fila = hoja.getRow(1);
@@ -25,11 +26,62 @@ export class ExportService {
     private readonly procesos: ProcesosService,
   ) {}
 
+  async resultadosPdf(procesoId: string | undefined, filtros: FiltrosResultadosDto) {
+    const datos = await this.resultados.coordinador(procesoId, filtros.aptitud as Aptitud | undefined, filtros);
+    const doc = new PDFDocument({ size: 'A4', margin: 45, bufferPages: true });
+    const partes: Buffer[] = [];
+    const fin = new Promise<Buffer>((resolve, reject) => {
+      doc.on('data', (b) => partes.push(b));
+      doc.on('end', () => resolve(Buffer.concat(partes)));
+      doc.on('error', reject);
+    });
+    const texto = (t: string, size = 10) => {
+      if (doc.y > 730) doc.addPage();
+      doc.fontSize(size).fillColor('#172c4a').text(t);
+      doc.moveDown(0.4);
+    };
+    texto('Sondeo de electivos · Ingeniería Informática PUCP', 17);
+    texto(`${datos.proceso.nombre} · ${datos.proceso.cicloObjetivo}`, 13);
+    texto(`Generado: ${new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' })}`);
+    texto(
+      `Filtros: ingreso ${filtros.ingreso ?? 'todos'}; CRAEst ${filtros.craestMin ?? 0} a ${filtros.craestMax ?? 100}; matrícula ${filtros.matriculado ?? 'todos'}; aptitud ${filtros.aptitud ?? 'todas'}`,
+    );
+    if (filtros.estadisticas !== 'no') {
+      texto('Estadísticas', 13);
+      texto(
+        `Habilitados: ${datos.indicadores.habilitados} · Participantes: ${datos.indicadores.votaron} · Participación: ${datos.indicadores.participacion}% · Votos: ${datos.indicadores.totalVotos}`,
+      );
+    }
+    if (filtros.tabla !== 'no') {
+      texto('Ranking de electivos', 13);
+      for (const f of datos.ranking)
+        texto(`${f.codigo} · ${f.nombre}
+${f.total} votos · ${f.confirmados} confirmados · ${f.condicionales} condicionales\nSelección: ${f.seleccion} · Consejo: ${f.consejo} · Dictado: ${f.dictado}`);
+    }
+    if (filtros.graficos !== 'no') {
+      texto('Demanda por curso', 13);
+      const maximo = Math.max(1, ...datos.ranking.map((f) => f.total));
+      for (const f of datos.ranking) {
+        if (doc.y > 700) doc.addPage();
+        texto(`${f.codigo} · ${f.total} votos`);
+        doc.rect(45, doc.y, (450 * f.total) / maximo, 9).fill('#2563eb');
+        doc.y += 19;
+      }
+    }
+    if (filtros.agrupaciones !== 'no') {
+      texto('Agrupaciones de participantes', 13);
+      for (const g of datos.agrupaciones)
+        texto(`${g.codigo} · ${g.grupo}: ${g.alumnos} participantes de ${g.poblacion} habilitados · ${g.votos} votos`);
+    }
+    texto('Resultados referenciales. No garantizan la apertura de cursos u horarios.');
+    doc.end();
+    return { buffer: await fin, nombre: `resultados-${datos.proceso.cicloObjetivo}.pdf` };
+  }
+
   async resultadosXlsx(procesoId?: string) {
     const proceso = await this.procesos.resolver(procesoId);
-    const [ranking, votos, indicadores] = await Promise.all([
+    const [ranking, indicadores] = await Promise.all([
       this.resultados.ranking(proceso.id),
-      this.resultados.votosDetallados(proceso.id),
       this.resultados.indicadores(proceso.id),
     ]);
 
@@ -46,6 +98,9 @@ export class ExportService {
       { header: 'Votos', key: 'total', width: 8 },
       { header: 'Confirmados', key: 'confirmados', width: 13 },
       { header: 'Condicionales', key: 'condicionales', width: 14 },
+      { header: 'Selección', key: 'seleccion', width: 30 },
+      { header: 'Consejo', key: 'consejo', width: 20 },
+      { header: 'Dictado', key: 'dictado', width: 20 },
     ];
     ranking.forEach((f, i) => hRanking.addRow({ puesto: i + 1, ...f }));
     estilizarEncabezado(hRanking);
@@ -67,40 +122,23 @@ export class ExportService {
     for (const f of ranking) hMatriz.addRow({ codigo: f.codigo, nombre: f.nombre, ...f.franjas, total: f.total });
     estilizarEncabezado(hMatriz);
 
-    const hVotos = libro.addWorksheet('Votos detallados');
-    hVotos.columns = [
-      { header: 'Código curso', key: 'cursoCodigo', width: 13 },
-      { header: 'Curso', key: 'cursoNombre', width: 50 },
-      { header: 'Código alumno', key: 'alumnoCodigo', width: 14 },
-      { header: 'Alumno', key: 'alumnoNombre', width: 38 },
-      { header: 'Aptitud al votar', key: 'aptitud', width: 16 },
-      { header: 'Franjas', key: 'franjas', width: 30 },
-      { header: 'Fecha', key: 'createdAt', width: 20 },
-    ];
-    for (const v of votos) {
-      hVotos.addRow({ ...v, franjas: v.franjas.map(etiquetaFranja).join(', '), createdAt: v.createdAt });
-    }
-    hVotos.getColumn('createdAt').numFmt = 'yyyy-mm-dd hh:mm';
-    estilizarEncabezado(hVotos);
-
     return { buffer: Buffer.from(await libro.xlsx.writeBuffer()), nombre: `resultados-${proceso.cicloObjetivo}.xlsx` };
   }
 
   async cursoXlsx(codigo: string, procesoId?: string) {
     const detalle = await this.resultados.detalleCurso(codigo, procesoId);
     const libro = new ExcelJS.Workbook();
-    const hoja = libro.addWorksheet('Votantes');
+    const hoja = libro.addWorksheet('Resumen');
     hoja.columns = [
-      { header: 'Código', key: 'codigo', width: 12 },
-      { header: 'Apellidos', key: 'apellidos', width: 28 },
-      { header: 'Nombres', key: 'nombres', width: 28 },
-      { header: 'Correo', key: 'correo', width: 30 },
-      { header: 'Aptitud al votar', key: 'aptitud', width: 16 },
-      { header: 'Franjas', key: 'franjas', width: 30 },
-      { header: 'Fecha', key: 'createdAt', width: 20 },
+      { header: 'Dato', key: 'dato', width: 24 },
+      { header: 'Valor', key: 'valor', width: 60 },
     ];
-    for (const v of detalle.votantes) hoja.addRow({ ...v, franjas: v.franjas.map(etiquetaFranja).join(', ') });
-    hoja.getColumn('createdAt').numFmt = 'yyyy-mm-dd hh:mm';
+    hoja.addRows([
+      { dato: 'Curso', valor: `${detalle.curso.codigo} · ${detalle.curso.nombre}` },
+      { dato: 'Votos', valor: detalle.total },
+      { dato: 'Confirmados', valor: detalle.confirmados },
+      { dato: 'Condicionales', valor: detalle.condicionales },
+    ]);
     estilizarEncabezado(hoja);
 
     const hFranjas = libro.addWorksheet('Franjas');
@@ -109,9 +147,10 @@ export class ExportService {
       { header: 'Horario', key: 'horario', width: 16 },
       { header: 'Votos', key: 'votos', width: 8 },
     ];
-    for (const f of FRANJAS) hFranjas.addRow({ franja: f.etiqueta, horario: f.horario, votos: detalle.franjas[f.valor] });
+    for (const f of FRANJAS)
+      hFranjas.addRow({ franja: f.etiqueta, horario: f.horario, votos: detalle.franjas[f.valor] });
     estilizarEncabezado(hFranjas);
 
-    return { buffer: Buffer.from(await libro.xlsx.writeBuffer()), nombre: `votantes-${detalle.curso.codigo}.xlsx` };
+    return { buffer: Buffer.from(await libro.xlsx.writeBuffer()), nombre: `resultados-${detalle.curso.codigo}.xlsx` };
   }
 }

@@ -41,6 +41,21 @@ function validarTipo(tipo: string): TipoImportacion {
 export class ImportacionController {
   constructor(private readonly importacion: ImportacionService) {}
 
+  @Get('archivos')
+  archivos(@Query('procesoId', new ParseUUIDPipe({ optional: true })) id?: string) {
+    return this.importacion.listarArchivos(id);
+  }
+
+  @Get('archivos/:id')
+  async descargar(@Param('id', ParseUUIDPipe) id: string, @Res({ passthrough: true }) res: Response) {
+    const { nombre, buffer } = await this.importacion.descargarArchivo(id);
+    res.set({
+      'Content-Type': 'application/octet-stream',
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(nombre)}`,
+    });
+    return new StreamableFile(buffer);
+  }
+
   /** Sube un .xlsx (máx. 5 MB, procesado en memoria) y devuelve filas, errores y advertencias. */
   @Post(':tipo/preview')
   @HttpCode(200)
@@ -49,9 +64,15 @@ export class ImportacionController {
       storage: memoryStorage(),
       limits: { fileSize: MAX_BYTES, files: 1 },
       fileFilter: (_req, file, cb) => {
-        const esXlsx = /\.xlsx$/i.test(file.originalname);
-        const mimeOk = [MIME_XLSX, 'application/octet-stream', 'application/zip'].includes(file.mimetype);
-        if (!esXlsx || !mimeOk) return cb(new BadRequestException('Solo se aceptan archivos .xlsx'), false);
+        const esXlsx = /\.(xlsx|csv)$/i.test(file.originalname);
+        const mimeOk = [
+          MIME_XLSX,
+          'application/octet-stream',
+          'application/zip',
+          'text/csv',
+          'application/vnd.ms-excel',
+        ].includes(file.mimetype);
+        if (!esXlsx || !mimeOk) return cb(new BadRequestException('Solo se aceptan archivos .xlsx o .csv'), false);
         cb(null, true);
       },
     }),
@@ -64,7 +85,7 @@ export class ImportacionController {
   ) {
     const t = validarTipo(tipo);
     if (!archivo?.buffer?.length) throw new BadRequestException('Adjunta un archivo .xlsx en el campo "archivo"');
-    return this.importacion.preview(t, archivo.buffer, u.id, procesoId);
+    return this.importacion.preview(t, archivo.buffer, u.id, procesoId, archivo.originalname);
   }
 
   @Post(':tipo/confirmar')

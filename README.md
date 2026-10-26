@@ -1,6 +1,6 @@
 # Sistema de Votación de Electivos — Ingeniería Informática PUCP
 
-Sondeo de demanda de cursos electivos: los alumnos aptos votan por hasta 5 electivos y, en cada uno, por 1 o 2 franjas horarias. El coordinador ve los resultados en vivo (ranking, mapa de calor curso × franja) y los exporta a Excel. Es un MVP que corre solo en **localhost**.
+Sondeo de demanda de cursos electivos: los alumnos aptos votan por hasta 5 electivos y, en cada uno, por 1 o 2 franjas horarias. El coordinador ve los resultados en vivo (ranking, mapa de calor curso × franja) y los exporta a Excel o PDF. Los alumnos ven los resultados al cierre y pueden modificar o retirar sus elecciones mientras la votación esté abierta. Es un MVP que corre solo en **localhost**.
 
 La especificación completa está en [`docs/ESPECIFICACION.md`](docs/ESPECIFICACION.md) y el plan de estudios en [`docs/PLAN_DE_ESTUDIOS.md`](docs/PLAN_DE_ESTUDIOS.md).
 
@@ -87,7 +87,7 @@ npm test            # unitarios: motor de requisitos (sin base de datos)
 npm run test:e2e    # e2e con Supertest contra PostgreSQL
 ```
 
-Los e2e usan una base aparte, `<base>_test` (por defecto `votacion_test`, en el mismo PostgreSQL de Docker): la crean si no existe, le aplican las migraciones y vacían sus tablas en cada suite. No tocan la base de desarrollo. Cubren los criterios de aceptación: login solo para alumnos del padrón, rate limit, términos obligatorios, 1–2 franjas, máximo 5 cursos, sin duplicados (también con peticiones simultáneas), votos no editables, proceso cerrado, resultados públicos sin datos personales, evento Socket.IO, importaciones con vista previa y que el mapa de calor coincida con el Excel exportado.
+Los e2e usan una base aparte, `<base>_test` (por defecto `votacion_test`, en el mismo PostgreSQL de Docker): la crean si no existe, le aplican las migraciones y vacían sus tablas en cada suite. No tocan la base de desarrollo. Cubren los criterios de aceptación: login solo para alumnos del padrón, rate limit, términos obligatorios, 1–2 franjas, máximo 5 cursos, sin duplicados (también con peticiones simultáneas), edición y retiro de votos solo durante la apertura, proceso cerrado, resultados públicos sin datos personales, evento Socket.IO, importaciones con vista previa y que el mapa de calor coincida con el Excel exportado.
 
 ## Estructura
 
@@ -116,4 +116,22 @@ Puntos que la especificación no detalla y cómo se resolvieron:
 - **Hoja con otro nombre**: si el Excel no tiene la hoja esperada (`cursos`, `alumnos`, `historial`), se usa la primera hoja que no sea `LEEME` y se muestra una advertencia.
 - **Rate limit**: cuenta todos los intentos de login (correctos o no) por IP y código, 5 por minuto.
 - **Descripciones**: la plantilla del catálogo no trae descripciones y el seed no las inventa, así que el panel avisa "54 electivos sin descripción" hasta que el coordinador las complete.
-- **`SIMULTANEO_PERMISIVO`**: es una constante en `apps/api/src/modules/elegibilidad/motor/constantes.ts` (por defecto `false`, como pide la especificación).
+- **Motor base `SIMULTANEO_PERMISIVO`**: es una constante en `apps/api/src/modules/elegibilidad/motor/constantes.ts` (por defecto `false`, como pide la especificación).
+
+## Requisitos integrados de VotaInf
+
+La actualización y sus reglas vigentes están en [docs/NUEVOS_REQUISITOS.md](docs/NUEVOS_REQUISITOS.md). Conserva el login con código y contraseña, hasta **5 electivos** y **1–2 de las cinco franjas originales**. No utiliza Google ni limita la selección a 28 créditos.
+
+Incluye edición/retiro de elecciones durante la apertura, simultaneidad de electivos con inclusión atómica de dependencias, resultados de alumnos al cierre, seguimiento del consejo, filtros por ingreso/CRAEst/matrícula y agrupaciones por curso, PDF con secciones configurables, reutilización y congelamiento de catálogos e importaciones Excel/CSV con archivos originales cifrados y trazabilidad.
+
+Los resultados y las exportaciones del coordinador muestran agregados. Ya no se publican listas que relacionen alumnos y cursos elegidos. El historial académico del padrón sigue disponible para revisar elegibilidad.
+
+La migración nueva se aplica automáticamente con el inicio habitual (`npm run dev`). No requiere resetear la base. Para una base existente, realiza el respaldo habitual antes de aplicar migraciones.
+
+Pruebas de integración sobre PostgreSQL embebido en memoria, sin Docker ni credenciales:
+
+```bash
+npm run test:e2e:local
+```
+
+Este comando aplica todas las migraciones en una base efímera y usa `127.0.0.1:54339`. Al terminar elimina la base. Para comprobar el comportamiento específico de PostgreSQL de producción, también se conserva `npm run test:e2e` contra una base cuyo nombre termina en `_test`.

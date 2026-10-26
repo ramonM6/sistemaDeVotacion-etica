@@ -20,14 +20,25 @@ export default function Inicio() {
 
   if (estado.isLoading) return <Cargando />;
   // Sin padrón o sin proceso: el layout ya muestra el aviso.
-  if (estado.error) return estado.error instanceof ApiError && estado.error.status < 500 ? null : <ErrorCarga error={estado.error} />;
+  if (estado.error)
+    return estado.error instanceof ApiError && estado.error.status < 500 ? null : <ErrorCarga error={estado.error} />;
   const e = estado.data!;
   const p = e.proceso;
 
   const accesos = [
-    { a: '/alumno/catalogo', titulo: 'Catálogo de electivos', texto: 'Revisa tu aptitud y vota por hasta ' + e.maxCursos + ' electivos.', icono: BookOpen },
+    {
+      a: '/alumno/catalogo',
+      titulo: 'Catálogo de electivos',
+      texto: 'Revisa tu aptitud y vota por hasta ' + e.maxCursos + ' electivos.',
+      icono: BookOpen,
+    },
     { a: '/alumno/votos', titulo: 'Mis votos', texto: 'Consulta los votos que ya registraste.', icono: ListChecks },
-    { a: '/alumno/resultados', titulo: 'Resultados en vivo', texto: 'Ranking de electivos y franjas preferidas.', icono: BarChart3 },
+    {
+      a: '/alumno/resultados',
+      titulo: 'Resultados al cierre',
+      texto: 'Ranking de electivos y franjas preferidas.',
+      icono: BarChart3,
+    },
   ];
 
   return (
@@ -54,7 +65,10 @@ export default function Inicio() {
             {e.abierto ? (
               <div>
                 <p className="mb-2 text-sm text-muted-foreground">La votación cierra en</p>
-                <CuentaRegresiva hasta={p.fechaFin} alTerminar={() => queryClient.invalidateQueries({ queryKey: ['alumno'] })} />
+                <CuentaRegresiva
+                  hasta={p.fechaFin}
+                  alTerminar={() => queryClient.invalidateQueries({ queryKey: ['alumno'] })}
+                />
               </div>
             ) : (
               <Alert variant="info">
@@ -84,7 +98,8 @@ export default function Inicio() {
               ))}
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              Cada voto incluye de 1 a {e.maxFranjas} franjas horarias. Los votos son definitivos.
+              Cada voto incluye de 1 a {e.maxFranjas} franjas horarias. Puedes cambiar tus votos mientras la votación
+              esté abierta.
             </p>
           </CardContent>
         </Card>

@@ -25,7 +25,7 @@ export async function crearApp(): Promise<INestApplication> {
 /** Vacía todas las tablas. */
 export async function limpiar(prisma: PrismaClient) {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE "VotoFranja","Voto","AceptacionTerminos","HistorialItem","PadronAlumno","ProcesoVotacion","Requisito","Curso","AuditLog","Usuario" CASCADE',
+    'TRUNCATE "ArchivoCarga","VotoFranja","Voto","AceptacionTerminos","HistorialItem","PadronAlumno","ProcesoVotacion","Requisito","Curso","AuditLog","Usuario" CASCADE',
   );
 }
 

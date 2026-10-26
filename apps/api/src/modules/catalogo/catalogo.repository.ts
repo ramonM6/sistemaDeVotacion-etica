@@ -9,7 +9,7 @@ export class CatalogoRepository {
 
   listar(tipo?: TipoCurso) {
     return this.prisma.curso.findMany({
-      where: tipo ? { tipo } : undefined,
+      where: { activo: true, ...(tipo ? { tipo } : {}) },
       orderBy: [{ ciclo: { sort: 'asc', nulls: 'last' } }, { codigo: 'asc' }],
       include: { requisitos: { orderBy: { orden: 'asc' } } },
     });

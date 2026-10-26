@@ -15,7 +15,11 @@ import { ElegibilidadService } from '../src/modules/elegibilidad/elegibilidad.se
 import { aplicarCatalogo, aplicarCuentas, aplicarHistorial, hashearCuentas } from '../src/modules/importacion/aplicar';
 import { leerHoja } from '../src/modules/importacion/excel';
 import { directorioPlantillas } from '../src/modules/importacion/importacion.service';
-import { COLUMNAS_CATALOGO, COLUMNAS_CATALOGO_OPCIONALES, validarCatalogo } from '../src/modules/importacion/validadores/catalogo';
+import {
+  COLUMNAS_CATALOGO,
+  COLUMNAS_CATALOGO_OPCIONALES,
+  validarCatalogo,
+} from '../src/modules/importacion/validadores/catalogo';
 import { HistorialImportado } from '../src/modules/importacion/validadores/historial';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -64,7 +68,9 @@ async function main() {
   console.log(`✔ Catálogo: ${cursos.length} cursos (${cursos.filter((c) => c.tipo === 'ELECTIVO').length} electivos)`);
 
   if (await prisma.procesoVotacion.count()) {
-    console.log('• Ya existe al menos un proceso: no se crean datos de demostración (usa `npm run db:reset` para reiniciar).');
+    console.log(
+      '• Ya existe al menos un proceso: no se crean datos de demostración (usa `npm run db:reset` para reiniciar).',
+    );
     return;
   }
 
@@ -79,18 +85,29 @@ async function main() {
       maxCursos: 5,
       maxFranjas: 2,
       estado: 'ABIERTO',
+      primeraApertura: new Date(),
+      catalogo: JSON.parse(
+        JSON.stringify(
+          await prisma.curso.findMany({
+            where: { activo: true },
+            include: { requisitos: { orderBy: { orden: 'asc' } } },
+          }),
+        ),
+      ),
     },
   });
   console.log(`✔ Proceso ABIERTO: ${proceso.nombre}`);
 
   // ---------- Historiales sintéticos ----------
-  const obligatoriosDe = (ciclo: number) => cursos.filter((c) => c.tipo === 'OBLIGATORIO' && c.ciclo === ciclo).map((c) => c.codigo);
+  const obligatoriosDe = (ciclo: number) =>
+    cursos.filter((c) => c.tipo === 'OBLIGATORIO' && c.ciclo === ciclo).map((c) => c.codigo);
 
   /** Aprueba todos los obligatorios de los ciclos indicados (menos los excluidos) + un electivo de EH1, EH2 y TEO. */
   function base(hastaCiclo: number, generales: [string, string, string], excepto: string[] = []): Fila[] {
     const filas: Fila[] = [];
     for (let ciclo = 1; ciclo <= hastaCiclo; ciclo++) {
-      for (const curso of obligatoriosDe(ciclo)) if (!excepto.includes(curso)) filas.push({ curso, nota: notaAprobada() });
+      for (const curso of obligatoriosDe(ciclo))
+        if (!excepto.includes(curso)) filas.push({ curso, nota: notaAprobada() });
     }
     if (hastaCiclo >= 2) filas.push({ curso: generales[0], nota: notaAprobada() });
     if (hastaCiclo >= 4) {
@@ -100,22 +117,29 @@ async function main() {
     return filas;
   }
   const enCurso = (...codigos: string[]): Fila[] => codigos.map((curso) => ({ curso, nota: null }));
-  const cicloEnCurso = (ciclo: number, excepto: string[] = []) => enCurso(...obligatoriosDe(ciclo).filter((c) => !excepto.includes(c)));
+  const cicloEnCurso = (ciclo: number, excepto: string[] = []) =>
+    enCurso(...obligatoriosDe(ciclo).filter((c) => !excepto.includes(c)));
   const nota = (curso: string, n: number): Fila => ({ curso, nota: n });
 
   const alumnos: { codigo: string; nombres: string; apellidos: string; caso: string; historial: Fila[] }[] = [
     {
-      codigo: '20220101', nombres: 'Ana Lucía', apellidos: 'Torres Medina',
+      codigo: '20220101',
+      nombres: 'Ana Lucía',
+      apellidos: 'Torres Medina',
       caso: 'Ciclo 5: casi ningún electivo apto',
       historial: [...base(4, ['1HUM02', '1PSI04', '1TEO01']), ...cicloEnCurso(5)],
     },
     {
-      codigo: '20210202', nombres: 'Bruno', apellidos: 'Castillo Ramos',
+      codigo: '20210202',
+      nombres: 'Bruno',
+      apellidos: 'Castillo Ramos',
       caso: 'Ciclo 6',
       historial: [...base(5, ['1HIS02', '1LIT16', 'CDR121']), ...cicloEnCurso(6)],
     },
     {
-      codigo: '20200303', nombres: 'Carla', apellidos: 'Huamán Flores',
+      codigo: '20200303',
+      nombres: 'Carla',
+      apellidos: 'Huamán Flores',
       caso: 'Ciclo 8 con IA (1INF24) en curso → CONDICIONAL en los electivos de IA',
       historial: [
         ...base(7, ['1PSI02', '1SOC01', '1TEO02'], ['1INF24']),
@@ -123,76 +147,125 @@ async function main() {
       ],
     },
     {
-      codigo: '20201234', nombres: 'María Fernanda', apellidos: 'Quispe Rojas',
+      codigo: '20201234',
+      nombres: 'María Fernanda',
+      apellidos: 'Quispe Rojas',
       caso: 'Plantilla: 1INF29 con 8 (cumple (1INF29)), 1INF24 y 1INF39 en curso',
       historial: [
         ...base(6, ['1HUM02', '1ANT01', '1CDR01'], ['1INF29', '1INF32']),
-        nota('1INF32', 14), nota('1INF29', 8),
-        ...obligatoriosDe(7).filter((c) => !['1INF24', '1INF35'].includes(c)).map((c) => nota(c, notaAprobada())),
+        nota('1INF32', 14),
+        nota('1INF29', 8),
+        ...obligatoriosDe(7)
+          .filter((c) => !['1INF24', '1INF35'].includes(c))
+          .map((c) => nota(c, notaAprobada())),
         nota('1INF35', 12),
         ...enCurso('1INF24', '1INF39'),
       ],
     },
     {
-      codigo: '20195678', nombres: 'Luis Alberto', apellidos: 'Gonzales Paredes',
+      codigo: '20195678',
+      nombres: 'Luis Alberto',
+      apellidos: 'Gonzales Paredes',
       caso: 'Plantilla: 1INF24 jalado (9) y luego aprobado (15)',
       historial: [
         ...base(7, ['1EGC01', '1PSI04', 'TEO111'], ['1INF24', '1INF30']),
-        nota('1INF24', 9), nota('1INF24', 15), nota('1INF30', 13),
+        nota('1INF24', 9),
+        nota('1INF24', 15),
+        nota('1INF30', 13),
         ...cicloEnCurso(8),
       ],
     },
     {
-      codigo: '20200404', nombres: 'Diego', apellidos: 'Salazar Vega',
+      codigo: '20200404',
+      nombres: 'Diego',
+      apellidos: 'Salazar Vega',
       caso: '1INF29 con 8 y 1INF35 en curso → 1INF51 CONDICIONAL',
       historial: [...base(6, ['1HIS03', '1ARQ11', 'CDR123'], ['1INF29']), nota('1INF29', 8), ...cicloEnCurso(7)],
     },
     {
-      codigo: '20190505', nombres: 'Elena', apellidos: 'Ríos Paredes',
+      codigo: '20190505',
+      nombres: 'Elena',
+      apellidos: 'Ríos Paredes',
       caso: 'Curso jalado (1INF24: 7) y luego aprobado (14)',
-      historial: [...base(7, ['1PSI03', '1EGC03', '1TEO03'], ['1INF24']), nota('1INF24', 7), nota('1INF24', 14), ...cicloEnCurso(8)],
+      historial: [
+        ...base(7, ['1PSI03', '1EGC03', '1TEO03'], ['1INF24']),
+        nota('1INF24', 7),
+        nota('1INF24', 14),
+        ...cicloEnCurso(8),
+      ],
     },
     {
-      codigo: '20190606', nombres: 'Fernando', apellidos: 'Quispe Mamani',
+      codigo: '20190606',
+      nombres: 'Fernando',
+      apellidos: 'Quispe Mamani',
       caso: 'Llega a 140 créditos solo con los cursos en curso → DER349 CONDICIONAL',
       historial: [...base(6, ['1HUM02', '1SOC01', '1TEO01']), ...cicloEnCurso(7)],
     },
     {
-      codigo: '20180707', nombres: 'Gabriela', apellidos: 'Mendoza Chávez',
+      codigo: '20180707',
+      nombres: 'Gabriela',
+      apellidos: 'Mendoza Chávez',
       caso: 'Último ciclo: apta para casi todo (1INF41 jalado y en curso)',
       historial: [
         ...base(9, ['1HIS02', '1PSI04', 'CDR121'], ['1INF41']),
-        nota('1INF41', 10), ...enCurso('1INF41'),
+        nota('1INF41', 10),
+        ...enCurso('1INF41'),
         ...cicloEnCurso(10),
       ],
     },
     {
-      codigo: '20190808', nombres: 'Hugo', apellidos: 'Paredes Lazo',
+      codigo: '20190808',
+      nombres: 'Hugo',
+      apellidos: 'Paredes Lazo',
       caso: 'Ciclo 9: ya aprobó INF310 y lleva INF356 (etiquetas informativas)',
-      historial: [...base(8, ['1EGC02', '1LIT16', '1TEO02']), nota('INF310', 15), ...cicloEnCurso(9), ...enCurso('INF356')],
+      historial: [
+        ...base(8, ['1EGC02', '1LIT16', '1TEO02']),
+        nota('INF310', 15),
+        ...cicloEnCurso(9),
+        ...enCurso('INF356'),
+      ],
     },
     {
-      codigo: '20210909', nombres: 'Isabel', apellidos: 'Cárdenas Soto',
+      codigo: '20210909',
+      nombres: 'Isabel',
+      apellidos: 'Cárdenas Soto',
       caso: 'Ciclo 6 con un curso de otra facultad (TEL618: 0 créditos) y un electivo libre',
-      historial: [...base(5, ['1HUM02', '1PSI04', '1CDR01']), nota('TEL618', 16), nota('1HUM74', 15), ...cicloEnCurso(6)],
+      historial: [
+        ...base(5, ['1HUM02', '1PSI04', '1CDR01']),
+        nota('TEL618', 16),
+        nota('1HUM74', 15),
+        ...cicloEnCurso(6),
+      ],
     },
     {
-      codigo: '20201010', nombres: 'Jorge', apellidos: 'Villanueva Rojas',
+      codigo: '20201010',
+      nombres: 'Jorge',
+      apellidos: 'Villanueva Rojas',
       caso: 'Ciclo 8, línea de seguridad: 1INF39 y 1INF41 en curso',
       historial: [...base(7, ['1HIS03', '1ANT01', 'TEO111']), ...enCurso('1INF39', '1INF41', '1INF65', '1INF37')],
     },
     {
-      codigo: '20221111', nombres: 'Karen', apellidos: 'Espinoza Díaz',
+      codigo: '20221111',
+      nombres: 'Karen',
+      apellidos: 'Espinoza Díaz',
       caso: 'Ciclo 3: ningún electivo apto',
       historial: [...base(2, ['1PSI03', '1PSI04', '1TEO01']), ...cicloEnCurso(3)],
     },
     {
-      codigo: '20201212', nombres: 'Luis', apellidos: 'Gutiérrez Núñez',
+      codigo: '20201212',
+      nombres: 'Luis',
+      apellidos: 'Gutiérrez Núñez',
       caso: 'INF238 desaprobado (10) y no lo lleva → [INF238] NO_APTO',
-      historial: [...base(7, ['1HUM02', '1SOC01', '1TEO03'], ['INF238']), nota('INF238', 10), ...enCurso('1INF39', '1INF65')],
+      historial: [
+        ...base(7, ['1HUM02', '1SOC01', '1TEO03'], ['INF238']),
+        nota('INF238', 10),
+        ...enCurso('1INF39', '1INF65'),
+      ],
     },
     {
-      codigo: '20181515', nombres: 'Olga', apellidos: 'Ramírez León',
+      codigo: '20181515',
+      nombres: 'Olga',
+      apellidos: 'Ramírez León',
       caso: 'Ciclo 10 con 15 créditos de libre disponibilidad (cuentan solo 12)',
       historial: [
         ...base(9, ['1EGC01', '1EGC04', '1TEO03']),
@@ -201,7 +274,9 @@ async function main() {
       ],
     },
     {
-      codigo: '20231414', nombres: 'Nicolás', apellidos: 'Herrera Campos',
+      codigo: '20231414',
+      nombres: 'Nicolás',
+      apellidos: 'Herrera Campos',
       caso: 'Sin historial cargado (aparece como aviso en el panel)',
       historial: [],
     },
@@ -229,23 +304,51 @@ async function main() {
   const catalogo = await elegibilidad.cargarCatalogo();
   const votosPlan: Record<string, [string, Franja[]][]> = {
     '20180707': [
-      ['1INF02', ['NOCHE']], ['1INF52', ['NOCHE', 'TARDE']], ['1INF59', ['TARDE']],
-      ['INF340', ['NOCHE']], ['1INF20', ['MEDIODIA', 'NOCHE']],
+      ['1INF02', ['NOCHE']],
+      ['1INF52', ['NOCHE', 'TARDE']],
+      ['1INF59', ['TARDE']],
+      ['INF340', ['NOCHE']],
+      ['1INF20', ['MEDIODIA', 'NOCHE']],
     ],
-    '20190808': [['1INF02', ['TARDE', 'NOCHE']], ['INF384', ['MEDIA_MANANA']], ['INF373', ['MANANA']]],
-    '20190505': [['1INF02', ['MEDIA_MANANA']], ['1INF52', ['MEDIA_MANANA', 'MEDIODIA']]],
-    '20200303': [['1INF02', ['NOCHE']], ['1INF59', ['NOCHE', 'TARDE']]],
-    '20190606': [['DER349', ['TARDE']], ['1IND40', ['MANANA']]],
-    '20201010': [['1INF20', ['NOCHE']], ['INF275', ['TARDE', 'NOCHE']]],
-    '20195678': [['1INF02', ['TARDE']], ['INF356', ['NOCHE']]],
-    '20181515': [['INF340', ['MEDIA_MANANA']], ['1INF02', ['MEDIA_MANANA']], ['CIC611', ['MANANA', 'MEDIA_MANANA']]],
+    '20190808': [
+      ['1INF02', ['TARDE', 'NOCHE']],
+      ['INF384', ['MEDIA_MANANA']],
+      ['INF373', ['MANANA']],
+    ],
+    '20190505': [
+      ['1INF02', ['MEDIA_MANANA']],
+      ['1INF52', ['MEDIA_MANANA', 'MEDIODIA']],
+    ],
+    '20200303': [
+      ['1INF02', ['NOCHE']],
+      ['1INF59', ['NOCHE', 'TARDE']],
+    ],
+    '20190606': [
+      ['DER349', ['TARDE']],
+      ['1IND40', ['MANANA']],
+    ],
+    '20201010': [
+      ['1INF20', ['NOCHE']],
+      ['INF275', ['TARDE', 'NOCHE']],
+    ],
+    '20195678': [
+      ['1INF02', ['TARDE']],
+      ['INF356', ['NOCHE']],
+    ],
+    '20181515': [
+      ['INF340', ['MEDIA_MANANA']],
+      ['1INF02', ['MEDIA_MANANA']],
+      ['CIC611', ['MANANA', 'MEDIA_MANANA']],
+    ],
   };
 
   let totalVotos = 0;
   for (const [codigo, votos] of Object.entries(votosPlan)) {
     const usuario = await prisma.usuario.findUniqueOrThrow({ where: { codigo } });
     const { contexto } = await elegibilidad.contextoAlumno(proceso.id, usuario.id, catalogo);
-    await prisma.aceptacionTerminos.create({ data: { procesoId: proceso.id, usuarioId: usuario.id, version: TERMINOS_VERSION } });
+    await prisma.aceptacionTerminos.create({
+      data: { procesoId: proceso.id, usuarioId: usuario.id, version: TERMINOS_VERSION },
+    });
     for (const [cursoCodigo, franjas] of votos) {
       const electivo = catalogo.electivos.find((e) => e.codigo === cursoCodigo)!;
       const { aptitud } = elegibilidad.evaluar(electivo, contexto).elegibilidad;

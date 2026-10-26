@@ -88,11 +88,20 @@ export class ProcesosService implements OnModuleInit, OnModuleDestroy {
     return this.repo.listar();
   }
 
+  async reutilizarCatalogo(id: string, origenId: string, actor: string) {
+    await this.obtener(id);
+    await this.obtener(origenId);
+    const proceso = await this.repo.reutilizarCatalogo(id, origenId);
+    await this.audit.registrar('EDITAR_PROCESO', actor, { procesoId: id, catalogoOrigen: origenId });
+    return proceso;
+  }
+
   async crear(dto: CrearProcesoDto, coordinadorId: string) {
     this.validarFechas(dto.fechaInicio, dto.fechaFin);
     const proceso = await this.repo.crear({
       nombre: dto.nombre.trim(),
       cicloObjetivo: dto.cicloObjetivo,
+      cicloActual: dto.cicloActual,
       fechaInicio: dto.fechaInicio,
       fechaFin: dto.fechaFin,
       maxCursos: dto.maxCursos ?? 5,
@@ -110,8 +119,20 @@ export class ProcesosService implements OnModuleInit, OnModuleDestroy {
     if (actual.estado === 'ABIERTO' && fechaFin <= new Date()) {
       throw new BadRequestException('La fecha de fin de un proceso abierto debe estar en el futuro');
     }
+    if (
+      actual.primeraApertura &&
+      ((dto.cicloActual !== undefined && dto.cicloActual !== actual.cicloActual) ||
+        (dto.cicloObjetivo !== undefined && dto.cicloObjetivo !== actual.cicloObjetivo) ||
+        (dto.maxCursos !== undefined && dto.maxCursos !== actual.maxCursos) ||
+        (dto.maxFranjas !== undefined && dto.maxFranjas !== actual.maxFranjas))
+    ) {
+      throw new BadRequestException('Los ciclos y límites no se cambian después de la primera apertura');
+    }
     const proceso = await this.repo.actualizar(id, { ...dto, nombre: dto.nombre?.trim() });
-    await this.audit.registrar('EDITAR_PROCESO', coordinadorId, { procesoId: id, cambios: JSON.parse(JSON.stringify(dto)) });
+    await this.audit.registrar('EDITAR_PROCESO', coordinadorId, {
+      procesoId: id,
+      cambios: JSON.parse(JSON.stringify(dto)),
+    });
     this.gateway.notificar('proceso', id);
     return proceso;
   }
@@ -131,7 +152,10 @@ export class ProcesosService implements OnModuleInit, OnModuleDestroy {
         throw new BadRequestException('La fecha de fin ya pasó: extiéndela antes de abrir el proceso');
       }
     }
-    const proceso = await this.repo.actualizar(id, { estado });
+    if (estado === 'ABIERTO' && actual.estado === 'CERRADO' && (await this.repo.tieneSeguimiento(id))) {
+      throw new BadRequestException('No se puede reabrir un proceso con seguimiento del consejo');
+    }
+    const proceso = estado === 'ABIERTO' ? await this.repo.abrir(id) : await this.repo.actualizar(id, { estado });
     await this.audit.registrar('CAMBIO_ESTADO_PROCESO', coordinadorId, { procesoId: id, de: actual.estado, a: estado });
     this.gateway.notificar('proceso', id);
     return proceso;

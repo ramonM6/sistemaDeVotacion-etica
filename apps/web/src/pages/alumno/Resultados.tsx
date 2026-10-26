@@ -7,9 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { api } from '@/lib/api';
 import { useResultadosEnVivo } from '@/lib/socket';
 
-/** Resultados en vivo para alumnos. Nunca muestra quién votó. */
+/** Resultados agregados disponibles para alumnos después del cierre. */
 export default function Resultados() {
-  const consulta = useQuery({ queryKey: ['resultados', 'publicos'], queryFn: api.resultadosPublicos });
+  const consulta = useQuery({
+    queryKey: ['resultados', 'publicos'],
+    queryFn: api.resultadosPublicos,
+    refetchInterval: 30_000,
+  });
   const conectado = useResultadosEnVivo([['resultados', 'publicos']]);
   const [seleccionado, setSeleccionado] = useState<string | null>(null);
 
@@ -21,11 +25,28 @@ export default function Resultados() {
   return (
     <div>
       <Titulo
-        titulo="Resultados en vivo"
+        titulo="Resultados"
         descripcion={`${proceso.nombre} · ${totalVotos} votos en total. Los resultados son referenciales y no muestran quién votó.`}
         acciones={<EnVivo conectado={conectado} />}
       />
-      {ranking.length === 0 ? (
+      {proceso.estado === 'CERRADO' && (
+        <Card className="mb-4 p-4">
+          <h2 className="mb-2 font-semibold">Decisiones de apertura</h2>
+          {ranking.map((f) => (
+            <p key={f.codigo} className="text-sm">
+              {f.codigo} · {f.nombre}:{' '}
+              {f.dictado === 'CONFIRMADO'
+                ? 'Confirmado'
+                : f.dictado === 'NO_SE_DICTARA'
+                  ? 'No se dictará'
+                  : 'Pendiente de decisión'}
+            </p>
+          ))}
+        </Card>
+      )}
+      {proceso.estado !== 'CERRADO' ? (
+        <Vacio>Los resultados estarán disponibles al cierre de la votación.</Vacio>
+      ) : ranking.length === 0 ? (
         <Vacio>Todavía no hay votos registrados.</Vacio>
       ) : (
         <div className="grid gap-6 lg:grid-cols-5">

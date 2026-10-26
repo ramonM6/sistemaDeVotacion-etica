@@ -9,6 +9,7 @@ import { ETIQUETA_ESTADO } from '@/lib/formato';
 const ENLACES = [
   { a: '/coord', texto: 'Panel', fin: true },
   { a: '/coord/resultados', texto: 'Resultados' },
+  { a: '/coord/seguimiento', texto: 'Consejo' },
   { a: '/coord/procesos', texto: 'Procesos' },
   { a: '/coord/carga', texto: 'Carga de datos' },
   { a: '/coord/cursos', texto: 'Catálogo' },
@@ -16,7 +17,9 @@ const ENLACES = [
 ];
 
 /** Proceso con el que trabaja el coordinador (undefined = el activo: abierto o el último). */
-const ProcesoContext = createContext<{ procesoId?: string; setProcesoId: (id?: string) => void }>({ setProcesoId: () => {} });
+const ProcesoContext = createContext<{ procesoId?: string; setProcesoId: (id?: string) => void }>({
+  setProcesoId: () => {},
+});
 export const useProcesoSeleccionado = () => useContext(ProcesoContext);
 
 export function SelectorProceso() {

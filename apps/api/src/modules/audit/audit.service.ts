@@ -14,7 +14,10 @@ export type AccionAudit =
   | 'CAMBIO_ESTADO_PROCESO'
   | 'EDITAR_CURSO'
   | 'ACEPTAR_TERMINOS'
-  | 'VOTO';
+  | 'VOTO'
+  | 'EDITAR_VOTO'
+  | 'RETIRAR_VOTO'
+  | 'SEGUIMIENTO_CONSEJO';
 
 @Injectable()
 export class AuditService {

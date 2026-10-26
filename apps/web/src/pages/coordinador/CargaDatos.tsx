@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, Loader2, Upload, XCircle } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -15,9 +15,21 @@ import { cn } from '@/lib/utils';
 import { SelectorProceso, useProcesoSeleccionado } from './LayoutCoord';
 
 const TARJETAS: { tipo: TipoImportacion; titulo: string; descripcion: string }[] = [
-  { tipo: 'catalogo', titulo: 'Catálogo de cursos', descripcion: 'Hoja "cursos". Global: reemplaza el catálogo y conserva las descripciones editadas.' },
-  { tipo: 'cuentas', titulo: 'Cuentas de alumnos', descripcion: 'Hoja "alumnos". Reemplaza el padrón del proceso: solo estos alumnos podrán entrar.' },
-  { tipo: 'historial', titulo: 'Historial académico', descripcion: 'Hoja "historial". Reemplaza el historial del proceso. Nota vacía = en curso.' },
+  {
+    tipo: 'catalogo',
+    titulo: 'Catálogo de cursos',
+    descripcion: 'Hoja "cursos". Global: reemplaza el catálogo y conserva las descripciones editadas.',
+  },
+  {
+    tipo: 'cuentas',
+    titulo: 'Cuentas de alumnos',
+    descripcion: 'Hoja "alumnos". Reemplaza el padrón del proceso: solo estos alumnos podrán entrar.',
+  },
+  {
+    tipo: 'historial',
+    titulo: 'Historial académico',
+    descripcion: 'Hoja "historial". Reemplaza el historial del proceso. Nota vacía = en curso.',
+  },
 ];
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -36,7 +48,11 @@ function TablaPreview({ preview }: { preview: PreviewImportacion }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <Checkbox id={`solo-${preview.tipo}`} checked={soloProblemas} onCheckedChange={(v) => setSoloProblemas(v === true)} />
+        <Checkbox
+          id={`solo-${preview.tipo}`}
+          checked={soloProblemas}
+          onCheckedChange={(v) => setSoloProblemas(v === true)}
+        />
         <Label htmlFor={`solo-${preview.tipo}`} className="font-normal">
           Mostrar solo filas con errores o advertencias
         </Label>
@@ -56,7 +72,13 @@ function TablaPreview({ preview }: { preview: PreviewImportacion }) {
             {filas.map((f) => (
               <TableRow
                 key={f.fila}
-                className={cn(f.errores.length ? 'bg-red-50 hover:bg-red-100' : f.advertencias.length ? 'bg-amber-50 hover:bg-amber-100' : '')}
+                className={cn(
+                  f.errores.length
+                    ? 'bg-red-50 hover:bg-red-100'
+                    : f.advertencias.length
+                      ? 'bg-amber-50 hover:bg-amber-100'
+                      : '',
+                )}
               >
                 <TableCell className="tabular-nums text-muted-foreground">{f.fila}</TableCell>
                 {claves.map((c) => (
@@ -121,7 +143,7 @@ function TarjetaImportacion({ tipo, titulo, descripcion }: (typeof TARJETAS)[num
 
   const elegir = (f: File | undefined) => {
     if (!f) return;
-    if (!f.name.toLowerCase().endsWith('.xlsx')) return toast.error('Solo se aceptan archivos .xlsx');
+    if (!/\.(xlsx|csv)$/i.test(f.name)) return toast.error('Solo se aceptan archivos .xlsx o .csv');
     if (f.size > MAX_BYTES) return toast.error('El archivo supera el máximo de 5 MB');
     setArchivo(f.name);
     subir.mutate(f);
@@ -148,12 +170,12 @@ function TarjetaImportacion({ tipo, titulo, descripcion }: (typeof TARJETAS)[num
             </Button>
             <Button size="sm" onClick={() => input.current?.click()} disabled={subir.isPending}>
               {subir.isPending ? <Loader2 className="animate-spin" /> : <Upload />}
-              Subir .xlsx
+              Subir .xlsx o .csv
             </Button>
             <input
               ref={input}
               type="file"
-              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
               className="hidden"
               onChange={(e) => {
                 elegir(e.target.files?.[0]);
@@ -196,7 +218,11 @@ function TarjetaImportacion({ tipo, titulo, descripcion }: (typeof TARJETAS)[num
               <AlertDescription>{a}</AlertDescription>
             </Alert>
           ))}
-          {hayErrores && <p className="text-xs text-muted-foreground">Corrige los errores en el Excel y vuelve a subirlo. No se guardó nada.</p>}
+          {hayErrores && (
+            <p className="text-xs text-muted-foreground">
+              Corrige los errores en el Excel y vuelve a subirlo. No se guardó nada.
+            </p>
+          )}
           {preview.filas.length > 0 && <TablaPreview preview={preview} />}
         </CardContent>
       )}
@@ -205,16 +231,39 @@ function TarjetaImportacion({ tipo, titulo, descripcion }: (typeof TARJETAS)[num
 }
 
 export default function CargaDatos() {
+  const { procesoId } = useProcesoSeleccionado();
+  const archivos = useQuery({ queryKey: ['coord', 'archivos', procesoId], queryFn: () => api.archivos(procesoId) });
   return (
     <div className="space-y-4">
       <Titulo
         titulo="Carga de datos"
-        descripcion="Sube cada Excel, revisa la vista previa y confirma. No se guarda nada hasta confirmar."
+        descripcion="Sube un Excel o CSV, revisa la vista previa y confirma. Padrón e historial solo se cargan antes de la primera apertura."
         acciones={<SelectorProceso />}
       />
+      <p className="text-sm text-muted-foreground">
+        Las cuentas admiten columnas opcionales ingreso (AAAA o AAAA.1/AAAA.2), craest (0–100) y matriculado (si/no). El
+        catálogo cargado se reutiliza al abrir un nuevo proceso; cada proceso conserva una copia desde su primera
+        apertura.
+      </p>
       {TARJETAS.map((t) => (
-        <TarjetaImportacion key={t.tipo} {...t} />
+        <TarjetaImportacion key={`${procesoId}-${t.tipo}`} {...t} />
       ))}
+      <Card className="space-y-3 p-4">
+        <h2 className="font-semibold">Archivos importados</h2>
+        {archivos.error && <p className="text-sm text-destructive">No se pudo cargar el historial de archivos.</p>}
+        {archivos.data?.map((a) => (
+          <div key={a.id} className="border-t pt-2 text-sm">
+            <a className="text-primary underline" href={api.urlArchivo(a.id)} download>
+              {a.nombre}
+            </a>{' '}
+            · {a.tipo} · {a.filas} filas · {new Date(a.createdAt).toLocaleString('es-PE', { timeZone: 'America/Lima' })}
+            <p className="break-all font-mono text-xs text-muted-foreground">SHA-256: {a.sha256}</p>
+          </div>
+        ))}
+        {archivos.data?.length === 0 && (
+          <p className="text-sm text-muted-foreground">Todavía no hay archivos confirmados.</p>
+        )}
+      </Card>
     </div>
   );
 }

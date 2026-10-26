@@ -11,7 +11,8 @@ const ENLACES = [
   { a: '/alumno/resultados', texto: 'Resultados' },
 ];
 
-export const useEstadoAlumno = () => useQuery({ queryKey: ['alumno', 'estado'], queryFn: api.estadoAlumno });
+export const useEstadoAlumno = () =>
+  useQuery({ queryKey: ['alumno', 'estado'], queryFn: api.estadoAlumno, refetchInterval: 30_000 });
 
 export default function LayoutAlumno() {
   const estado = useEstadoAlumno();

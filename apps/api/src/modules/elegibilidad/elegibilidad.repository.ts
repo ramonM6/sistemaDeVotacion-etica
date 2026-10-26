@@ -9,8 +9,13 @@ export type Db = PrismaService | Prisma.TransactionClient;
 export class ElegibilidadRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async catalogoDeProceso(procesoId: string, db: Db = this.prisma) {
+    return (await db.procesoVotacion.findUnique({ where: { id: procesoId }, select: { catalogo: true } }))?.catalogo;
+  }
+
   cursosConRequisitos(db: Db = this.prisma) {
     return db.curso.findMany({
+      where: { activo: true },
       include: { requisitos: { orderBy: { orden: 'asc' } } },
       orderBy: { codigo: 'asc' },
     });

@@ -64,6 +64,7 @@ model Usuario {
 }
 
 model Curso {
+  activo Boolean @default(true)
   codigo          String      @id
   nombre          String
   creditos        Decimal     @db.Decimal(4, 2)
@@ -100,6 +101,10 @@ model ProcesoVotacion {
   estado        EstadoProceso        @default(BORRADOR)
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
+  cicloActual String?
+  catalogo Json?
+  primeraApertura DateTime?
+  seguimiento SeguimientoCurso[]
   padron        PadronAlumno[]
   historial     HistorialItem[]
   aceptaciones  AceptacionTerminos[]
@@ -108,6 +113,9 @@ model ProcesoVotacion {
 
 // Alumno habilitado en un proceso
 model PadronAlumno {
+  ingreso String?
+  craest Decimal? @db.Decimal(6, 2)
+  matriculado Boolean?
   procesoId String
   usuarioId String
   proceso   ProcesoVotacion @relation(fields: [procesoId], references: [id], onDelete: Cascade)
@@ -171,4 +179,28 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+model SeguimientoCurso {
+  procesoId String
+  cursoCodigo String
+  seleccion String @default("PENDIENTE")
+  consejo String @default("PENDIENTE")
+  dictado String @default("PENDIENTE")
+  observacion String @default("")
+  updatedAt DateTime @updatedAt
+  proceso ProcesoVotacion @relation(fields: [procesoId], references: [id], onDelete: Cascade)
+  @@id([procesoId, cursoCodigo])
+}
+
+model ArchivoCarga {
+  id String @id @default(uuid())
+  nombre String
+  tipo String
+  procesoId String?
+  actorId String
+  sha256 String
+  filas Int
+  contenido Bytes
+  createdAt DateTime @default(now())
 }
