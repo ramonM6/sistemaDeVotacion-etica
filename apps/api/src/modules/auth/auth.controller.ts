@@ -35,11 +35,14 @@ export class AuthController {
   @HttpCode(204)
   async logout(@UsuarioActual() usuario: UsuarioSesion, @Res({ passthrough: true }) res: Response) {
     res.clearCookie(config.cookieNombre, opcionesCookie);
+    res.setHeader('Cache-Control', 'no-store');
     await this.audit.registrar('LOGOUT', usuario.id);
   }
 
   @Get('me')
-  me(@UsuarioActual() usuario: UsuarioSesion) {
+  me(@UsuarioActual() usuario: UsuarioSesion, @Res({ passthrough: true }) res: Response) {
+    // Evita que el navegador reutilice una respuesta en caché del usuario tras cerrar sesión.
+    res.setHeader('Cache-Control', 'no-store');
     return this.auth.me(usuario.id);
   }
 }

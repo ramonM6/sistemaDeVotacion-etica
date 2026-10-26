@@ -28,10 +28,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     retry: false,
   });
 
+  /**
+   * Borra del caché todo lo que pertenece a la sesión anterior, EXCEPTO la consulta ['me'].
+   * No se usa queryClient.clear(): eliminaría la consulta ['me'] a la que el AuthProvider sigue
+   * suscrito y la pantalla seguiría mostrando al usuario como conectado (el logout "no hacía nada").
+   */
+  const limpiarSesionEnCache = async () => {
+    await queryClient.cancelQueries();
+    queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' });
+  };
+
   const login = useMutation({
     mutationFn: ({ codigo, password }: { codigo: string; password: string }) => api.login(codigo, password),
-    onSuccess: (usuario) => {
-      queryClient.clear();
+    onSuccess: async (usuario) => {
+      await limpiarSesionEnCache();
       queryClient.setQueryData(['me'], usuario);
     },
   });
@@ -41,9 +51,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     cargando: me.isLoading,
     login: (codigo, password) => login.mutateAsync({ codigo, password }),
     logout: async () => {
-      await api.logout().catch(() => undefined);
-      queryClient.clear();
-      queryClient.setQueryData(['me'], null);
+      try {
+        // El backend borra la cookie de sesión y registra LOGOUT en la auditoría.
+        await api.logout();
+      } catch {
+        // Si falla (p. ej. la sesión ya expiró, 401), igual se cierra la sesión en el cliente.
+      } finally {
+        // 1) Estado de la cuenta: sin usuario. 2) Se descartan los datos de la sesión anterior.
+        queryClient.setQueryData(['me'], null);
+        await limpiarSesionEnCache();
+      }
     },
   };
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>;

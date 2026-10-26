@@ -14,11 +14,16 @@ export function Layout({ enlaces, rolTexto, children }: { enlaces: EnlaceNav[]; 
   const { usuario, logout } = useAuth();
   const navigate = useNavigate();
 
+  const cerrarSesion = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
+
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-pucp text-white shadow-md">
         <div className="container flex h-14 items-center gap-6">
-          <div className="flex items-center gap-2 font-semibold text-primary">
+          <div className="flex items-center gap-2 font-semibold">
             <GraduationCap className="h-5 w-5" aria-hidden />
             <span className="hidden sm:inline">Electivos INF · PUCP</span>
           </div>
@@ -30,8 +35,8 @@ export function Layout({ enlaces, rolTexto, children }: { enlaces: EnlaceNav[]; 
                 end={e.fin}
                 className={({ isActive }) =>
                   cn(
-                    'whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
-                    isActive && 'bg-accent text-foreground',
+                    'whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white',
+                    isActive && 'bg-white/15 text-white',
                   )
                 }
               >
@@ -42,19 +47,17 @@ export function Layout({ enlaces, rolTexto, children }: { enlaces: EnlaceNav[]; 
           <div className="flex items-center gap-3">
             <div className="hidden text-right leading-tight md:block">
               <div className="text-sm font-medium">{usuario ? `${usuario.nombres} ${usuario.apellidos}` : ''}</div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs text-white/70">
                 {rolTexto} · {usuario?.codigo}
               </div>
             </div>
             <Button
               variant="ghost"
               size="icon"
+              className="text-white hover:bg-white/10 hover:text-white"
               aria-label="Cerrar sesión"
               title="Cerrar sesión"
-              onClick={async () => {
-                await logout();
-                navigate('/login', { replace: true });
-              }}
+              onClick={cerrarSesion}
             >
               <LogOut />
             </Button>

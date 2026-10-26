@@ -10,7 +10,9 @@
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 214 51% 25%;
+    /* Azul institucional PUCP (#001C54). Para ajustar la tonalidad, cambia solo esta variable. */
+    --pucp: 224 100% 16%;
+    --primary: 224 100% 16%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96%;
     --secondary-foreground: 222 47% 11%;
@@ -22,7 +24,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214 32% 91%;
     --input: 214 32% 85%;
-    --ring: 214 51% 35%;
+    --ring: 224 70% 30%;
     --radius: 0.6rem;
   }
 }
