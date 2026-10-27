@@ -133,6 +133,7 @@ export class ElegibilidadService {
           termino: t.texto,
           cumple: true,
           dependeDeEnCurso: false,
+          requiereSimultaneo: true,
           detalle: `Debes llevar ${t.cursoRequerido} en simultáneo el próximo ciclo`,
         });
       if (e.estadoPropio) {

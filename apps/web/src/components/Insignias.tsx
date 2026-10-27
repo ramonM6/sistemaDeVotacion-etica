@@ -20,7 +20,7 @@ export function AptitudBadge({ elegibilidad, className }: { elegibilidad: Result
     </Badge>
   );
   if (elegibilidad.aptitud !== 'CONFIRMADO') {
-    const pendientes = elegibilidad.requisitos.filter((r) => !r.cumple || r.dependeDeEnCurso);
+    const pendientes = elegibilidad.requisitos.filter((r) => !r.cumple || r.dependeDeEnCurso || r.requiereSimultaneo);
     return (
       <Tooltip>
         <TooltipTrigger asChild>

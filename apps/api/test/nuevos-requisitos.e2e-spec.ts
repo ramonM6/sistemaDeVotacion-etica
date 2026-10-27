@@ -54,6 +54,14 @@ describe('Requisitos integrados de VotaInf', () => {
     const alumno = await sesion(app, '20000003');
     const detalle = await alumno.get('/api/alumno/electivos/INF310');
     expect(detalle.body.dependencias).toEqual(['INF356']);
+    expect(detalle.body.elegibilidad.requisitos).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          requiereSimultaneo: true,
+          detalle: 'Debes llevar INF356 en simultáneo el próximo ciclo',
+        }),
+      ]),
+    );
     await alumno
       .post('/api/alumno/votos')
       .send(voto('INF310', ['NOCHE']))

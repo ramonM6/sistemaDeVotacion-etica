@@ -109,7 +109,7 @@ describe('Votación (e2e)', () => {
       expect(porCodigo['1INF02'].elegibilidad.aptitud).toBe('NO_APTO');
       expect(porCodigo['1INF02'].elegibilidad.requisitos[0]).toMatchObject({
         cumple: false,
-        detalle: 'No registra 1INF24',
+        detalle: 'Debes aprobar 1INF24; no tienes una nota registrada.',
       });
     });
 

@@ -36,6 +36,7 @@ export interface EvaluacionRequisito {
   termino: string;
   cumple: boolean;
   dependeDeEnCurso: boolean;
+  requiereSimultaneo?: boolean;
   detalle: string;
 }
 

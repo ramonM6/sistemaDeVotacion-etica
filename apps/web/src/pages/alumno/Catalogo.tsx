@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MoreVertical, Search } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Eye, Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Cargando, ErrorCarga, Titulo, Vacio } from '@/components/Estados';
 import { AptitudBadge, FranjasTexto } from '@/components/Insignias';
@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
@@ -30,97 +31,19 @@ export function EtiquetaPropia({ estado }: { estado: ElectivoAlumno['estadoPropi
   return null;
 }
 
-function AccionesCurso({ curso, detalle, motivo }: { curso: ElectivoAlumno; detalle: string; motivo?: string }) {
-  const [posicion, setPosicion] = useState<{ top: number; right: number } | null>(null);
-  const contenedor = useRef<HTMLDivElement>(null);
-  const boton = useRef<HTMLButtonElement>(null);
-  const navigate = useNavigate();
-  useEffect(() => {
-    if (!posicion) return;
-    contenedor.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
-    const cerrar = (e: PointerEvent) => {
-      if (!contenedor.current?.contains(e.target as Node)) setPosicion(null);
-    };
-    const desplazar = () => setPosicion(null);
-    document.addEventListener('pointerdown', cerrar);
-    window.addEventListener('scroll', desplazar, true);
-    window.addEventListener('resize', desplazar);
-    return () => {
-      document.removeEventListener('pointerdown', cerrar);
-      window.removeEventListener('scroll', desplazar, true);
-      window.removeEventListener('resize', desplazar);
-    };
-  }, [posicion]);
+function AccionesCurso({ curso, detalle }: { curso: ElectivoAlumno; detalle: string }) {
   return (
-    <div
-      ref={contenedor}
-      className="flex justify-end"
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') {
-          setPosicion(null);
-          boton.current?.focus();
-        }
-        if (e.key === 'Tab') setPosicion(null);
-        if (posicion && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
-          e.preventDefault();
-          const items = Array.from(contenedor.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
-          const i = items.indexOf(document.activeElement as HTMLElement);
-          items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length]?.focus();
-        }
-      }}
-    >
-      <Button
-        ref={boton}
-        variant="ghost"
-        size="icon"
-        aria-label={`Opciones de ${curso.codigo}`}
-        aria-haspopup="menu"
-        aria-expanded={!!posicion}
-        onClick={() => {
-          if (posicion) {
-            setPosicion(null);
-            return;
-          }
-          const rect = boton.current!.getBoundingClientRect();
-          setPosicion({
-            top: Math.min(rect.bottom + 4, window.innerHeight - 180),
-            right: Math.max(8, window.innerWidth - rect.right),
-          });
-        }}
-      >
-        <MoreVertical aria-hidden className="h-5 w-5" />
-      </Button>
-      {posicion && (
-        <div
-          role="menu"
-          aria-label={`Acciones de ${curso.codigo}`}
-          style={posicion}
-          className="fixed z-50 w-56 rounded-md border bg-card p-1 shadow-lg"
-        >
-          <Link
-            role="menuitem"
-            to={detalle}
-            onClick={() => setPosicion(null)}
-            className="block rounded px-3 py-2 text-sm hover:bg-accent focus:bg-accent focus:outline-none"
-          >
-            Ver detalle
-          </Link>
-          <button
-            role="menuitem"
-            aria-disabled={!!motivo}
-            className="w-full rounded px-3 py-2 text-left text-sm hover:bg-accent focus:bg-accent focus:outline-none aria-disabled:text-muted-foreground"
-            onClick={() => {
-              if (!motivo) {
-                setPosicion(null);
-                navigate(detalle);
-              }
-            }}
-          >
-            Votar individualmente
-          </button>
-          {motivo && <p className="px-3 pb-2 text-xs text-muted-foreground">{motivo}</p>}
-        </div>
-      )}
+    <div className="flex justify-end">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button asChild variant="ghost" size="icon">
+            <Link to={detalle} aria-label={`Ver detalle de ${curso.codigo}`}>
+              <Eye aria-hidden className="h-5 w-5" />
+            </Link>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Ver detalle</TooltipContent>
+      </Tooltip>
     </div>
   );
 }
@@ -311,7 +234,7 @@ export default function Catalogo() {
                         {c.voto ? <Badge>Votado</Badge> : <Badge variant="outline">No votado</Badge>}
                       </td>
                       <td className="px-4 py-4">
-                        <AccionesCurso curso={c} detalle={`${rutaProceso}/cursos/${c.codigo}`} motivo={motivo} />
+                        <AccionesCurso curso={c} detalle={`${rutaProceso}/cursos/${c.codigo}`} />
                       </td>
                     </tr>
                   );
