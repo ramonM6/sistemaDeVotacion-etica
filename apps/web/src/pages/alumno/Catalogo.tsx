@@ -8,7 +8,6 @@ import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { api } from '@/lib/api';
@@ -36,11 +35,17 @@ export default function Catalogo() {
     queryKey: ['alumno', procesoId, 'intereses'],
     queryFn: () => api.interesesAlumno(procesoId!),
   });
+  const [marcados, setMarcados] = useState<string[]>([]);
   const marcar = useMutation({
-    mutationFn: ({ codigo, interesado }: { codigo: string; interesado: boolean }) =>
-      api.marcarInteres(procesoId!, codigo, interesado),
-    onSuccess: (datos) => cliente.setQueryData(['alumno', procesoId, 'intereses'], datos),
-    onError: (error: Error) => toast.error(error.message),
+    mutationFn: async ({ codigos, interesado }: { codigos: string[]; interesado: boolean }) => {
+      for (const codigo of codigos) await api.marcarInteres(procesoId!, codigo, interesado);
+    },
+    onSuccess: () => {
+      setMarcados([]);
+      toast.success('Cursos de interés actualizados');
+    },
+    onError: () => toast.error('No se pudieron guardar todos los cambios. Revisa los intereses y vuelve a intentarlo.'),
+    onSettled: () => cliente.invalidateQueries({ queryKey: ['alumno', procesoId, 'intereses'] }),
   });
   const consulta = useQuery({ queryKey: ['alumno', procesoId, 'electivos'], queryFn: () => api.electivos(procesoId) });
   const [busqueda, setBusqueda] = useState('');
@@ -68,6 +73,9 @@ export default function Catalogo() {
   if (consulta.isLoading || estado.isLoading) return <Cargando />;
   if (consulta.error) return <ErrorCarga error={consulta.error} />;
 
+  const seleccionados = marcados.filter((codigo) => electivos.some((c) => c.codigo === codigo));
+  const todosMarcados = electivos.length > 0 && seleccionados.length === electivos.length;
+  const bloqueado = intereses.isLoading || !!intereses.error || marcar.isPending;
   const e = estado.data;
   const sinVotos = !!e && e.votosUsados >= e.maxCursos;
   const todos = consulta.data!.electivos;
@@ -92,7 +100,7 @@ export default function Catalogo() {
       />
 
       <p className="mb-4 text-sm text-muted-foreground">
-        Marca «Me interesa» para guardar cursos de interés. Esto no registra un voto.
+        Selecciona cursos por fila y guarda los marcados como cursos de interés. Esto no registra votos.
       </p>
       {intereses.error && <p className="mb-4 text-sm text-destructive">No se pudieron cargar tus cursos de interés.</p>}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -132,86 +140,125 @@ export default function Catalogo() {
       {electivos.length === 0 ? (
         <Vacio>No hay electivos que coincidan con tu búsqueda.</Vacio>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {electivos.map((el) => {
-            const noApto = el.elegibilidad.aptitud === 'NO_APTO';
-            const puedeVotar = !!e?.puedeVotar && !noApto && !el.voto && !sinVotos;
-            return (
-              <Card
-                key={el.codigo}
-                className={cn('flex flex-col', noApto && 'bg-slate-50 text-muted-foreground opacity-80')}
-              >
-                <CardHeader className="space-y-2 pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="font-mono text-xs font-semibold">{el.codigo}</span>
-                    <span className="text-xs">{textoCreditos(el.creditos)}</span>
-                  </div>
-                  <CardTitle className={cn('text-base leading-snug', noApto && 'text-slate-500')}>
-                    {el.nombre}
-                  </CardTitle>
-                  <div className="flex flex-wrap gap-1.5">
-                    <AptitudBadge elegibilidad={el.elegibilidad} />
-                    {el.voto && <Badge>Votado</Badge>}
-                    <EtiquetaPropia estado={el.estadoPropio} />
-                  </div>
-                </CardHeader>
-                <CardContent className="flex-1 pb-3">
-                  <label className="mb-3 flex cursor-pointer items-center gap-2 text-sm font-medium">
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-4">
+            <p className="mr-auto text-sm font-medium" aria-live="polite">
+              {seleccionados.length} de {electivos.length} cursos marcados
+            </p>
+            <Button
+              disabled={bloqueado || !seleccionados.length}
+              onClick={() => marcar.mutate({ codigos: seleccionados, interesado: true })}
+            >
+              {marcar.isPending ? 'Guardando…' : 'Guardar como interesados'}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={bloqueado || !seleccionados.length}
+              onClick={() => marcar.mutate({ codigos: seleccionados, interesado: false })}
+            >
+              Quitar de interesados
+            </Button>
+          </div>
+          <div className="overflow-x-auto rounded-lg border bg-card">
+            <table className="w-full text-left">
+              <thead className="bg-muted/50 text-sm text-muted-foreground">
+                <tr>
+                  <th className="w-12 px-4 py-3">
                     <Checkbox
-                      aria-label={`Me interesa ${el.codigo}`}
-                      checked={!!intereses.data?.includes(el.codigo)}
-                      disabled={intereses.isLoading || !!intereses.error || marcar.isPending}
-                      onCheckedChange={(valor) => marcar.mutate({ codigo: el.codigo, interesado: valor === true })}
+                      aria-label="Marcar todos los cursos visibles"
+                      checked={todosMarcados ? true : seleccionados.length ? 'indeterminate' : false}
+                      disabled={bloqueado}
+                      onCheckedChange={(v) => setMarcados(v === true ? electivos.map((c) => c.codigo) : [])}
                     />
-                    Me interesa
-                  </label>
-                  <p className="line-clamp-3 text-sm text-muted-foreground">
-                    {el.descripcion || <span className="italic">Sin descripción.</span>}
-                  </p>
-                  {el.voto && (
-                    <div className="mt-3 text-xs">
-                      Tus franjas: <FranjasTexto franjas={el.voto.franjas} />
-                    </div>
-                  )}
-                </CardContent>
-                <CardFooter className="gap-2">
-                  <Button asChild variant="outline" size="sm">
-                    <Link to={`${rutaProceso}/catalogo/${el.codigo}`}>Ver detalle</Link>
-                  </Button>
-                  {noApto ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span tabIndex={0} className="inline-flex items-center gap-1">
-                          <Button size="sm" disabled>
-                            Votar
+                  </th>
+                  <th className="px-4 py-3">Electivo</th>
+                  <th className="px-4 py-3">Créditos</th>
+                  <th className="px-4 py-3">Estado</th>
+                  <th className="px-4 py-3">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {electivos.map((el) => {
+                  const noApto = el.elegibilidad.aptitud === 'NO_APTO';
+                  const puedeVotar = !!e?.puedeVotar && !noApto && !el.voto && !sinVotos;
+                  return (
+                    <tr
+                      key={el.codigo}
+                      className={cn('border-t', seleccionados.includes(el.codigo) && 'bg-blue-50/60')}
+                    >
+                      <td className="px-4 py-4">
+                        <Checkbox
+                          aria-label={`Marcar ${el.codigo}`}
+                          checked={seleccionados.includes(el.codigo)}
+                          disabled={bloqueado}
+                          onCheckedChange={(v) =>
+                            setMarcados((actual) =>
+                              v === true ? [...new Set([...actual, el.codigo])] : actual.filter((c) => c !== el.codigo),
+                            )
+                          }
+                        />
+                      </td>
+                      <td className="min-w-[220px] px-4 py-4">
+                        <span className="font-mono text-xs font-semibold">{el.codigo}</span>
+                        <p className="mt-1 text-sm font-medium">{el.nombre}</p>
+                        {el.voto && (
+                          <div className="mt-2 text-xs">
+                            Tus franjas: <FranjasTexto franjas={el.voto.franjas} />
+                          </div>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 text-sm">{textoCreditos(el.creditos)}</td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-wrap gap-1.5">
+                          <AptitudBadge elegibilidad={el.elegibilidad} />
+                          {el.voto && <Badge>Votado</Badge>}
+                          <EtiquetaPropia estado={el.estadoPropio} />
+                          {intereses.data?.includes(el.codigo) && <Badge variant="info">Me interesa</Badge>}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          <Button asChild variant="outline" size="sm">
+                            <Link to={`${rutaProceso}/catalogo/${el.codigo}`}>Ver detalle</Link>
                           </Button>
-                          <Info className="h-4 w-4" aria-label="Por qué no puedes votar" />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="mb-1 font-semibold">Te falta:</p>
-                        <ul className="list-disc space-y-0.5 pl-4">
-                          {faltantes(el).map((f) => (
-                            <li key={f}>{f}</li>
-                          ))}
-                        </ul>
-                      </TooltipContent>
-                    </Tooltip>
-                  ) : !el.voto ? (
-                    puedeVotar ? (
-                      <Button asChild size="sm">
-                        <Link to={`${rutaProceso}/catalogo/${el.codigo}`}>Votar</Link>
-                      </Button>
-                    ) : (
-                      <Button size="sm" disabled>
-                        Votar
-                      </Button>
-                    )
-                  ) : null}
-                </CardFooter>
-              </Card>
-            );
-          })}
+                          {noApto ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span tabIndex={0} className="inline-flex items-center gap-1">
+                                  <Button size="sm" disabled>
+                                    Votar
+                                  </Button>
+                                  <Info className="h-4 w-4" aria-label="Por qué no puedes votar" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="mb-1 font-semibold">Te falta:</p>
+                                <ul className="list-disc space-y-0.5 pl-4">
+                                  {faltantes(el).map((f) => (
+                                    <li key={f}>{f}</li>
+                                  ))}
+                                </ul>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : !el.voto ? (
+                            puedeVotar ? (
+                              <Button asChild size="sm">
+                                <Link to={`${rutaProceso}/catalogo/${el.codigo}`}>Votar</Link>
+                              </Button>
+                            ) : (
+                              <Button size="sm" disabled>
+                                Votar
+                              </Button>
+                            )
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
