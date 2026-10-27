@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Eye, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { MoreVertical, Search } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Cargando, ErrorCarga, Titulo, Vacio } from '@/components/Estados';
@@ -9,7 +10,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
@@ -31,19 +31,106 @@ export function EtiquetaPropia({ estado }: { estado: ElectivoAlumno['estadoPropi
   return null;
 }
 
-function AccionesCurso({ curso, detalle }: { curso: ElectivoAlumno; detalle: string }) {
+function AccionesCurso({
+  curso,
+  detalle,
+  alRetirar,
+  ocupado,
+}: {
+  curso: ElectivoAlumno;
+  detalle: string;
+  alRetirar?: () => void;
+  ocupado: boolean;
+}) {
+  const [menu, setMenu] = useState<{ top: number; right: number } | null>(null);
+  const boton = useRef<HTMLButtonElement>(null);
+  const opciones = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menu) return;
+    opciones.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    const cerrar = (ev: PointerEvent) => {
+      if (!opciones.current?.contains(ev.target as Node) && !boton.current?.contains(ev.target as Node)) setMenu(null);
+    };
+    const desplazar = () => setMenu(null);
+    document.addEventListener('pointerdown', cerrar);
+    window.addEventListener('scroll', desplazar, true);
+    window.addEventListener('resize', desplazar);
+    return () => {
+      document.removeEventListener('pointerdown', cerrar);
+      window.removeEventListener('scroll', desplazar, true);
+      window.removeEventListener('resize', desplazar);
+    };
+  }, [menu]);
   return (
     <div className="flex justify-end">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button asChild variant="ghost" size="icon">
-            <Link to={detalle} aria-label={`Ver detalle de ${curso.codigo}`}>
-              <Eye aria-hidden className="h-5 w-5" />
+      <Button
+        ref={boton}
+        variant="ghost"
+        size="icon"
+        aria-label={`Opciones de ${curso.codigo}`}
+        aria-haspopup="menu"
+        aria-expanded={!!menu}
+        disabled={ocupado}
+        onClick={() => {
+          const rect = boton.current!.getBoundingClientRect();
+          setMenu(
+            menu
+              ? null
+              : {
+                  top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 110)),
+                  right: Math.max(8, window.innerWidth - rect.right),
+                },
+          );
+        }}
+      >
+        <MoreVertical aria-hidden className="h-5 w-5" />
+      </Button>
+      {menu &&
+        createPortal(
+          <div
+            ref={opciones}
+            role="menu"
+            aria-label={`Acciones de ${curso.codigo}`}
+            style={menu}
+            className="fixed z-50 w-44 rounded-md border bg-card p-1 shadow-lg"
+            onKeyDown={(ev) => {
+              if (ev.key === 'Escape') {
+                setMenu(null);
+                boton.current?.focus();
+              }
+              if (ev.key === 'Tab') setMenu(null);
+              if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+                ev.preventDefault();
+                const items = Array.from(opciones.current!.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+                const i = items.indexOf(document.activeElement as HTMLElement);
+                items[(i + (ev.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length]?.focus();
+              }
+            }}
+          >
+            <Link
+              role="menuitem"
+              to={detalle}
+              onClick={() => setMenu(null)}
+              className="block rounded px-3 py-2 text-sm hover:bg-accent focus:bg-accent focus:outline-none"
+            >
+              Ver detalle
             </Link>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Ver detalle</TooltipContent>
-      </Tooltip>
+            {alRetirar && (
+              <button
+                role="menuitem"
+                className="w-full rounded px-3 py-2 text-left text-sm text-destructive hover:bg-accent focus:bg-accent focus:outline-none"
+                onClick={() => {
+                  setMenu(null);
+                  boton.current?.focus();
+                  alRetirar();
+                }}
+              >
+                Retirar voto
+              </button>
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -251,35 +338,26 @@ export default function Catalogo() {
                         <AptitudBadge elegibilidad={c.elegibilidad} />
                       </td>
                       <td className="px-4 py-4">
-                        {c.voto ? (
-                          <div className="flex flex-col items-start gap-2">
-                            <Badge>Votado</Badge>
-                            {e.abierto && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-auto p-0 text-xs text-destructive hover:text-destructive"
-                                aria-label={`Retirar voto de ${c.codigo}`}
-                                disabled={retirar.isPending || votar.isPending}
-                                onClick={() => {
+                        {c.voto ? <Badge>Votado</Badge> : <Badge variant="outline">No votado</Badge>}
+                      </td>
+                      <td className="px-4 py-4">
+                        <AccionesCurso
+                          curso={c}
+                          detalle={`${rutaProceso}/cursos/${c.codigo}`}
+                          ocupado={retirar.isPending || votar.isPending}
+                          alRetirar={
+                            c.voto && e.abierto
+                              ? () => {
                                   if (
                                     window.confirm(
                                       `¿Retirar tu voto de ${c.nombre}? También se retirarán los electivos que dependan de este para llevarlos en simultáneo.`,
                                     )
                                   )
                                     retirar.mutate(c.codigo);
-                                }}
-                              >
-                                Retirar voto
-                              </Button>
-                            )}
-                          </div>
-                        ) : (
-                          <Badge variant="outline">No votado</Badge>
-                        )}
-                      </td>
-                      <td className="px-4 py-4">
-                        <AccionesCurso curso={c} detalle={`${rutaProceso}/cursos/${c.codigo}`} />
+                                }
+                              : undefined
+                          }
+                        />
                       </td>
                     </tr>
                   );
