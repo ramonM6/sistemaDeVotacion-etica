@@ -15,10 +15,12 @@ export function Layout({
   enlaces,
   rolTexto,
   children,
+  mostrarPagina = true,
 }: {
   enlaces: EnlaceNav[];
   rolTexto: string;
   children?: React.ReactNode;
+  mostrarPagina?: boolean;
 }) {
   const { usuario, logout } = useAuth();
   const navigate = useNavigate();
@@ -75,7 +77,7 @@ export function Layout({
       </header>
       <main className="container py-8">
         {children}
-        <Outlet />
+        {mostrarPagina && <Outlet />}
       </main>
     </div>
   );

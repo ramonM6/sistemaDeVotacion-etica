@@ -32,16 +32,20 @@ export class VotosService {
   ) {}
 
   /** Proceso activo en el que el alumno está empadronado. */
-  private async procesoDelAlumno(usuarioId: string) {
-    const proceso = await this.procesos.obtenerActivoOFallar();
-    if (!(await this.procesos.estaEnPadron(proceso.id, usuarioId))) {
+  private async procesoDelAlumno(usuarioId: string, procesoId?: string) {
+    const proceso = await this.procesos.resolver(procesoId);
+    if (proceso.estado === 'BORRADOR' || !(await this.procesos.estaEnPadron(proceso.id, usuarioId))) {
       throw new ForbiddenException('No estás habilitado en el proceso de votación actual');
     }
     return proceso;
   }
 
-  async estado(usuarioId: string) {
-    const proceso = await this.procesoDelAlumno(usuarioId);
+  listarProcesos(usuarioId: string) {
+    return this.procesos.listarDelAlumno(usuarioId);
+  }
+
+  async estado(usuarioId: string, procesoId?: string) {
+    const proceso = await this.procesoDelAlumno(usuarioId, procesoId);
     const [aceptacion, votosUsados] = await Promise.all([
       this.repo.aceptacion(proceso.id, usuarioId),
       this.repo.contarVotos(proceso.id, usuarioId),
@@ -64,8 +68,8 @@ export class VotosService {
     };
   }
 
-  async aceptarTerminos(usuarioId: string) {
-    const proceso = await this.procesoDelAlumno(usuarioId);
+  async aceptarTerminos(usuarioId: string, procesoId?: string) {
+    const proceso = await this.procesoDelAlumno(usuarioId, procesoId);
     if (!estaAbierto(proceso)) throw new BadRequestException('El proceso de votación no está abierto');
     const actual = await this.repo.aceptacion(proceso.id, usuarioId);
     if (actual?.version === TERMINOS_VERSION) return actual;
@@ -74,8 +78,8 @@ export class VotosService {
     return aceptacion;
   }
 
-  async electivos(usuarioId: string) {
-    const proceso = await this.procesoDelAlumno(usuarioId);
+  async electivos(usuarioId: string, procesoId?: string) {
+    const proceso = await this.procesoDelAlumno(usuarioId, procesoId);
     const [evaluacion, votos] = await Promise.all([
       this.elegibilidad.evaluarAlumno(proceso.id, usuarioId),
       this.repo.votosDeAlumno(proceso.id, usuarioId),
@@ -95,15 +99,15 @@ export class VotosService {
     };
   }
 
-  async electivo(usuarioId: string, codigo: string) {
-    const { electivos, creditos } = await this.electivos(usuarioId);
+  async electivo(usuarioId: string, codigo: string, procesoId?: string) {
+    const { electivos, creditos } = await this.electivos(usuarioId, procesoId);
     const electivo = electivos.find((e) => e.codigo === codigo.toUpperCase());
     if (!electivo) throw new NotFoundException('Electivo no encontrado');
     return { ...electivo, creditosAlumno: creditos };
   }
 
-  async misVotos(usuarioId: string) {
-    const proceso = await this.procesoDelAlumno(usuarioId);
+  async misVotos(usuarioId: string, procesoId?: string) {
+    const proceso = await this.procesoDelAlumno(usuarioId, procesoId);
     const votos = await this.repo.votosDeAlumno(proceso.id, usuarioId);
     return votos.map((v) => ({
       id: v.id,
@@ -121,8 +125,8 @@ export class VotosService {
    * transacción: proceso abierto, padrón, términos, límite de votos, franjas y aptitud.
    * Incluye las dependencias electivas simultáneas dentro del mismo límite de cursos.
    */
-  async emitir(usuarioId: string, dto: EmitirVotoDto) {
-    const procesoActivo = await this.procesos.obtenerActivoOFallar();
+  async emitir(usuarioId: string, dto: EmitirVotoDto, procesoId?: string) {
+    const procesoActivo = await this.procesoDelAlumno(usuarioId, procesoId);
     const cursoCodigo = dto.cursoCodigo.toUpperCase();
     const franjas = [...dto.franjas].sort((a, b) => ordenFranja(a) - ordenFranja(b));
 
@@ -202,8 +206,8 @@ export class VotosService {
     }
   }
 
-  async cambiar(usuarioId: string, codigo: string, dto?: EmitirVotoDto) {
-    const activo = await this.procesos.obtenerActivoOFallar();
+  async cambiar(usuarioId: string, codigo: string, dto?: EmitirVotoDto, procesoId?: string) {
+    const activo = await this.procesoDelAlumno(usuarioId, procesoId);
     const resultado = await this.repo.transaccion(async (tx) => {
       if (!(await this.repo.bloquearPadron(tx, activo.id, usuarioId))) {
         throw new ForbiddenException('No estás habilitado en este proceso');

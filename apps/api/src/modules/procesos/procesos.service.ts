@@ -83,6 +83,11 @@ export class ProcesosService implements OnModuleInit, OnModuleDestroy {
     return this.repo.estaEnPadron(procesoId, usuarioId);
   }
 
+  async listarDelAlumno(usuarioId: string) {
+    await this.sincronizarEstados();
+    return this.repo.listarDelAlumno(usuarioId);
+  }
+
   async listar() {
     await this.sincronizarEstados();
     return this.repo.listar();

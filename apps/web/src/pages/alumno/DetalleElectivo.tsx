@@ -24,18 +24,22 @@ import { FRANJAS, etiquetaFranja, formatearCreditos, formatearFecha, textoCredit
 import type { Franja } from '@/lib/tipos';
 import { cn } from '@/lib/utils';
 import { EtiquetaPropia } from './Catalogo';
-import { useEstadoAlumno } from './LayoutAlumno';
+import { useEstadoAlumno, useVotacionAlumno } from './LayoutAlumno';
 
 export default function DetalleElectivo() {
+  const { procesoId, rutaProceso } = useVotacionAlumno();
   const { codigo = '' } = useParams();
   const queryClient = useQueryClient();
   const estado = useEstadoAlumno();
-  const consulta = useQuery({ queryKey: ['alumno', 'electivo', codigo], queryFn: () => api.electivo(codigo) });
+  const consulta = useQuery({
+    queryKey: ['alumno', procesoId, 'electivo', codigo],
+    queryFn: () => api.electivo(codigo, procesoId),
+  });
   const [franjas, setFranjas] = useState<Franja[]>([]);
   const [confirmando, setConfirmando] = useState(false);
 
   const votar = useMutation({
-    mutationFn: () => api.votar(codigo, franjas),
+    mutationFn: () => api.votar(codigo, franjas, procesoId),
     onSuccess: (v) => {
       toast.success(`Voto registrado: ${v.cursoCodigo} (${v.franjas.map(etiquetaFranja).join(', ')})`);
       setConfirmando(false);
@@ -73,7 +77,7 @@ export default function DetalleElectivo() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <Button asChild variant="ghost" size="sm" className="-ml-3">
-        <Link to="/alumno/catalogo">
+        <Link to={`${rutaProceso}/catalogo`}>
           <ArrowLeft /> Volver al catálogo
         </Link>
       </Button>
@@ -176,7 +180,7 @@ export default function DetalleElectivo() {
               <AptitudSnapshot aptitud={el.voto.aptitud} />
               <span className="text-muted-foreground">Registrado el {formatearFecha(el.voto.createdAt)}</span>
               {e?.abierto && (
-                <Link className="text-primary underline" to="/alumno/votos">
+                <Link className="text-primary underline" to={`${rutaProceso}/votos`}>
                   Editar o retirar en Mis votos
                 </Link>
               )}

@@ -11,15 +11,16 @@ import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { api } from '@/lib/api';
 import { formatearCreditos, formatearFecha } from '@/lib/formato';
-import { useEstadoAlumno } from './LayoutAlumno';
+import { useEstadoAlumno, useVotacionAlumno } from './LayoutAlumno';
 
 function EditarVoto({ voto, maxFranjas }: { voto: MiVoto; maxFranjas: number }) {
+  const { procesoId } = useVotacionAlumno();
   const cliente = useQueryClient();
   const [editando, setEditando] = useState(false);
   const [franjas, setFranjas] = useState<Franja[]>(voto.franjas);
   const cambio = useMutation({
     mutationFn: (retirar: boolean) =>
-      retirar ? api.retirarVoto(voto.cursoCodigo) : api.editarVoto(voto.cursoCodigo, franjas),
+      retirar ? api.retirarVoto(voto.cursoCodigo, procesoId) : api.editarVoto(voto.cursoCodigo, franjas, procesoId),
     onSuccess: () => {
       cliente.invalidateQueries({ queryKey: ['alumno'] });
       setEditando(false);
@@ -89,7 +90,8 @@ function EditarVoto({ voto, maxFranjas }: { voto: MiVoto; maxFranjas: number }) 
 }
 
 export default function MisVotos() {
-  const votos = useQuery({ queryKey: ['alumno', 'votos'], queryFn: api.misVotos });
+  const { procesoId, rutaProceso } = useVotacionAlumno();
+  const votos = useQuery({ queryKey: ['alumno', procesoId, 'votos'], queryFn: () => api.misVotos(procesoId) });
   const estado = useEstadoAlumno();
 
   if (votos.isLoading) return <Cargando />;
@@ -108,7 +110,7 @@ export default function MisVotos() {
       {votos.data!.length === 0 ? (
         <Vacio>
           Aún no has votado.{' '}
-          <Link to="/alumno/catalogo" className="font-medium text-primary underline">
+          <Link to={`${rutaProceso}/catalogo`} className="font-medium text-primary underline">
             Ir al catálogo
           </Link>
         </Vacio>

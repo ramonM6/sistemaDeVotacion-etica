@@ -1,3 +1,4 @@
+import { ResultadosGateway } from '../resultados/resultados.gateway';
 import { cifrarArchivo } from '../importacion/archivos';
 import {
   Module,
@@ -11,6 +12,7 @@ import {
   Query,
   BadRequestException,
   ParseUUIDPipe,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ArrayMaxSize,
@@ -60,6 +62,7 @@ class SeguimientoService {
     private readonly db: PrismaService,
     private readonly procesos: ProcesosService,
     private readonly audit: AuditService,
+    private readonly gateway: ResultadosGateway,
   ) {}
 
   async listar(procesoId?: string) {
@@ -172,6 +175,7 @@ class SeguimientoService {
       procesoId: proceso.id,
       cursos: filas.map((f) => f.codigo),
     });
+    this.gateway.notificar('seguimiento', proceso.id);
     return this.listar(proceso.id);
   }
 
@@ -253,6 +257,32 @@ class SeguimientoService {
   }
 }
 
+@Roles('ALUMNO')
+@Controller('alumno/seguimiento')
+class SeguimientoAlumnoController {
+  constructor(
+    private readonly servicio: SeguimientoService,
+    private readonly procesos: ProcesosService,
+  ) {}
+  @Get()
+  async listar(@UsuarioActual() u: UsuarioSesion, @Query('procesoId', ParseUUIDPipe) id: string) {
+    const proceso = await this.procesos.obtener(id);
+    if (proceso.estado === 'BORRADOR' || !(await this.procesos.estaEnPadron(id, u.id)))
+      throw new ForbiddenException('No estás habilitado en esta votación');
+    const datos = await this.servicio.listar(id);
+    return {
+      proceso,
+      cursos: datos.cursos.map((c) => ({
+        codigo: c.codigo,
+        nombre: c.nombre,
+        seleccion: c.seleccion,
+        consejo: c.consejo,
+        dictado: c.dictado,
+      })),
+    };
+  }
+}
+
 @Roles('COORDINADOR')
 @Controller('coord/seguimiento')
 class SeguimientoController {
@@ -288,5 +318,9 @@ class SeguimientoController {
   }
 }
 
-@Module({ imports: [ProcesosModule], providers: [SeguimientoService], controllers: [SeguimientoController] })
+@Module({
+  imports: [ProcesosModule],
+  providers: [SeguimientoService],
+  controllers: [SeguimientoController, SeguimientoAlumnoController],
+})
 export class SeguimientoModule {}

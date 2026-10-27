@@ -16,7 +16,7 @@ export class ResultadosGateway {
   @WebSocketServer()
   server: Server;
 
-  notificar(motivo: 'voto' | 'proceso' | 'importacion', procesoId?: string) {
+  notificar(motivo: 'voto' | 'proceso' | 'importacion' | 'seguimiento', procesoId?: string) {
     if (!this.server) return;
     this.server.emit(EVENTO_RESULTADOS, { motivo, procesoId: procesoId ?? null, en: new Date().toISOString() });
     this.logger.debug(`${EVENTO_RESULTADOS} (${motivo})`);

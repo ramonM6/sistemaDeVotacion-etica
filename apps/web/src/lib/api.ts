@@ -70,18 +70,26 @@ export const api = {
   me: () => get<Usuario>('/auth/me'),
   procesoActivo: () => get<Proceso | null>('/procesos/activo'),
 
-  // Alumno
-  estadoAlumno: () => get<EstadoAlumno>('/alumno/estado'),
-  aceptarTerminos: () => post('/alumno/terminos'),
-  electivos: () => get<{ creditos: Creditos; electivos: ElectivoAlumno[] }>('/alumno/electivos'),
-  electivo: (codigo: string) =>
-    get<ElectivoAlumno & { creditosAlumno: Creditos }>(`/alumno/electivos/${encodeURIComponent(codigo)}`),
-  votar: (cursoCodigo: string, franjas: Franja[]) => post<MiVoto>('/alumno/votos', { cursoCodigo, franjas }),
-  editarVoto: (cursoCodigo: string, franjas: Franja[]) =>
-    patch(`/alumno/votos/${encodeURIComponent(cursoCodigo)}`, { cursoCodigo, franjas }),
-  retirarVoto: (codigo: string) => solicitar(`/alumno/votos/${encodeURIComponent(codigo)}`, { method: 'DELETE' }),
-  misVotos: () => get<MiVoto[]>('/alumno/votos'),
-  resultadosPublicos: () => get<ResultadosPublicos>('/resultados/publicos'),
+  // Alumno: todas las operaciones conservan la votación seleccionada.
+  procesosAlumno: () => get<Proceso[]>('/alumno/procesos'),
+  estadoAlumno: (procesoId?: string) => get<EstadoAlumno>(`/alumno/estado${qs({ procesoId })}`),
+  aceptarTerminos: (procesoId?: string) => post(`/alumno/terminos${qs({ procesoId })}`),
+  electivos: (procesoId?: string) =>
+    get<{ creditos: Creditos; electivos: ElectivoAlumno[] }>(`/alumno/electivos${qs({ procesoId })}`),
+  electivo: (codigo: string, procesoId?: string) =>
+    get<ElectivoAlumno & { creditosAlumno: Creditos }>(
+      `/alumno/electivos/${encodeURIComponent(codigo)}${qs({ procesoId })}`,
+    ),
+  votar: (cursoCodigo: string, franjas: Franja[], procesoId?: string) =>
+    post<MiVoto>(`/alumno/votos${qs({ procesoId })}`, { cursoCodigo, franjas }),
+  editarVoto: (cursoCodigo: string, franjas: Franja[], procesoId?: string) =>
+    patch(`/alumno/votos/${encodeURIComponent(cursoCodigo)}${qs({ procesoId })}`, { cursoCodigo, franjas }),
+  retirarVoto: (codigo: string, procesoId?: string) =>
+    solicitar(`/alumno/votos/${encodeURIComponent(codigo)}${qs({ procesoId })}`, { method: 'DELETE' }),
+  misVotos: (procesoId?: string) => get<MiVoto[]>(`/alumno/votos${qs({ procesoId })}`),
+  resultadosPublicos: (procesoId?: string) => get<ResultadosPublicos>(`/resultados/publicos${qs({ procesoId })}`),
+  seguimientoAlumno: (procesoId: string) =>
+    get<{ proceso: Proceso; cursos: SeguimientoCurso[] }>(`/alumno/seguimiento${qs({ procesoId })}`),
 
   seguimiento: (procesoId?: string) =>
     get<{ proceso: Proceso; cursos: SeguimientoCurso[] }>(`/coord/seguimiento${qs({ procesoId })}`),

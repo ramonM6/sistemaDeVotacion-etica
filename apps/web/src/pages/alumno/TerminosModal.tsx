@@ -1,20 +1,29 @@
+import { useVotacionAlumno } from './LayoutAlumno';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, ScrollText } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { api } from '@/lib/api';
 import type { EstadoAlumno } from '@/lib/tipos';
 
 /** Modal bloqueante en la primera entrada a un proceso abierto (sección 8). */
 export function TerminosModal({ estado }: { estado: EstadoAlumno }) {
+  const { procesoId } = useVotacionAlumno();
   const queryClient = useQueryClient();
   const [marcado, setMarcado] = useState(false);
   const aceptar = useMutation({
-    mutationFn: api.aceptarTerminos,
+    mutationFn: () => api.aceptarTerminos(procesoId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['alumno'] });
       toast.success('Términos aceptados. Ya puedes votar.');

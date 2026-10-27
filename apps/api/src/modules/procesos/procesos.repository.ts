@@ -50,6 +50,13 @@ export class ProcesosRepository {
     });
   }
 
+  listarDelAlumno(usuarioId: string) {
+    return this.prisma.procesoVotacion.findMany({
+      where: { estado: { not: 'BORRADOR' }, padron: { some: { usuarioId } } },
+      orderBy: [{ fechaInicio: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
   listar() {
     return this.prisma.procesoVotacion.findMany({
       orderBy: [{ fechaInicio: 'desc' }, { createdAt: 'desc' }],

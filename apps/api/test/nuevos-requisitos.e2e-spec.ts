@@ -448,4 +448,66 @@ describe('Requisitos integrados de VotaInf', () => {
     const alumno = await sesion(app, '20000001');
     await alumno.post(ruta).send(cuerpo).expect(403);
   });
+  it('permite elegir votaciones propias, aísla los votos y publica el seguimiento del periodo elegido', async () => {
+    const alumno = await sesion(app, '20000001');
+    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000001']);
+    await alumno
+      .post(`/api/alumno/votos?procesoId=${esc.procesoId}`)
+      .send(voto('INF310', ['NOCHE']))
+      .expect(201);
+    await cerrar().expect(200);
+    const otro = await db.procesoVotacion.create({
+      data: {
+        nombre: 'Otro periodo',
+        cicloObjetivo: '2028-1',
+        estado: 'ABIERTO',
+        fechaInicio: new Date(Date.now() - 10000),
+        fechaFin: new Date(Date.now() + 86400000),
+      },
+    });
+    await db.padronAlumno.create({ data: { procesoId: otro.id, usuarioId: esc.alumnos['20000001'] } });
+    const borrador = await db.procesoVotacion.create({
+      data: {
+        nombre: 'En preparación',
+        cicloObjetivo: '2028-2',
+        fechaInicio: new Date(),
+        fechaFin: new Date(Date.now() + 86400000),
+      },
+    });
+    await db.padronAlumno.create({ data: { procesoId: borrador.id, usuarioId: esc.alumnos['20000001'] } });
+    const lista = await alumno.get('/api/alumno/procesos').expect(200);
+    expect(lista.body.map((p: { id: string }) => p.id).sort()).toEqual([esc.procesoId, otro.id].sort());
+    expect((await alumno.get(`/api/alumno/estado?procesoId=${esc.procesoId}`).expect(200)).body.votosUsados).toBe(1);
+    expect((await alumno.get(`/api/alumno/votos?procesoId=${otro.id}`).expect(200)).body).toEqual([]);
+    await alumno
+      .post(`/api/alumno/votos?procesoId=${esc.procesoId}`)
+      .send(voto('INF356', ['NOCHE']))
+      .expect(400);
+    await coord
+      .patch(`/api/coord/seguimiento/INF310?procesoId=${esc.procesoId}`)
+      .send({
+        seleccion: 'SELECCIONADO_PARA_REVISION',
+        consejo: 'APROBADO',
+        dictado: 'CONFIRMADO',
+        observacion: 'Privado',
+      })
+      .expect(200);
+    const seguimiento = await alumno.get(`/api/alumno/seguimiento?procesoId=${esc.procesoId}`).expect(200);
+    expect(seguimiento.body.cursos.find((c: { codigo: string }) => c.codigo === 'INF310')).toMatchObject({
+      seleccion: 'SELECCIONADO_PARA_REVISION',
+      consejo: 'APROBADO',
+      dictado: 'CONFIRMADO',
+    });
+    expect(JSON.stringify(seguimiento.body)).not.toContain('Privado');
+    expect((await alumno.get(`/api/resultados/publicos?procesoId=${esc.procesoId}`).expect(200)).body.totalVotos).toBe(
+      1,
+    );
+    await db.padronAlumno.delete({
+      where: { procesoId_usuarioId: { procesoId: otro.id, usuarioId: esc.alumnos['20000001'] } },
+    });
+    for (const ruta of ['estado', 'electivos', 'votos', 'seguimiento'])
+      await alumno.get(`/api/alumno/${ruta}?procesoId=${otro.id}`).expect(403);
+    await alumno.get(`/api/resultados/publicos?procesoId=${otro.id}`).expect(403);
+    await alumno.get(`/api/alumno/estado?procesoId=${borrador.id}`).expect(403);
+  });
 });

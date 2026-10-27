@@ -1,7 +1,7 @@
 import { FiltrosResultadosDto } from './filtros.dto';
 import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import { Aptitud } from '@prisma/client';
-import { Roles } from '../../common/auth.decorators';
+import { Roles, UsuarioActual, UsuarioSesion } from '../../common/auth.decorators';
 import { ResultadosService } from './resultados.service';
 
 @Controller('resultados')
@@ -11,8 +11,8 @@ export class ResultadosPublicosController {
   /** Ranking y franjas, sin nombres de votantes. */
   @Roles('ALUMNO', 'COORDINADOR')
   @Get('publicos')
-  publicos() {
-    return this.resultados.publicos();
+  publicos(@UsuarioActual() u: UsuarioSesion, @Query('procesoId', new ParseUUIDPipe({ optional: true })) id?: string) {
+    return this.resultados.publicos(id, u.rol === 'ALUMNO' ? u.id : undefined);
   }
 }
 

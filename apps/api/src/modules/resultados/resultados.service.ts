@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Aptitud } from '@prisma/client';
 import { ConteoFranjas, FRANJAS, conteoFranjasVacio } from '../../common/franjas';
 import { ProcesosService } from '../procesos/procesos.service';
@@ -69,8 +69,10 @@ export class ResultadosService {
   }
 
   /** Resultados para alumnos: sin nombres ni datos personales. */
-  async publicos() {
-    const proceso = await this.procesos.obtenerActivoOFallar();
+  async publicos(procesoId?: string, usuarioId?: string) {
+    const proceso = await this.procesos.resolver(procesoId);
+    if (usuarioId && (proceso.estado === 'BORRADOR' || !(await this.procesos.estaEnPadron(proceso.id, usuarioId))))
+      throw new ForbiddenException('No estás habilitado en esta votación');
     const ranking = proceso.estado === 'CERRADO' ? await this.ranking(proceso.id) : [];
     return {
       proceso: {

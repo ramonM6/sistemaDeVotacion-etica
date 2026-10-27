@@ -13,7 +13,7 @@ import { api } from '@/lib/api';
 import { formatearCreditos, textoCreditos } from '@/lib/formato';
 import type { ElectivoAlumno } from '@/lib/tipos';
 import { cn } from '@/lib/utils';
-import { useEstadoAlumno } from './LayoutAlumno';
+import { useEstadoAlumno, useVotacionAlumno } from './LayoutAlumno';
 
 type Filtro = 'todos' | 'aptos' | 'votados';
 
@@ -27,8 +27,9 @@ export function EtiquetaPropia({ estado }: { estado: ElectivoAlumno['estadoPropi
 const faltantes = (e: ElectivoAlumno) => e.elegibilidad.requisitos.filter((r) => !r.cumple).map((r) => r.detalle);
 
 export default function Catalogo() {
+  const { procesoId, rutaProceso } = useVotacionAlumno();
   const estado = useEstadoAlumno();
-  const consulta = useQuery({ queryKey: ['alumno', 'electivos'], queryFn: api.electivos });
+  const consulta = useQuery({ queryKey: ['alumno', procesoId, 'electivos'], queryFn: () => api.electivos(procesoId) });
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState<Filtro>('todos');
 
@@ -112,13 +113,18 @@ export default function Catalogo() {
             const noApto = el.elegibilidad.aptitud === 'NO_APTO';
             const puedeVotar = !!e?.puedeVotar && !noApto && !el.voto && !sinVotos;
             return (
-              <Card key={el.codigo} className={cn('flex flex-col', noApto && 'bg-slate-50 text-muted-foreground opacity-80')}>
+              <Card
+                key={el.codigo}
+                className={cn('flex flex-col', noApto && 'bg-slate-50 text-muted-foreground opacity-80')}
+              >
                 <CardHeader className="space-y-2 pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <span className="font-mono text-xs font-semibold">{el.codigo}</span>
                     <span className="text-xs">{textoCreditos(el.creditos)}</span>
                   </div>
-                  <CardTitle className={cn('text-base leading-snug', noApto && 'text-slate-500')}>{el.nombre}</CardTitle>
+                  <CardTitle className={cn('text-base leading-snug', noApto && 'text-slate-500')}>
+                    {el.nombre}
+                  </CardTitle>
                   <div className="flex flex-wrap gap-1.5">
                     <AptitudBadge elegibilidad={el.elegibilidad} />
                     {el.voto && <Badge>Votado</Badge>}
@@ -137,7 +143,7 @@ export default function Catalogo() {
                 </CardContent>
                 <CardFooter className="gap-2">
                   <Button asChild variant="outline" size="sm">
-                    <Link to={`/alumno/catalogo/${el.codigo}`}>Ver detalle</Link>
+                    <Link to={`${rutaProceso}/catalogo/${el.codigo}`}>Ver detalle</Link>
                   </Button>
                   {noApto ? (
                     <Tooltip>
@@ -161,7 +167,7 @@ export default function Catalogo() {
                   ) : !el.voto ? (
                     puedeVotar ? (
                       <Button asChild size="sm">
-                        <Link to={`/alumno/catalogo/${el.codigo}`}>Votar</Link>
+                        <Link to={`${rutaProceso}/catalogo/${el.codigo}`}>Votar</Link>
                       </Button>
                     ) : (
                       <Button size="sm" disabled>

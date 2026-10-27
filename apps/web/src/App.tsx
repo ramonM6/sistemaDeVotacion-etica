@@ -6,7 +6,8 @@ import { useAuth } from '@/lib/auth';
 import Login from '@/pages/Login';
 import AlumnoCatalogo from '@/pages/alumno/Catalogo';
 import DetalleElectivo from '@/pages/alumno/DetalleElectivo';
-import AlumnoInicio from '@/pages/alumno/Inicio';
+import VotacionesAlumno from '@/pages/alumno/Votaciones';
+import SeguimientoAlumno from '@/pages/alumno/Seguimiento';
 import LayoutAlumno from '@/pages/alumno/LayoutAlumno';
 import MisVotos from '@/pages/alumno/MisVotos';
 import AlumnoResultados from '@/pages/alumno/Resultados';
@@ -33,11 +34,16 @@ export default function App() {
 
       <Route element={<RequiereRol rol="ALUMNO" />}>
         <Route path="/alumno" element={<LayoutAlumno />}>
-          <Route index element={<AlumnoInicio />} />
-          <Route path="catalogo" element={<AlumnoCatalogo />} />
-          <Route path="catalogo/:codigo" element={<DetalleElectivo />} />
-          <Route path="votos" element={<MisVotos />} />
-          <Route path="resultados" element={<AlumnoResultados />} />
+          <Route index element={<VotacionesAlumno />} />
+          <Route path="votaciones/:procesoId">
+            <Route index element={<Navigate to="catalogo" replace />} />
+            <Route path="catalogo" element={<AlumnoCatalogo />} />
+            <Route path="catalogo/:codigo" element={<DetalleElectivo />} />
+            <Route path="votos" element={<MisVotos />} />
+            <Route path="resultados" element={<AlumnoResultados />} />
+            <Route path="seguimiento" element={<SeguimientoAlumno />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/alumno" replace />} />
         </Route>
       </Route>
 
