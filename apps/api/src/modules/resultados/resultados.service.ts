@@ -109,17 +109,23 @@ export class ResultadosService {
   }
 
   async avisos(procesoId: string, estado: string) {
-    const [electivos, sinDescripcion, padron, historial, sinHistorial] = await Promise.all([
+    const [cantidadGlobal, sinDescripcionGlobal, padron, historial, sinHistorial] = await Promise.all([
       this.repo.contarElectivos(),
       this.repo.contarElectivosSinDescripcion(),
       this.repo.contarPadron(procesoId),
       this.repo.contarHistorial(procesoId),
       this.repo.alumnosSinHistorial(procesoId),
     ]);
+    const proceso = await this.procesos.obtener(procesoId);
+    const malla = Array.isArray(proceso.catalogo)
+      ? (proceso.catalogo as unknown as { tipo: string; descripcion?: string }[]).filter((c) => c.tipo === 'ELECTIVO')
+      : null;
+    const electivos = malla ? malla.length : cantidadGlobal;
+    const sinDescripcion = malla ? malla.filter((c) => !c.descripcion).length : sinDescripcionGlobal;
     const avisos: { nivel: 'info' | 'advertencia'; mensaje: string }[] = [];
     if (estado === 'BORRADOR')
       avisos.push({ nivel: 'info', mensaje: 'El proceso está en borrador: los alumnos aún no pueden votar.' });
-    if (!electivos) avisos.push({ nivel: 'advertencia', mensaje: 'No se ha cargado el catálogo de cursos.' });
+    if (!electivos) avisos.push({ nivel: 'advertencia', mensaje: 'No se ha cargado la malla de esta votación.' });
     if (sinDescripcion) {
       avisos.push({
         nivel: 'advertencia',

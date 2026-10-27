@@ -84,7 +84,7 @@ export class ImportacionService {
   rutaPlantilla(tipo: TipoImportacion) {
     const ruta = resolve(directorioPlantillas(), PLANTILLAS[tipo]);
     if (!existsSync(ruta)) throw new NotFoundException('Plantilla no disponible');
-    return { ruta, nombre: PLANTILLAS[tipo] };
+    return { ruta, nombre: tipo === 'malla' ? 'plantilla_malla_curricular.xlsx' : PLANTILLAS[tipo] };
   }
 
   async preview(

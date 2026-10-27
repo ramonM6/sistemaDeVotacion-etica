@@ -110,8 +110,8 @@ export default function MisVotos() {
       {votos.data!.length === 0 ? (
         <Vacio>
           Aún no has votado.{' '}
-          <Link to={`${rutaProceso}/catalogo`} className="font-medium text-primary underline">
-            Ir al catálogo
+          <Link to={`${rutaProceso}/cursos`} className="font-medium text-primary underline">
+            Ir a los cursos
           </Link>
         </Vacio>
       ) : (

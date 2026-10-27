@@ -18,10 +18,7 @@ const ProcesoContext = createContext<{
   cargandoProceso: boolean;
 }>({ rutaProceso: '/coord', enPreparacion: false, cargandoProceso: false });
 export const useProcesoSeleccionado = () => useContext(ProcesoContext);
-const ENLACES = [
-  { a: '/coord', texto: 'Votaciones', fin: true },
-  { a: '/coord/catalogo', texto: 'Catálogo base' },
-];
+const ENLACES = [{ a: '/coord', texto: 'Votaciones', fin: true }];
 
 export default function LayoutCoord() {
   const coincidencia = useMatch('/coord/votaciones/:procesoId/*');
@@ -40,7 +37,10 @@ export default function LayoutCoord() {
     <ProcesoContext.Provider
       value={{ procesoId, rutaProceso, proceso, enPreparacion, cargandoProceso: consulta.isLoading }}
     >
-      <Layout enlaces={ENLACES.map((e) => ({ ...e, activo: e.a === '/coord' && (!!procesoId || enCreacion) }))} rolTexto="Coordinación">
+      <Layout
+        enlaces={ENLACES.map((e) => ({ ...e, activo: e.a === '/coord' && (!!procesoId || enCreacion) }))}
+        rolTexto="Coordinación"
+      >
         {procesoId && (
           <section className="mb-7 space-y-4">
             <Button asChild variant="ghost" size="sm" className="-ml-3">

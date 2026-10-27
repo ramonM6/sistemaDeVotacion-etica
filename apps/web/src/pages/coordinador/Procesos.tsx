@@ -10,6 +10,7 @@ import { Cargando, ErrorCarga, Titulo, Vacio } from '@/components/Estados';
 import { EstadoProcesoBadge } from '@/components/Insignias';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { api } from '@/lib/api';
 import { aInputFecha, formatearFecha } from '@/lib/formato';
@@ -45,6 +46,8 @@ export function FormularioProceso({
   alCancelar: () => void;
 }) {
   const [archivos, setArchivos] = useState<Partial<Record<TipoImportacion, File>>>({});
+  const [fuentes, setFuentes] = useState<{ malla?: string; cuentas?: string; historial?: string }>({});
+  const anteriores = useQuery({ queryKey: ['coord', 'procesos'], queryFn: api.procesos, enabled: !proceso });
   const queryClient = useQueryClient();
   const ahora = new Date();
   const { register, handleSubmit, formState } = useForm<Datos>({
@@ -73,6 +76,7 @@ export function FormularioProceso({
   const guardar = useMutation({
     mutationFn: (d: Datos) => {
       const datos = {
+        ...(!proceso ? { reutilizar: fuentes } : {}),
         ...d,
         cicloActual: d.cicloActual || undefined,
         fechaInicio:
@@ -130,8 +134,8 @@ export function FormularioProceso({
         <fieldset className="space-y-3 rounded-lg border p-4">
           <legend className="px-1 text-sm font-semibold">Archivos de la votación</legend>
           <p className="text-xs text-muted-foreground">
-            CSV o Excel (.xlsx), máximo 5 MB por archivo. Al guardar podrás revisar y confirmar cada importación: malla,
-            cuentas y luego historial.
+            Sube un CSV o Excel (.xlsx), máximo 5 MB, o reutiliza los datos y el archivo disponible de una votación
+            anterior. Al guardar podrás revisar y confirmar cada importación: malla, cuentas y luego historial.
           </p>
           {(
             [
@@ -142,20 +146,78 @@ export function FormularioProceso({
           ).map(([tipo, titulo]) => (
             <div key={tipo} className="space-y-1">
               <Label htmlFor={`nuevo-${tipo}`}>{titulo}</Label>
-              <Input
-                id={`nuevo-${tipo}`}
-                type="file"
-                accept=".xlsx,.csv"
-                onChange={(event) => {
-                  const archivo = event.target.files?.[0];
-                  if (archivo && (!/\.(xlsx|csv)$/i.test(archivo.name) || archivo.size > 5 * 1024 * 1024)) {
-                    event.target.value = '';
-                    toast.error('Usa un archivo CSV o Excel (.xlsx) de máximo 5 MB');
-                    return;
-                  }
-                  setArchivos((prev) => ({ ...prev, [tipo]: archivo }));
-                }}
-              />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant={fuentes[tipo] === undefined ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setFuentes((prev) => ({ ...prev, [tipo]: undefined }))}
+                >
+                  Subir archivo nuevo
+                </Button>
+                <Button
+                  type="button"
+                  variant={fuentes[tipo] !== undefined ? 'default' : 'outline'}
+                  size="sm"
+                  disabled={anteriores.isLoading}
+                  onClick={() => {
+                    setArchivos((prev) => ({ ...prev, [tipo]: undefined }));
+                    setFuentes((prev) => ({ ...prev, [tipo]: '' }));
+                  }}
+                >
+                  Reutilizar {tipo === 'malla' ? 'malla' : tipo === 'cuentas' ? 'cuentas' : 'historial'}
+                </Button>
+              </div>
+              {fuentes[tipo] !== undefined ? (
+                <>
+                  <Select
+                    id={`nuevo-${tipo}`}
+                    aria-label={`Votación de origen para ${tipo}`}
+                    value={fuentes[tipo]}
+                    onChange={(event) => setFuentes((prev) => ({ ...prev, [tipo]: event.target.value }))}
+                  >
+                    <option value="">Selecciona una votación anterior</option>
+                    {anteriores.data
+                      ?.filter((p) =>
+                        tipo === 'malla'
+                          ? !!p.catalogo?.length
+                          : tipo === 'cuentas'
+                            ? (p._count?.padron ?? 0) > 0
+                            : (p._count?.historial ?? 0) > 0,
+                      )
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nombre} · {p.cicloObjetivo}
+                        </option>
+                      ))}
+                  </Select>
+                  {anteriores.error && (
+                    <p className="text-xs text-destructive">No se pudieron cargar las votaciones anteriores.</p>
+                  )}
+                  {tipo === 'historial' && (
+                    <p className="text-xs text-muted-foreground">
+                      El historial necesita las cuentas de todos sus alumnos. Reutiliza un padrón compatible; si subirás
+                      cuentas nuevas, importa el historial después.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <Input
+                  key={`archivo-${tipo}`}
+                  id={`nuevo-${tipo}`}
+                  type="file"
+                  accept=".xlsx,.csv"
+                  onChange={(event) => {
+                    const archivo = event.target.files?.[0];
+                    if (archivo && (!/\.(xlsx|csv)$/i.test(archivo.name) || archivo.size > 5 * 1024 * 1024)) {
+                      event.target.value = '';
+                      toast.error('Usa un archivo CSV o Excel (.xlsx) de máximo 5 MB');
+                      return;
+                    }
+                    setArchivos((prev) => ({ ...prev, [tipo]: archivo }));
+                  }}
+                />
+              )}
             </div>
           ))}
         </fieldset>
@@ -164,7 +226,7 @@ export function FormularioProceso({
         <Button type="button" variant="outline" onClick={alCancelar}>
           Cancelar
         </Button>
-        <Button type="submit" disabled={guardar.isPending}>
+        <Button type="submit" disabled={guardar.isPending || Object.values(fuentes).some((valor) => valor === '')}>
           {guardar.isPending && <Loader2 className="animate-spin" />}
           Guardar
         </Button>

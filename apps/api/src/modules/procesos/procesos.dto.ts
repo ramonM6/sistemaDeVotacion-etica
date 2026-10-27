@@ -2,6 +2,7 @@ import { EstadoProceso } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsDate,
+  ValidateNested,
   IsEnum,
   IsInt,
   IsOptional,
@@ -14,7 +15,18 @@ import {
   MinLength,
 } from 'class-validator';
 
+export class ReutilizarArchivosDto {
+  @IsOptional() @IsUUID() malla?: string;
+  @IsOptional() @IsUUID() cuentas?: string;
+  @IsOptional() @IsUUID() historial?: string;
+}
+
 export class CrearProcesoDto {
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ReutilizarArchivosDto)
+  reutilizar?: ReutilizarArchivosDto;
+
   @IsString()
   @MinLength(3)
   @MaxLength(120)
@@ -91,8 +103,4 @@ export class EditarProcesoDto {
 export class CambiarEstadoDto {
   @IsEnum(EstadoProceso)
   estado: EstadoProceso;
-}
-
-export class ReutilizarCatalogoDto {
-  @IsUUID() origenId: string;
 }

@@ -185,7 +185,7 @@ export default function Catalogo() {
   return (
     <div>
       <Titulo
-        titulo="Catálogo de electivos"
+        titulo="Cursos electivos"
         descripcion={
           <>
             Tus créditos: {formatearCreditos(consulta.data!.creditos.aprobados)} aprobados ·{' '}
@@ -313,7 +313,7 @@ export default function Catalogo() {
                         {c.voto ? <Badge>Votado</Badge> : <Badge variant="outline">No votado</Badge>}
                       </td>
                       <td className="px-4 py-4">
-                        <AccionesCurso curso={c} detalle={`${rutaProceso}/catalogo/${c.codigo}`} motivo={motivo} />
+                        <AccionesCurso curso={c} detalle={`${rutaProceso}/cursos/${c.codigo}`} motivo={motivo} />
                       </td>
                     </tr>
                   );

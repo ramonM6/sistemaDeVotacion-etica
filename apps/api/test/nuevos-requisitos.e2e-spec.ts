@@ -211,7 +211,7 @@ describe('Requisitos integrados de VotaInf', () => {
     await alumno.get(`/api/coord/import/archivos/${archivo.id}`).expect(403);
   });
 
-  it('reutiliza el catálogo de un proceso anterior en un nuevo borrador', async () => {
+  it('reutiliza la malla de una votación anterior al crear el borrador', async () => {
     await cerrar().expect(200);
     await coord.patch(`/api/coord/procesos/${esc.procesoId}/estado`).send({ estado: 'ABIERTO' }).expect(200);
     await cerrar().expect(200);
@@ -219,15 +219,12 @@ describe('Requisitos integrados de VotaInf', () => {
       .post('/api/coord/procesos')
       .send({
         nombre: 'Nuevo proceso',
+        reutilizar: { malla: esc.procesoId },
         cicloActual: '2026-2',
         cicloObjetivo: '2027-1',
         fechaInicio: new Date().toISOString(),
         fechaFin: new Date(Date.now() + 86400000).toISOString(),
       })
-      .expect(201);
-    await coord
-      .post(`/api/coord/procesos/${nuevo.body.id}/reutilizar-catalogo`)
-      .send({ origenId: esc.procesoId })
       .expect(201);
     const copia = await db.procesoVotacion.findUniqueOrThrow({ where: { id: nuevo.body.id } });
     expect(copia.catalogo).toEqual(
@@ -293,6 +290,12 @@ describe('Requisitos integrados de VotaInf', () => {
         fechaFin: new Date(Date.now() + 86400000).toISOString(),
       })
       .expect(201);
+    await coord.patch(`/api/coord/procesos/${nuevo.body.id}/estado`).send({ estado: 'ABIERTO' }).expect(400);
+    const propia = await coord
+      .post(`/api/coord/import/malla/preview?procesoId=${nuevo.body.id}`)
+      .attach('archivo', csv, 'malla.csv')
+      .expect(200);
+    await coord.post('/api/coord/import/malla/confirmar').send({ token: propia.body.token }).expect(200);
     await coord.patch(`/api/coord/procesos/${nuevo.body.id}/estado`).send({ estado: 'ABIERTO' }).expect(200);
     const guardado = await db.procesoVotacion.findUniqueOrThrow({ where: { id: nuevo.body.id } });
     expect((guardado.catalogo as { codigo: string }[]).map((c) => c.codigo)).toEqual(['INF310']);
@@ -633,5 +636,71 @@ describe('Requisitos integrados de VotaInf', () => {
     await coord.post('/api/coord/import/historial/confirmar').send({ token: siguiente.body.token }).expect(409);
     expect(storage.archivos.size).toBe(objetos);
     expect(await db.archivoCarga.count()).toBe(0);
+  });
+  it('reutiliza malla, cuentas, historial y referencias de Storage sin copiar votos ni decisiones', async () => {
+    await cerrar().expect(200);
+    await coord.patch(`/api/coord/procesos/${esc.procesoId}/estado`).send({ estado: 'ABIERTO' }).expect(200);
+    await cerrar().expect(200);
+    const usuario = await db.usuario.findUniqueOrThrow({ where: { id: esc.alumnos['20000001'] } });
+    const storage = app.get(StorageService) as unknown as StorageFalso;
+    for (const tipo of ['malla', 'cuentas', 'historial']) {
+      const original = await storage.subir(`${tipo}.csv`, Buffer.from('datos de prueba'), tipo);
+      await db.archivoCarga.create({
+        data: { nombre: `${tipo}.csv`, tipo, procesoId: esc.procesoId, actorId: usuario.id, filas: 1, ...original },
+      });
+    }
+    const sourcePadron = await db.padronAlumno.count({ where: { procesoId: esc.procesoId } });
+    const sourceHistorial = await db.historialItem.count({ where: { procesoId: esc.procesoId } });
+    const r = await coord
+      .post('/api/coord/procesos')
+      .send({
+        nombre: 'Reutilización completa',
+        cicloObjetivo: '2028-1',
+        fechaInicio: new Date().toISOString(),
+        fechaFin: new Date(Date.now() + 86400000).toISOString(),
+        reutilizar: { malla: esc.procesoId, cuentas: esc.procesoId, historial: esc.procesoId },
+      })
+      .expect(201);
+    expect(await db.padronAlumno.count({ where: { procesoId: r.body.id } })).toBe(sourcePadron);
+    expect(await db.historialItem.count({ where: { procesoId: r.body.id } })).toBe(sourceHistorial);
+    expect(await db.voto.count({ where: { procesoId: r.body.id } })).toBe(0);
+    expect(await db.seguimientoCurso.count({ where: { procesoId: r.body.id } })).toBe(0);
+    expect(await db.aceptacionTerminos.count({ where: { procesoId: r.body.id } })).toBe(0);
+    const archivos = await db.archivoCarga.findMany({ where: { procesoId: r.body.id } });
+    expect(archivos).toHaveLength(3);
+    expect(archivos.every((a) => a.contenido === null && storage.archivos.has(a.ruta!))).toBe(true);
+    expect((await db.usuario.findUniqueOrThrow({ where: { id: usuario.id } })).passwordHash).toBe(usuario.passwordHash);
+    await coord.patch(`/api/coord/procesos/${r.body.id}/estado`).send({ estado: 'ABIERTO' }).expect(200);
+  });
+
+  it('crea una votación sin malla automática y rechaza reutilizaciones incompatibles sin crear borradores parciales', async () => {
+    const datos = {
+      nombre: 'Sin malla automática',
+      cicloObjetivo: '2028-1',
+      fechaInicio: new Date().toISOString(),
+      fechaFin: new Date(Date.now() + 86400000).toISOString(),
+    };
+    const nueva = await coord.post('/api/coord/procesos').send(datos).expect(201);
+    expect(nueva.body.catalogo).toEqual([]);
+    await cerrar().expect(200);
+    await coord.patch(`/api/coord/procesos/${nueva.body.id}/estado`).send({ estado: 'ABIERTO' }).expect(400);
+    const antes = await db.procesoVotacion.count();
+    await coord
+      .post('/api/coord/procesos')
+      .send({ ...datos, reutilizar: { historial: esc.procesoId } })
+      .expect(400);
+    await coord
+      .post('/api/coord/procesos')
+      .send({ ...datos, reutilizar: { malla: nueva.body.id } })
+      .expect(400);
+    await coord
+      .post('/api/coord/procesos')
+      .send({ ...datos, reutilizar: { malla: '00000000-0000-4000-8000-000000000000' } })
+      .expect(400);
+    await coord
+      .post('/api/coord/procesos')
+      .send({ ...datos, reutilizar: { malla: esc.procesoId, otro: esc.procesoId } })
+      .expect(400);
+    expect(await db.procesoVotacion.count()).toBe(antes);
   });
 });

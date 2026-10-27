@@ -12,7 +12,6 @@ import LayoutAlumno from '@/pages/alumno/LayoutAlumno';
 import MisVotos from '@/pages/alumno/MisVotos';
 import AlumnoResultados from '@/pages/alumno/Resultados';
 import CargaDatos from '@/pages/coordinador/CargaDatos';
-import Cursos from '@/pages/coordinador/Cursos';
 import DetalleAlumno from '@/pages/coordinador/DetalleAlumno';
 import DetalleCurso from '@/pages/coordinador/DetalleCurso';
 import LayoutCoord from '@/pages/coordinador/LayoutCoord';
@@ -38,7 +37,9 @@ export default function App() {
           <Route index element={<VotacionesAlumno />} />
           <Route path="votaciones/:procesoId">
             <Route index element={<Navigate to="catalogo" replace />} />
-            <Route path="catalogo" element={<AlumnoCatalogo />} />
+            <Route path="cursos" element={<AlumnoCatalogo />} />
+            <Route path="catalogo" element={<Navigate to="../cursos" replace />} />
+            <Route path="cursos/:codigo" element={<DetalleElectivo />} />
             <Route path="catalogo/:codigo" element={<DetalleElectivo />} />
             <Route path="votos" element={<MisVotos />} />
             <Route path="resultados" element={<AlumnoResultados />} />
@@ -53,7 +54,6 @@ export default function App() {
         <Route path="/coord" element={<LayoutCoord />}>
           <Route index element={<Procesos />} />
           <Route path="nueva-votacion" element={<NuevaVotacion />} />
-          <Route path="catalogo" element={<Cursos />} />
           <Route path="votaciones/:procesoId">
             <Route index element={<Navigate to="cursos/seleccion" replace />} />
             <Route path="cursos" element={<Navigate to="seleccion" replace />} />

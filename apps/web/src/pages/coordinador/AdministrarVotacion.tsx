@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Lock, Pencil, Play, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Select } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { EstadoProceso, Proceso } from '@/lib/tipos';
 import { api } from '@/lib/api';
@@ -12,7 +11,6 @@ import { FormularioProceso } from './Procesos';
 export default function AdministrarVotacion({ proceso }: { proceso: Proceso }) {
   const cliente = useQueryClient();
   const [editando, setEditando] = useState(false);
-  const [origen, setOrigen] = useState('');
   const procesos = useQuery({ queryKey: ['coord', 'procesos'], queryFn: api.procesos });
   const actualizar = () => cliente.invalidateQueries({ queryKey: ['coord'] });
   const cambiar = useMutation({
@@ -20,15 +18,6 @@ export default function AdministrarVotacion({ proceso }: { proceso: Proceso }) {
     onSuccess: () => {
       actualizar();
       toast.success('Estado de la votación actualizado');
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const reutilizar = useMutation({
-    mutationFn: () => api.reutilizarCatalogo(proceso.id, origen),
-    onSuccess: () => {
-      actualizar();
-      setOrigen('');
-      toast.success('Catálogo reutilizado');
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -63,28 +52,6 @@ export default function AdministrarVotacion({ proceso }: { proceso: Proceso }) {
         >
           <RotateCcw /> Reabrir votación
         </Button>
-      )}
-      {proceso.estado === 'BORRADOR' && (
-        <div className="flex flex-wrap gap-2">
-          <Select
-            aria-label="Reutilizar catálogo de otra votación"
-            className="w-64"
-            value={origen}
-            onChange={(e) => setOrigen(e.target.value)}
-          >
-            <option value="">Reutilizar catálogo de…</option>
-            {procesos.data
-              ?.filter((p) => p.id !== proceso.id && p.estado !== 'BORRADOR')
-              .map((p) => (
-                <option value={p.id} key={p.id}>
-                  {p.nombre}
-                </option>
-              ))}
-          </Select>
-          <Button variant="outline" disabled={!origen || reutilizar.isPending} onClick={() => reutilizar.mutate()}>
-            Reutilizar catálogo
-          </Button>
-        </div>
       )}
       <Dialog open={editando} onOpenChange={setEditando}>
         <DialogContent>

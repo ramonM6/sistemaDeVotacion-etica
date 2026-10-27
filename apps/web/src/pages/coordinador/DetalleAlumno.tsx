@@ -133,7 +133,7 @@ export default function DetalleAlumno() {
                     <TableCell>
                       <span className="font-mono text-xs font-semibold">{h.cursoCodigo}</span>
                       <div className="text-xs text-muted-foreground">
-                        {h.cursoNombre ?? 'Fuera del catálogo'}
+                        {h.cursoNombre ?? 'Fuera de la malla'}
                         {h.tipo && h.tipo !== 'OBLIGATORIO' && ` · ${ETIQUETA_TIPO[h.tipo]}`}
                       </div>
                     </TableCell>

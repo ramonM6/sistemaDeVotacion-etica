@@ -278,7 +278,7 @@ export default function CargaDatos() {
         <>
           <div className="grid gap-4 sm:grid-cols-3">
             <Card className="p-5">
-              <p className="text-sm text-muted-foreground">Catálogo de la votación</p>
+              <p className="text-sm text-muted-foreground">Malla de la votación</p>
               <p className="mt-2 text-2xl font-bold">
                 {electivos !== undefined
                   ? `${electivos} electivos`
@@ -291,7 +291,7 @@ export default function CargaDatos() {
               </Link>
               <p className="mt-2 text-xs text-muted-foreground">
                 {enPreparacion
-                  ? 'El catálogo se conserva desde la primera apertura.'
+                  ? 'La malla se conserva desde la primera apertura.'
                   : 'Oferta conservada para esta votación.'}
               </p>
             </Card>
@@ -314,7 +314,7 @@ export default function CargaDatos() {
             <AlertDescription>
               {enPreparacion
                 ? 'Esta votación está en borrador. Solo prepara o actualiza los datos si todavía hace falta hacerlo.'
-                : 'Esta votación ya fue abierta. Sus datos académicos y su catálogo se conservan; aquí puedes consultarlos y descargar los archivos disponibles.'}
+                : 'Esta votación ya fue abierta. Sus datos académicos y su malla se conservan; aquí puedes consultarlos y descargar los archivos disponibles.'}
             </AlertDescription>
           </Alert>
         </>

@@ -93,26 +93,26 @@ export class ProcesosService implements OnModuleInit, OnModuleDestroy {
     return this.repo.listar();
   }
 
-  async reutilizarCatalogo(id: string, origenId: string, actor: string) {
-    await this.obtener(id);
-    await this.obtener(origenId);
-    const proceso = await this.repo.reutilizarCatalogo(id, origenId);
-    await this.audit.registrar('EDITAR_PROCESO', actor, { procesoId: id, catalogoOrigen: origenId });
-    return proceso;
-  }
-
   async crear(dto: CrearProcesoDto, coordinadorId: string) {
     this.validarFechas(dto.fechaInicio, dto.fechaFin);
-    const proceso = await this.repo.crear({
-      nombre: dto.nombre.trim(),
-      cicloObjetivo: dto.cicloObjetivo,
-      cicloActual: dto.cicloActual,
-      fechaInicio: dto.fechaInicio,
-      fechaFin: dto.fechaFin,
-      maxCursos: dto.maxCursos ?? 5,
-      maxFranjas: dto.maxFranjas ?? 2,
+    const proceso = await this.repo.crear(
+      {
+        nombre: dto.nombre.trim(),
+        cicloObjetivo: dto.cicloObjetivo,
+        cicloActual: dto.cicloActual,
+        fechaInicio: dto.fechaInicio,
+        fechaFin: dto.fechaFin,
+        maxCursos: dto.maxCursos ?? 5,
+        maxFranjas: dto.maxFranjas ?? 2,
+      },
+      dto.reutilizar,
+      coordinadorId,
+    );
+    await this.audit.registrar('CREAR_PROCESO', coordinadorId, {
+      procesoId: proceso.id,
+      nombre: proceso.nombre,
+      reutilizar: dto.reutilizar ? { ...dto.reutilizar } : {},
     });
-    await this.audit.registrar('CREAR_PROCESO', coordinadorId, { procesoId: proceso.id, nombre: proceso.nombre });
     return proceso;
   }
 

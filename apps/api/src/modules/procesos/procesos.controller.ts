@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { Roles, UsuarioActual, UsuarioSesion } from '../../common/auth.decorators';
-import { CambiarEstadoDto, CrearProcesoDto, EditarProcesoDto, ReutilizarCatalogoDto } from './procesos.dto';
+import { CambiarEstadoDto, CrearProcesoDto, EditarProcesoDto } from './procesos.dto';
 import { ProcesosService } from './procesos.service';
 
 @Controller('procesos')
@@ -27,15 +27,6 @@ export class CoordProcesosController {
   @Post()
   crear(@Body() dto: CrearProcesoDto, @UsuarioActual() u: UsuarioSesion) {
     return this.procesos.crear(dto, u.id);
-  }
-
-  @Post(':id/reutilizar-catalogo')
-  reutilizar(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: ReutilizarCatalogoDto,
-    @UsuarioActual() u: UsuarioSesion,
-  ) {
-    return this.procesos.reutilizarCatalogo(id, dto.origenId, u.id);
   }
 
   @Patch(':id')

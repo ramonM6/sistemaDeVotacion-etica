@@ -51,7 +51,7 @@ export default function LayoutAlumno() {
           </p>
           <nav aria-label="Navegación de la votación" className="flex flex-wrap gap-x-5 gap-y-1 border-b">
             {[
-              ['catalogo', 'Catálogo'],
+              ['cursos', 'Cursos'],
               ['votos', 'Mis votos'],
               ['resultados', 'Resultados'],
               ['seguimiento', 'Seguimiento'],

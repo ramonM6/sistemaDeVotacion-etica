@@ -122,7 +122,6 @@ export const api = {
     post(`/coord/seguimiento/csv/confirmar${qs({ procesoId })}`, { csv }),
   // Coordinador
   procesos: () => get<Proceso[]>('/coord/procesos'),
-  reutilizarCatalogo: (id: string, origenId: string) => post(`/coord/procesos/${id}/reutilizar-catalogo`, { origenId }),
   crearProceso: (datos: ProcesoForm) => post<Proceso>('/coord/procesos', datos),
   editarProceso: (id: string, datos: Partial<ProcesoForm>) => patch<Proceso>(`/coord/procesos/${id}`, datos),
   cambiarEstado: (id: string, estado: Proceso['estado']) => patch<Proceso>(`/coord/procesos/${id}/estado`, { estado }),
@@ -175,6 +174,7 @@ export interface ProcesoForm {
   fechaFin: string;
   maxCursos: number;
   maxFranjas: number;
+  reutilizar?: { malla?: string; cuentas?: string; historial?: string };
 }
 
 export interface SeguimientoCurso {

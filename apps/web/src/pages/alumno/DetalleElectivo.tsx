@@ -77,8 +77,8 @@ export default function DetalleElectivo() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <Button asChild variant="ghost" size="sm" className="-ml-3">
-        <Link to={`${rutaProceso}/catalogo`}>
-          <ArrowLeft /> Volver al catálogo
+        <Link to={`${rutaProceso}/cursos`}>
+          <ArrowLeft /> Volver a los cursos
         </Link>
       </Button>
 

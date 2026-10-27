@@ -57,7 +57,7 @@ npm run dev            # migra, siembra datos la primera vez y levanta API + web
 | Coordinador | `coordinador` | `Coordinador#2026` (variables `COORD_USER` / `COORD_PASSWORD`) |
 | Alumnos | ver tabla | `Alumno#2026` |
 
-El seed crea el catálogo completo (148 cursos, desde `docs/plantillas/plantilla_catalogo_cursos.xlsx`), un proceso **ABIERTO** "Electivos 2027-1", 16 alumnos sintéticos y 21 votos de ejemplo:
+El seed crea la malla de ejemplo (148 cursos, desde `docs/plantillas/plantilla_catalogo_cursos.xlsx`), un proceso **ABIERTO** "Electivos 2027-1", 16 alumnos sintéticos y 21 votos de ejemplo:
 
 | Código | Caso que cubre |
 |---|---|
@@ -111,18 +111,18 @@ Puntos que la especificación no detalla y cómo se resolvieron:
 - **Tope de 12 créditos de `ELECTIVO_LIBRE`**: primero se cuentan los aprobados y el saldo se completa con los que están en curso.
 - **CONDICIONAL por créditos**: si el requisito de créditos solo se alcanza sumando los cursos en curso, el badge dice "Apto si apruebas tus cursos en curso" (el resultado trae `dependeDeCreditosEnCurso: true`).
 - **Padrón y login**: un alumno solo puede iniciar sesión si está en el padrón (Excel de cuentas) del proceso activo, es decir, el abierto o, si no hay ninguno, el último.
-- **Reimportar el catálogo**: los cursos que ya no vienen en el archivo se eliminan, salvo los que tienen votos (se conservan y la vista previa avisa).
+- **Malla por votación**: cada nuevo borrador inicia sin cursos. Sube su malla o reutiliza una anterior; no se hereda una oferta global.
 - **Reabrir un proceso**: desde `CERRADO` se puede volver a `ABIERTO` solo si la fecha de fin está en el futuro (primero se edita la fecha para extender el plazo).
 - **Hoja con otro nombre**: si el Excel no tiene la hoja esperada (`cursos`, `alumnos`, `historial`), se usa la primera hoja que no sea `LEEME` y se muestra una advertencia.
 - **Rate limit**: cuenta todos los intentos de login (correctos o no) por IP y código, 5 por minuto.
-- **Descripciones**: la plantilla del catálogo no trae descripciones y el seed no las inventa, así que el panel avisa "54 electivos sin descripción" hasta que el coordinador las complete.
+- **Descripciones**: inclúyelas en la columna opcional `descripcion` de la malla del ciclo.
 - **Motor base `SIMULTANEO_PERMISIVO`**: es una constante en `apps/api/src/modules/elegibilidad/motor/constantes.ts` (por defecto `false`, como pide la especificación).
 
 ## Requisitos integrados de VotaInf
 
 La actualización y sus reglas vigentes están en [docs/NUEVOS_REQUISITOS.md](docs/NUEVOS_REQUISITOS.md). Conserva el login con código y contraseña, hasta **5 electivos** y **1–2 de las cinco franjas originales**. No utiliza Google ni limita la selección a 28 créditos.
 
-Incluye edición/retiro de elecciones durante la apertura, simultaneidad de electivos con inclusión atómica de dependencias, resultados de alumnos al cierre, tablero de votaciones con gestión de estados de cursos dentro de cada período, filtro por votos confirmados/condicionales y exportación visual a PDF del ranking, mapa de calor e indicadores, reutilización y congelamiento de catálogos e importaciones Excel/CSV con archivos originales en Supabase Storage privado y trazabilidad.
+Incluye edición/retiro de elecciones durante la apertura, simultaneidad de electivos con inclusión atómica de dependencias, resultados de alumnos al cierre, tablero de votaciones con gestión de estados de cursos dentro de cada período, filtro por votos confirmados/condicionales y exportación visual a PDF del ranking, mapa de calor e indicadores, reutilización de archivos y mallas por votación e importaciones Excel/CSV con archivos originales en Supabase Storage privado y trazabilidad.
 
 Los resultados y las exportaciones del coordinador muestran agregados. Ya no se publican listas que relacionen alumnos y cursos elegidos. El historial académico del padrón sigue disponible para revisar elegibilidad.
 
@@ -141,7 +141,7 @@ Este comando aplica todas las migraciones en una base efímera y usa `127.0.0.1:
 
 Configura `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` y `SUPABASE_STORAGE_BUCKET` en `apps/api/.env`. El bucket debe existir y ser privado. La clave se usa exclusivamente en NestJS. La base de datos conserva metadatos (nombre, hash, ruta, tipo y proceso), además de los datos académicos procesados; las nuevas cargas nunca guardan el contenido del archivo en PostgreSQL.
 
-Al crear una votación se pueden adjuntar la malla del ciclo actual, las cuentas y el historial en CSV o Excel `.xlsx` (máximo 5 MB cada uno). El borrador abre «Datos y archivos» para revisar y confirmar, en este orden: malla, cuentas, historial. La malla utiliza la hoja `cursos` y las columnas de la plantilla de catálogo; se conserva una copia para la votación. Las cuentas usan `alumnos` y el historial `historial`. En CSV se leen los mismos encabezados sin hojas.
+Al crear una votación se pueden adjuntar la malla del ciclo actual, las cuentas y el historial en CSV o Excel `.xlsx` (máximo 5 MB cada uno). El borrador abre «Datos y archivos» para revisar y confirmar, en este orden: malla, cuentas, historial. La malla utiliza la hoja `cursos` y las columnas de la plantilla de malla; se conserva una copia para la votación. Las cuentas usan `alumnos` y el historial `historial`. En CSV se leen los mismos encabezados sin hojas.
 
 Para una instalación previa, aplica las migraciones y migra los originales antiguos:
 
@@ -154,3 +154,6 @@ npx tsx scripts/migrar-archivos-storage.ts
 El migrador sube cada original y solo entonces vacía su contenido antiguo. Conserva `ARCHIVOS_SECRET` (o el `JWT_SECRET` original) hasta terminar. La columna antigua es temporal y nullable para migrar sin perder archivos; ninguna carga nueva la utiliza. Las descargas siguen pasando por la API y requieren rol de coordinador.
 
 Referencias: [buckets privados](https://supabase.com/docs/guides/storage/buckets/fundamentals), [descargas autenticadas](https://supabase.com/docs/guides/storage/serving/downloads).
+
+
+Al crear una votación, cada sección ofrece **Subir archivo nuevo** o **Reutilizar malla/cuentas/historial**. Elige una votación anterior con datos cargados para cada tipo. Se copian sus datos al borrador; si existe un original en Supabase se reutiliza su referencia privada sin duplicar el archivo. Las cuentas mantienen sus credenciales. No se copian votos, aceptaciones de términos ni decisiones. Para reutilizar historial se necesita un padrón compatible: reutiliza sus cuentas al crear, o sube primero las cuentas nuevas y después importa el historial. Las votaciones de ejemplo pueden tener datos pero carecer del archivo original.
