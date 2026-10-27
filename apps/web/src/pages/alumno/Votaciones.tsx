@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Cargando, ErrorCarga, Titulo, Vacio } from '@/components/Estados';
 import { EstadoProcesoBadge } from '@/components/Insignias';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { ArrowRight, CalendarDays, Vote } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatearFecha } from '@/lib/formato';
 export default function Votaciones() {
@@ -10,7 +10,7 @@ export default function Votaciones() {
   if (consulta.isLoading) return <Cargando />;
   if (consulta.error) return <ErrorCarga error={consulta.error} />;
   return (
-    <div>
+    <div className="space-y-6">
       <Titulo
         titulo="Votaciones"
         descripcion="Elige una votación para consultar sus cursos, tus votos y su seguimiento."
@@ -18,21 +18,44 @@ export default function Votaciones() {
       {!consulta.data?.length ? (
         <Vacio>No tienes votaciones disponibles en tu padrón.</Vacio>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {consulta.data.map((p) => (
-            <Link key={p.id} to={`/alumno/votaciones/${p.id}`} className="group">
-              <Card className="h-full transition-shadow group-hover:shadow-md">
-                <CardHeader>
-                  <div>
-                    <EstadoProcesoBadge estado={p.estado} />
-                  </div>
-                  <CardTitle className="text-lg">{p.nombre}</CardTitle>
-                  <CardDescription>Ciclo {p.cicloObjetivo}</CardDescription>
-                  <CardDescription>
-                    Del {formatearFecha(p.fechaInicio)} al {formatearFecha(p.fechaFin)}
-                  </CardDescription>
-                </CardHeader>
-              </Card>
+            <Link
+              key={p.id}
+              to={`/alumno/votaciones/${p.id}`}
+              className="group overflow-hidden rounded-xl border bg-card shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <div
+                className={`relative flex h-32 items-end justify-between overflow-hidden p-5 ${p.estado === 'ABIERTO' ? 'bg-blue-700' : p.estado === 'CERRADO' ? 'bg-slate-700' : 'bg-teal-700'}`}
+              >
+                <div
+                  aria-hidden="true"
+                  className="absolute -right-5 -top-9 h-40 w-40 rounded-full border-[22px] border-white/10"
+                />
+                <div className="relative">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-white/75">Votación de electivos</p>
+                  <p className="mt-1 text-3xl font-bold text-white">{p.cicloObjetivo}</p>
+                </div>
+                <Vote aria-hidden="true" className="relative h-9 w-9 text-white/80" />
+              </div>
+              <div className="space-y-4 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="text-lg font-semibold leading-snug group-hover:text-primary">{p.nombre}</h2>
+                  <EstadoProcesoBadge estado={p.estado} />
+                </div>
+                <p className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <CalendarDays aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    {formatearFecha(p.fechaInicio)}
+                    <br />
+                    hasta {formatearFecha(p.fechaFin)}
+                  </span>
+                </p>
+                <div className="flex items-center justify-between border-t pt-4 text-sm font-semibold text-primary">
+                  <span>Entrar a la votación</span>
+                  <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                </div>
+              </div>
             </Link>
           ))}
         </div>
