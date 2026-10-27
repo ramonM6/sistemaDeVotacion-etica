@@ -274,11 +274,14 @@ export default function Catalogo() {
               <p className="text-sm font-semibold">
                 {c.codigo} · {c.nombre}
               </p>
-              {c.elegibilidad.aptitud === 'CONDICIONAL' && (
-                <p className="text-xs text-amber-800">
-                  Condicional
-                </p>
-              )}
+              <p
+                className={cn(
+                  'text-xs',
+                  c.elegibilidad.aptitud === 'CONDICIONAL' ? 'text-amber-800' : 'text-emerald-700',
+                )}
+              >
+                {c.elegibilidad.aptitud === 'CONDICIONAL' ? 'Condicional' : 'Apto'}
+              </p>
               <div className="flex flex-wrap gap-3">
                 {FRANJAS.map((f) => {
                   const actuales = franjas[c.codigo] ?? [];
