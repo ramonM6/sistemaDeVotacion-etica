@@ -23,7 +23,7 @@ const ejecutar = (cmd) => execSync(cmd, { cwd: raiz, stdio: 'inherit' });
 ejecutar('npx prisma generate');
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// La base puede tardar unos segundos en aceptar conexiones después de `docker compose up -d`.
+// Reintenta si PostgreSQL tarda unos segundos en aceptar conexiones.
 let intentos = 0;
 for (;;) {
   try {

@@ -1,9 +1,10 @@
 @echo off
 rem ==========================================================================
 rem  Sistema de Votacion de Electivos - inicio con doble clic (Windows)
-rem  Verifica Node.js, instala dependencias, comprueba PostgreSQL y arranca
+rem  Verifica Node.js, instala dependencias, comprueba Supabase y arranca
 rem  la API y la web. La logica esta en scripts\iniciar.mjs.
-rem  Conserva la BD. Las plantillas se descargan desde Supabase.
+rem  Requiere apps\api\.env configurado con las conexiones y claves del equipo.
+rem  No necesita Docker. Conserva la BD compartida en Supabase.
 rem ==========================================================================
 setlocal
 chcp 65001 >nul

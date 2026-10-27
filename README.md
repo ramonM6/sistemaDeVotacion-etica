@@ -13,15 +13,15 @@ Los puertos por defecto son `3000` (API) y `5173` (web); Supabase usa `6543` par
 
 ## 2. Clonar e instalar
 
-Mientras los cambios estén en `feature/nuevos-requisitos`, clona esa rama:
+Clona la rama `main`, que contiene la versión actual:
 
 ```sh
-git clone --branch feature/nuevos-requisitos https://github.com/ramonM6/sistemaDeVotacion-etica.git
+git clone --branch main https://github.com/ramonM6/sistemaDeVotacion-etica.git
 cd sistemaDeVotacion-etica
 npm ci
 ```
 
-La rama debe estar subida a GitHub para que tus compañeros puedan obtenerla. Si el repositorio es privado, necesitarán acceso. Si ya lo clonaron, pueden actualizarlo con Git y cambiar a esa rama antes de ejecutar `npm ci`.
+Si el repositorio es privado, necesitarán acceso. Si ya lo clonaron, ejecuten `git switch main` y `git pull --ff-only origin main` antes de `npm ci`.
 
 ## 3. Configurar el entorno
 
@@ -75,7 +75,7 @@ Una instalación nueva empieza **solo con el coordinador**, sin alumnos, votacio
 
 Después de configurar `.env`, puedes usar **`iniciar.bat`** en lugar de escribir los comandos de arranque. Es un atajo de Windows que llama a `scripts/iniciar.mjs`; no es un ejecutable independiente.
 
-El script comprueba Node/npm, ejecuta `npm ci` si faltan dependencias o cambió el lock, comprueba PostgreSQL y lo inicia mediante Docker si es local y hace falta, comprueba los puertos y ejecuta `npm run dev`. Abre el navegador cuando la web está lista. Si prefieres abrirlo tú, usa `iniciar.bat --sin-navegador`.
+El script comprueba Node/npm, ejecuta `npm ci` si faltan dependencias o cambió el lock, comprueba las conexiones `DATABASE_URL` y `DIRECT_URL` de Supabase sin iniciar Docker, comprueba los puertos y ejecuta `npm run dev`. Abre el navegador cuando la web está lista. Si prefieres abrirlo tú, usa `iniciar.bat --sin-navegador`.
 
 No borra la BD ni vuelve a cargar alumnos o plantillas. En Linux/macOS existe el mismo asistente:
 

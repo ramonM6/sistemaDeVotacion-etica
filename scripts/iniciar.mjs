@@ -1,9 +1,9 @@
 // Prepara y arranca el proyecto con un solo comando (lo usa iniciar.bat en Windows).
 //   node scripts/iniciar.mjs [--sin-navegador]
 //
-// Pasos: verifica Node, instala dependencias si hace falta, comprueba PostgreSQL (y lo levanta con
-// Docker si está disponible) y ejecuta `npm run dev`. El script `predev` (apps/api/scripts/setup.mjs)
-// es el que crea apps/api/.env si no existe, aplica migraciones y crea únicamente el coordinador si falta.
+// Pasos: verifica Node, instala dependencias si hace falta, comprueba las conexiones
+// configuradas de Supabase y ejecuta `npm run dev`. El predev aplica migraciones
+// y crea únicamente el coordinador si falta. No requiere ni inicia Docker.
 // Solo usa módulos de Node: debe funcionar antes de `npm ci`.
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
@@ -19,7 +19,6 @@ const abrirNavegador = !process.argv.includes('--sin-navegador');
 
 const paso = (n, texto) => console.log(`\n[${n}/5] ${texto}`);
 const ok = (texto) => console.log(`      OK  ${texto}`);
-const aviso = (texto) => console.log(`      !!  ${texto}`);
 
 class ErrorInicio extends Error {}
 function fallar(titulo, ...lineas) {
@@ -27,7 +26,7 @@ function fallar(titulo, ...lineas) {
 }
 
 /**
- * En Windows npm/npx/docker-compose son .cmd y necesitan shell; ahí el comando va como una sola
+ * En Windows npm/npx son .cmd y necesitan shell; ahí el comando va como una sola
  * cadena (los argumentos son fijos, sin espacios). La carpeta del proyecto va en `cwd`, así que una
  * ruta con espacios no afecta.
  */
@@ -41,13 +40,6 @@ function ejecutar(comando, args) {
   const r = spawnSync(c, a, { cwd: RAIZ, stdio: 'inherit', ...o });
   if (r.error) throw r.error;
   return r.status ?? 1;
-}
-
-/** Ejecuta un comando en silencio y devuelve si terminó bien. */
-function probar(comando, args) {
-  const [c, a, o] = comandoSO(comando, args);
-  const r = spawnSync(c, a, { cwd: RAIZ, stdio: 'ignore', timeout: 20_000, ...o });
-  return !r.error && r.status === 0;
 }
 
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -109,62 +101,36 @@ function instalarDependencias() {
   ok('Dependencias instaladas');
 }
 
-function urlBaseDeDatos() {
+function conexionesBaseDeDatos() {
   const env = join(API, '.env');
-  const desde = existsSync(env) ? 'apps/api/.env' : 'apps/api/.env.example';
-  const url = process.env.DATABASE_URL ?? leerVariable(env, 'DATABASE_URL') ?? leerVariable(join(API, '.env.example'), 'DATABASE_URL');
-  if (!url) fallar('No se encontró DATABASE_URL.', 'Revisa apps/api/.env (puedes copiarlo de apps/api/.env.example).');
-  try {
-    const u = new URL(url);
-    return { host: u.hostname || 'localhost', puerto: Number(u.port || 5432), desde };
-  } catch {
-    fallar(`DATABASE_URL en ${desde} no es una URL válida.`, 'Formato esperado: postgresql://usuario:clave@localhost:5432/base?schema=public');
-  }
-}
-
-function comandoCompose() {
-  if (probar('docker', ['compose', 'version'])) return ['docker', ['compose']];
-  if (probar('docker-compose', ['version'])) return ['docker-compose', []];
-  return null;
+  return ['DATABASE_URL', 'DIRECT_URL'].map((clave) => {
+    const valor = process.env[clave] ?? leerVariable(env, clave);
+    if (!valor || /YOUR-PASSWORD|\[YOUR-PASSWORD\]/.test(valor)) {
+      fallar(`Falta configurar ${clave}.`,
+        'Copia apps/api/.env.example a apps/api/.env si todavía no existe.',
+        'Completa la contraseña de Supabase en ambas conexiones antes de iniciar.');
+    }
+    let url;
+    try { url = new URL(valor); } catch {
+      fallar(`${clave} no es una URL válida.`, 'Revisa apps/api/.env.');
+    }
+    if (!['postgresql:', 'postgres:'].includes(url.protocol) || !url.hostname || !url.password)
+      fallar(`${clave} no es una conexión PostgreSQL completa.`, 'Revisa usuario, contraseña, host y base en apps/api/.env.');
+    return { clave, host: url.hostname, puerto: Number(url.port || 5432) };
+  });
 }
 
 async function prepararBaseDeDatos() {
-  paso(3, 'Comprobando PostgreSQL');
-  const { host, puerto, desde } = urlBaseDeDatos();
-  const destino = `${host}:${puerto}`;
-  if (await puertoAbierto(host, puerto)) {
-    ok(`PostgreSQL responde en ${destino} (configurado en ${desde})`);
-    return;
-  }
-
-  const esLocal = ['localhost', '127.0.0.1', '::1'].includes(host);
-  const compose = esLocal ? comandoCompose() : null;
-  const instrucciones = [
-    'Opción A (recomendada): instala Docker Desktop (https://www.docker.com/products/docker-desktop),',
-    '  ábrelo y espera a que diga "Engine running"; luego vuelve a ejecutar iniciar.bat.',
-    'Opción B: instala PostgreSQL 16, crea un usuario y una base de datos, y escribe su URL en',
-    '  DATABASE_URL dentro de apps/api/.env (se crea copiando apps/api/.env.example).',
-  ];
-
-  if (!esLocal) fallar(`No se puede conectar a PostgreSQL en ${destino} (configurado en ${desde}).`, 'Verifica que el servidor esté encendido y accesible.');
-  if (!compose) fallar(`PostgreSQL no responde en ${destino} y Docker no está instalado.`, ...instrucciones);
-  if (!probar('docker', ['info'])) {
-    fallar(`PostgreSQL no responde en ${destino} y Docker no está en ejecución.`, 'Abre Docker Desktop, espera a que diga "Engine running" y vuelve a ejecutar iniciar.bat.');
-  }
-
-  console.log('      Levantando PostgreSQL con Docker (docker compose up -d)...');
-  const [cmd, base] = compose;
-  if (ejecutar(cmd, [...base, 'up', '-d']) !== 0) {
-    fallar('Falló `docker compose up -d`.', `Si el puerto ${puerto} está ocupado por otro PostgreSQL, detenlo o ajusta DATABASE_URL en apps/api/.env.`);
-  }
-  for (let i = 0; i < 30; i++) {
-    if (await puertoAbierto(host, puerto)) {
-      ok(`PostgreSQL disponible en ${destino}`);
-      return;
+  paso(3, 'Comprobando las conexiones de PostgreSQL en Supabase');
+  for (const { clave, host, puerto } of conexionesBaseDeDatos()) {
+    if (!await puertoAbierto(host, puerto, 10_000)) {
+      fallar(`No se puede conectar a ${host}:${puerto} (${clave}).`,
+        'Comprueba tu conexión a internet, que el proyecto de Supabase esté activo',
+        'y que las conexiones de apps/api/.env tengan el host y los puertos correctos.',
+        'No necesitas Docker para usar Supabase.');
     }
-    await esperar(2000);
+    ok(`${clave}: conexión accesible en ${host}:${puerto}`);
   }
-  fallar(`El contenedor arrancó, pero PostgreSQL no responde en ${destino}.`, 'Revisa los logs con: docker compose logs postgres');
 }
 
 async function verificarPuertos() {
