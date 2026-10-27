@@ -24,7 +24,7 @@ import type { ElectivoAlumno, Franja } from '@/lib/tipos';
 import { cn } from '@/lib/utils';
 import { useEstadoAlumno, useVotacionAlumno } from './LayoutAlumno';
 
-type Filtro = 'todos' | 'aptos' | 'votados' | 'no votados';
+type Filtro = 'todos' | 'aptos' | 'condicionales' | 'no aptos' | 'votados' | 'no votados';
 export function EtiquetaPropia({ estado }: { estado: ElectivoAlumno['estadoPropio'] }) {
   if (estado === 'APROBADO') return <Badge variant="info">Ya aprobaste este curso</Badge>;
   if (estado === 'EN_CURSO') return <Badge variant="info">Lo estás llevando</Badge>;
@@ -64,12 +64,16 @@ export default function Catalogo() {
       .filter((c) => !q || c.codigo.toLowerCase().includes(q) || c.nombre.toLowerCase().includes(q))
       .filter((c) =>
         filtro === 'aptos'
-          ? c.elegibilidad.aptitud !== 'NO_APTO'
-          : filtro === 'votados'
-            ? !!c.voto
-            : filtro === 'no votados'
-              ? !c.voto
-              : true,
+          ? c.elegibilidad.aptitud === 'CONFIRMADO'
+          : filtro === 'condicionales'
+            ? c.elegibilidad.aptitud === 'CONDICIONAL'
+            : filtro === 'no aptos'
+              ? c.elegibilidad.aptitud === 'NO_APTO'
+              : filtro === 'votados'
+                ? !!c.voto
+                : filtro === 'no votados'
+                  ? !c.voto
+                  : true,
       )
       .sort((a, b) => a.codigo.localeCompare(b.codigo));
   }, [consulta.data, busqueda, filtro]);
@@ -97,10 +101,15 @@ export default function Catalogo() {
   const disponibles = electivos.filter((c) => !c.voto && c.elegibilidad.aptitud !== 'NO_APTO');
   const todosMarcados = disponibles.length > 0 && seleccionados.length === disponibles.length;
   const restantes = e.maxCursos - e.votosUsados;
-  const todos = consulta.data!.electivos;
+  const q = busqueda.trim().toLowerCase();
+  const todos = consulta.data!.electivos.filter(
+    (c) => !q || c.codigo.toLowerCase().includes(q) || c.nombre.toLowerCase().includes(q),
+  );
   const conteo = {
     todos: todos.length,
-    aptos: todos.filter((c) => c.elegibilidad.aptitud !== 'NO_APTO').length,
+    aptos: todos.filter((c) => c.elegibilidad.aptitud === 'CONFIRMADO').length,
+    condicionales: todos.filter((c) => c.elegibilidad.aptitud === 'CONDICIONAL').length,
+    'no aptos': todos.filter((c) => c.elegibilidad.aptitud === 'NO_APTO').length,
     votados: todos.filter((c) => c.voto).length,
     'no votados': todos.filter((c) => !c.voto).length,
   };
@@ -129,7 +138,7 @@ export default function Catalogo() {
           />
         </div>
         <div className="inline-flex flex-wrap rounded-md border bg-background p-1" role="group" aria-label="Filtro">
-          {(['todos', 'aptos', 'votados', 'no votados'] as Filtro[]).map((f) => (
+          {(['todos', 'aptos', 'condicionales', 'no aptos', 'votados', 'no votados'] as Filtro[]).map((f) => (
             <button
               key={f}
               onClick={() => setFiltro(f)}
@@ -186,7 +195,9 @@ export default function Catalogo() {
                   <th className="px-4 py-3">Créditos</th>
                   <th className="px-4 py-3">Aptitud</th>
                   <th className="px-4 py-3">Estado</th>
-                  <th className="px-4 py-3 text-right">Acciones</th>
+                  <th className="w-14 px-4 py-3">
+                    <span className="sr-only">Detalle del curso</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
