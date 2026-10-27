@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Check, MoreVertical } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, MoreVertical, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { Cargando, ErrorCarga } from '@/components/Estados';
 import { Button } from '@/components/ui/button';
@@ -40,6 +40,7 @@ function MenuCurso({
   cambiar?: (estado: string) => void;
 }) {
   const [menu, setMenu] = useState<{ top: number; right: number } | null>(null);
+  const [submenu, setSubmenu] = useState(false);
   const boton = useRef<HTMLButtonElement>(null);
   const opciones = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -70,6 +71,7 @@ function MenuCurso({
 
         onClick={() => {
           const rect = boton.current!.getBoundingClientRect();
+          setSubmenu(false);
           setMenu(
             menu
               ? null
@@ -112,22 +114,64 @@ function MenuCurso({
             >
               Ver detalle
             </Link>
-            {cambiar &&
-              ['SELECCIONADO_PARA_REVISION', 'NO_SELECCIONADO'].map((estado) => (
+            {cambiar && (
+              <div className="relative" onMouseEnter={() => setSubmenu(true)} onMouseLeave={() => setSubmenu(false)}>
                 <button
-                  key={estado}
                   role="menuitem"
+                  aria-haspopup="menu"
+                  aria-expanded={submenu}
                   disabled={ocupado}
-                  className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-accent focus:bg-accent focus:outline-none disabled:opacity-50"
-                  onClick={() => {
-                    setMenu(null);
-                    boton.current?.focus();
-                    cambiar(estado);
+                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent focus:bg-accent focus:outline-none disabled:opacity-50"
+                  onClick={() => setSubmenu((v) => !v)}
+                  onKeyDown={(ev) => {
+                    if (ev.key === 'ArrowLeft') {
+                      ev.preventDefault();
+                      ev.stopPropagation();
+                      setSubmenu(true);
+                      requestAnimationFrame(() =>
+                        opciones.current
+                          ?.querySelector<HTMLElement>('[aria-label="Estado de selección"] [role="menuitem"]')
+                          ?.focus(),
+                      );
+                    }
                   }}
                 >
-                  {etiquetas[estado]}
+                  <ChevronLeft aria-hidden className="h-4 w-4" /> Cambiar estado
                 </button>
-              ))}
+                {submenu && (
+                  <div
+                    role="menu"
+                    aria-label="Estado de selección"
+                    className="absolute right-full top-0 w-52 rounded-md border bg-card p-1 shadow-lg"
+                    onKeyDown={(ev) => {
+                      if (ev.key === 'ArrowRight') {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        setSubmenu(false);
+                        opciones.current?.querySelector<HTMLElement>('[aria-haspopup="menu"]')?.focus();
+                      }
+                    }}
+                  >
+                    {['PENDIENTE', 'SELECCIONADO_PARA_REVISION', 'NO_SELECCIONADO'].map((estado) => (
+                      <button
+                        key={estado}
+                        role="menuitem"
+                        disabled={ocupado}
+                        className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-accent focus:bg-accent focus:outline-none disabled:opacity-50"
+                        onClick={() => {
+                          setMenu(null);
+                          setSubmenu(false);
+                          boton.current?.focus();
+                          cambiar(estado);
+                        }}
+                      >
+                        {estado === 'SELECCIONADO_PARA_REVISION' ? 'Seleccionado' : etiquetas[estado]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>,
           document.body,
         )}

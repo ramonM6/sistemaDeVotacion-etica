@@ -23,6 +23,28 @@ describe('Requisitos integrados de VotaInf', () => {
   });
   const cerrar = () => coord.patch(`/api/coord/procesos/${esc.procesoId}/estado`).send({ estado: 'CERRADO' });
 
+  it('permite devolver la selección a pendiente y reinicia sus etapas posteriores', async () => {
+    await cerrar().expect(200);
+    await db.seguimientoCurso.create({
+      data: {
+        procesoId: esc.procesoId,
+        cursoCodigo: 'INF310',
+        seleccion: 'SELECCIONADO_PARA_REVISION',
+        consejo: 'APROBADO',
+        dictado: 'CONFIRMADO',
+      },
+    });
+    await coord
+      .post(`/api/coord/seguimiento/lote?procesoId=${esc.procesoId}`)
+      .send({ etapa: 'seleccion', estado: 'PENDIENTE', codigos: ['INF310'] })
+      .expect(201);
+    expect(
+      await db.seguimientoCurso.findUniqueOrThrow({
+        where: { procesoId_cursoCodigo: { procesoId: esc.procesoId, cursoCodigo: 'INF310' } },
+      }),
+    ).toMatchObject({ seleccion: 'PENDIENTE', consejo: 'PENDIENTE', dictado: 'PENDIENTE' });
+  });
+
   it('rechaza límites superiores a 5 electivos y 2 franjas', async () => {
     await coord.patch(`/api/coord/procesos/${esc.procesoId}`).send({ maxCursos: 6 }).expect(400);
     await coord.patch(`/api/coord/procesos/${esc.procesoId}`).send({ maxFranjas: 3 }).expect(400);

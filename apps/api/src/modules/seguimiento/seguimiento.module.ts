@@ -49,7 +49,15 @@ class DecisionLoteDto {
   @Matches(/^[A-Z0-9]{6}$/, { each: true })
   codigos: string[];
   @IsIn(['seleccion', 'consejo', 'dictado']) etapa: 'seleccion' | 'consejo' | 'dictado';
-  @IsIn(['SELECCIONADO_PARA_REVISION', 'NO_SELECCIONADO', 'APROBADO', 'NO_APROBADO', 'CONFIRMADO', 'NO_SE_DICTARA'])
+  @IsIn([
+    'PENDIENTE',
+    'SELECCIONADO_PARA_REVISION',
+    'NO_SELECCIONADO',
+    'APROBADO',
+    'NO_APROBADO',
+    'CONFIRMADO',
+    'NO_SE_DICTARA',
+  ])
   estado: string;
 }
 
@@ -194,7 +202,7 @@ class SeguimientoService {
 
   async lote(procesoId: string, dto: DecisionLoteDto, actor: string) {
     const opciones = {
-      seleccion: ['SELECCIONADO_PARA_REVISION', 'NO_SELECCIONADO'],
+      seleccion: ['PENDIENTE', 'SELECCIONADO_PARA_REVISION', 'NO_SELECCIONADO'],
       consejo: ['APROBADO', 'NO_APROBADO'],
       dictado: ['CONFIRMADO', 'NO_SE_DICTARA'],
     };
