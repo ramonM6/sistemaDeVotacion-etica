@@ -135,7 +135,7 @@ export function FormularioProceso({
           <legend className="px-1 text-sm font-semibold">Archivos de la votación</legend>
           <p className="text-xs text-muted-foreground">
             Sube un CSV o Excel (.xlsx), máximo 5 MB, o reutiliza los datos y el archivo disponible de una votación
-            anterior. Al guardar podrás revisar y confirmar cada importación: malla, cuentas y luego historial.
+            anterior. Al guardar se validan y cargan los archivos en este orden: malla, cuentas y luego historial.
           </p>
           {(
             [

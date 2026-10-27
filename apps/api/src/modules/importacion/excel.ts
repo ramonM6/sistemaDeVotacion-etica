@@ -63,11 +63,21 @@ export async function leerHoja(
   const libro = new ExcelJS.Workbook();
   try {
     if (formato === 'csv') {
+      const texto = new TextDecoder('utf-8', { fatal: true }).decode(archivo);
+      if (texto.includes('\0') || archivo.subarray(0, 2).toString() === 'PK') throw new Error('CSV inválido');
       const hoja = await libro.csv.read(Readable.from([archivo]), { map: (valor: string) => valor });
       hoja.name = nombreHoja;
     } else await libro.xlsx.load(archivo as unknown as ExcelJS.Buffer);
   } catch {
-    return { filas: [], erroresGenerales: ['El archivo no es un Excel .xlsx válido'], advertenciasGenerales };
+    return {
+      filas: [],
+      erroresGenerales: [
+        formato === 'csv'
+          ? 'El archivo no es un CSV válido en UTF-8. Revisa el formato y los encabezados.'
+          : 'El archivo no es un Excel .xlsx válido',
+      ],
+      advertenciasGenerales,
+    };
   }
 
   let hoja = libro.worksheets.find((h) => h.name.trim().toLowerCase() === nombreHoja);

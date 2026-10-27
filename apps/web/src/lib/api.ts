@@ -130,6 +130,10 @@ export const api = {
     get<{ id: string; nombre: string; tipo: string; filas: number; sha256: string; createdAt: string }[]>(
       `/coord/import/archivos${qs({ procesoId })}`,
     ),
+  eliminarImportacion: (tipo: 'malla' | 'cuentas' | 'historial', procesoId: string) =>
+    solicitar<{ tipos: string[]; advertencias: string[] }>(`/coord/import/${tipo}${qs({ procesoId })}`, {
+      method: 'DELETE',
+    }),
   urlArchivo: (id: string) => `/api/coord/import/archivos/${id}`,
   previewImportacion: (tipo: TipoImportacion, archivo: File, procesoId?: string) => {
     const fd = new FormData();

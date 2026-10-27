@@ -294,9 +294,37 @@ export class ImportacionService {
     });
   }
 
+  async eliminar(tipo: string, procesoId: string, actorId: string) {
+    if (!['malla', 'cuentas', 'historial'].includes(tipo)) throw new BadRequestException('Tipo de archivo inválido');
+    const tipos = tipo === 'cuentas' ? ['cuentas', 'historial'] : [tipo];
+    const originales = await this.prisma.$transaction(async (tx) => {
+      await this.validarBorrador(tx, procesoId);
+      const archivos = await tx.archivoCarga.findMany({ where: { procesoId, tipo: { in: tipos } } });
+      if (tipo === 'malla') await tx.procesoVotacion.update({ where: { id: procesoId }, data: { catalogo: [] } });
+      if (tipo === 'historial' || tipo === 'cuentas') await tx.historialItem.deleteMany({ where: { procesoId } });
+      if (tipo === 'cuentas') await tx.padronAlumno.deleteMany({ where: { procesoId } });
+      await tx.archivoCarga.deleteMany({ where: { procesoId, tipo: { in: tipos } } });
+      return archivos;
+    });
+    const advertencias: string[] = [];
+    const rutas = new Map(originales.filter((a) => a.bucket && a.ruta).map((a) => [`${a.bucket}/${a.ruta}`, a]));
+    for (const archivo of rutas.values()) {
+      // Otro período puede estar reutilizando el mismo objeto privado.
+      if (await this.prisma.archivoCarga.count({ where: { bucket: archivo.bucket, ruta: archivo.ruta } })) continue;
+      try {
+        await this.storage.eliminar(archivo.bucket!, archivo.ruta!);
+      } catch {
+        advertencias.push('Se retiró el archivo de la votación, pero su limpieza en Storage quedó pendiente.');
+      }
+    }
+    await this.audit.registrar('ELIMINAR_ARCHIVO', actorId, { procesoId, tipos, advertencias });
+    this.gateway.notificar('importacion', procesoId);
+    return { tipos, advertencias };
+  }
+
   listarArchivos(procesoId?: string) {
     return this.prisma.archivoCarga.findMany({
-      where: procesoId ? { OR: [{ procesoId }, { procesoId: null }] } : {},
+      where: procesoId ? { procesoId } : {},
       select: {
         id: true,
         nombre: true,

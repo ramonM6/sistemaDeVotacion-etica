@@ -6,6 +6,7 @@ export type AccionAudit =
   | 'LOGIN_OK'
   | 'LOGIN_FAIL'
   | 'LOGOUT'
+  | 'ELIMINAR_ARCHIVO'
   | 'IMPORT_CATALOGO'
   | 'IMPORT_CUENTAS'
   | 'IMPORT_HISTORIAL'

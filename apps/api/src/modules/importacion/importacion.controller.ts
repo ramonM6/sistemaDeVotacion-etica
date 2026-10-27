@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -56,6 +57,15 @@ export class ImportacionController {
     return new StreamableFile(buffer);
   }
 
+  @Delete(':tipo')
+  eliminar(
+    @Param('tipo') tipo: string,
+    @Query('procesoId', ParseUUIDPipe) id: string,
+    @UsuarioActual() u: UsuarioSesion,
+  ) {
+    return this.importacion.eliminar(tipo, id, u.id);
+  }
+
   /** Sube un .xlsx (máx. 5 MB, procesado en memoria) y devuelve filas, errores y advertencias. */
   @Post(':tipo/preview')
   @HttpCode(200)
@@ -70,6 +80,7 @@ export class ImportacionController {
           'application/octet-stream',
           'application/zip',
           'text/csv',
+          ...(file.originalname.toLowerCase().endsWith('.csv') ? ['text/plain'] : []),
           'application/vnd.ms-excel',
         ].includes(file.mimetype);
         if (!esXlsx || !mimeOk) return cb(new BadRequestException('Solo se aceptan archivos .xlsx o .csv'), false);

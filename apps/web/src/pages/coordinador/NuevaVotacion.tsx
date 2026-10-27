@@ -15,14 +15,14 @@ export default function NuevaVotacion() {
       </Button>
       <Titulo
         titulo="Nueva votación"
-        descripcion="Se creará en borrador para revisar y confirmar sus archivos antes de abrirla."
+        descripcion="Se creará en borrador y se validarán sus archivos antes de guardarlos."
       />
       <div className="rounded-xl border bg-card p-5 sm:p-6">
         <FormularioProceso
           proceso={null}
           alCancelar={() => navigate('/coord')}
           alTerminar={(proceso, archivos) => {
-            navigate(`/coord/votaciones/${proceso.id}/carga?preparar=1`, { state: { archivosPreparacion: archivos } });
+            navigate(`/coord/votaciones/${proceso.id}/carga`, { state: { archivosPreparacion: archivos } });
           }}
         />
       </div>

@@ -1,15 +1,15 @@
 # Datos ficticios para probar una votación
 
 Crea una votación nueva en borrador. Puedes indicar ciclo actual `2026-2` y objetivo `2027-1`.
-Adjunta y confirma los archivos en este orden:
+Sube los archivos en este orden:
 
 1. `01_malla.csv`: 3 cursos obligatorios y 6 electivos con distintos requisitos.
 2. `02_alumnos.csv`: 4 cuentas ficticias con datos de ingreso, CRAEst y matrícula.
 3. `03_historial.csv`: 12 registros; una nota vacía indica un curso en progreso.
 
-Cada importación debe validarse y confirmarse antes de continuar con la siguiente. Utiliza estos archivos en una votación de prueba: las cuentas y el historial reemplazan los datos del borrador elegido.
+El sistema valida y guarda automáticamente cada archivo antes de continuar con el siguiente. Si hay errores, los muestra en la misma vista sin guardar el archivo. Utiliza estos archivos en una votación de prueba: las cuentas y el historial reemplazan los datos del borrador elegido.
 
-Después de confirmar las tres importaciones, abre la votación. Si hay otra abierta, ciérrala primero. Inicia sesión con cualquiera de los códigos `20990001`, `20990002`, `20990003` o `20990004`. La contraseña de las cuatro cuentas es `Prueba#2026`.
+Después de que se guarden los tres archivos, abre la votación. Si hay otra abierta, ciérrala primero. Inicia sesión con cualquiera de los códigos `20990001`, `20990002`, `20990003` o `20990004`. La contraseña de las cuatro cuentas es `Prueba#2026`.
 
 ## Casos para revisar
 

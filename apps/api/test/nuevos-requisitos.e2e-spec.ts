@@ -703,4 +703,90 @@ describe('Requisitos integrados de VotaInf', () => {
       .expect(400);
     expect(await db.procesoVotacion.count()).toBe(antes);
   });
+  it('elimina la malla con su original y permite volver a cargarla solo en borrador', async () => {
+    const nuevo = await coord
+      .post('/api/coord/procesos')
+      .send({
+        nombre: 'Borrador de archivos',
+        cicloObjetivo: '2028-1',
+        fechaInicio: new Date().toISOString(),
+        fechaFin: new Date(Date.now() + 86400000).toISOString(),
+      })
+      .expect(201);
+    const id = nuevo.body.id;
+    const csv = Buffer.from('codigo,nombre,creditos,tipo\nINF310,Grafos,3,ELECTIVO');
+    const cargar = async () => {
+      const p = await coord
+        .post(`/api/coord/import/malla/preview?procesoId=${id}`)
+        .attach('archivo', csv, 'malla.csv')
+        .expect(200);
+      await coord.post('/api/coord/import/malla/confirmar').send({ token: p.body.token }).expect(200);
+    };
+    await cargar();
+    const original = await db.archivoCarga.findFirstOrThrow({ where: { procesoId: id } });
+    const storage = app.get(StorageService) as unknown as StorageFalso;
+    await coord.delete(`/api/coord/import/malla?procesoId=${id}`).expect(200);
+    expect((await db.procesoVotacion.findUniqueOrThrow({ where: { id } })).catalogo).toEqual([]);
+    expect(await db.archivoCarga.count({ where: { procesoId: id } })).toBe(0);
+    expect(storage.archivos.has(original.ruta!)).toBe(false);
+    await cargar();
+    await db.procesoVotacion.update({ where: { id }, data: { estado: 'CERRADO', primeraApertura: new Date() } });
+    await coord.delete(`/api/coord/import/malla?procesoId=${id}`).expect(400);
+    expect(await db.archivoCarga.count({ where: { procesoId: id } })).toBe(1);
+    const alumno = await sesion(app, '20000001');
+    await alumno.delete(`/api/coord/import/malla?procesoId=${id}`).expect(403);
+  });
+
+  it('eliminar cuentas limpia su historial y conserva los originales reutilizados en otra votación', async () => {
+    const storage = app.get(StorageService) as unknown as StorageFalso;
+    const original = await storage.subir('cuentas.csv', Buffer.from('datos ficticios'), 'cuentas');
+    await db.archivoCarga.create({
+      data: {
+        procesoId: esc.procesoId,
+        nombre: 'cuentas.csv',
+        tipo: 'cuentas',
+        actorId: esc.alumnos['20000001'],
+        filas: 5,
+        ...original,
+      },
+    });
+    const copia = await coord
+      .post('/api/coord/procesos')
+      .send({
+        nombre: 'Copia de cuentas e historial',
+        cicloObjetivo: '2028-1',
+        fechaInicio: new Date().toISOString(),
+        fechaFin: new Date(Date.now() + 86400000).toISOString(),
+        reutilizar: { cuentas: esc.procesoId, historial: esc.procesoId },
+      })
+      .expect(201);
+    await db.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'BORRADOR' } });
+    await coord.delete(`/api/coord/import/cuentas?procesoId=${esc.procesoId}`).expect(200);
+    expect(await db.padronAlumno.count({ where: { procesoId: esc.procesoId } })).toBe(0);
+    expect(await db.historialItem.count({ where: { procesoId: esc.procesoId } })).toBe(0);
+    expect(await db.padronAlumno.count({ where: { procesoId: copia.body.id } })).toBe(4);
+    expect(storage.archivos.has(original.ruta)).toBe(true);
+    await coord.delete(`/api/coord/import/cuentas?procesoId=${copia.body.id}`).expect(200);
+    expect(storage.archivos.has(original.ruta)).toBe(false);
+    expect(await db.usuario.count({ where: { rol: 'ALUMNO' } })).toBe(5);
+  });
+
+  it('valida el contenido real del CSV además de la extensión sin guardar archivos inválidos', async () => {
+    const id = esc.procesoId;
+    await db.procesoVotacion.update({ where: { id }, data: { estado: 'BORRADOR' } });
+    for (const contenido of [
+      Buffer.from([255, 254, 0, 0]),
+      Buffer.from('PKcontenido binario'),
+      Buffer.from('otras,columnas\n1,2'),
+    ]) {
+      const p = await coord
+        .post(`/api/coord/import/malla/preview?procesoId=${id}`)
+        .attach('archivo', contenido, 'malla.csv')
+        .expect(200);
+      expect(p.body.token).toBeNull();
+      expect(p.body.erroresGenerales.length).toBeGreaterThan(0);
+    }
+    expect(await db.archivoCarga.count({ where: { procesoId: id } })).toBe(0);
+    await coord.delete(`/api/coord/import/catalogo?procesoId=${id}`).expect(400);
+  });
 });
