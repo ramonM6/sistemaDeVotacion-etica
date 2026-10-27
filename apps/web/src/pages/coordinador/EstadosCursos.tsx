@@ -2,10 +2,11 @@ import { confirmar } from '@/components/Confirmacion';
 import { ETAPAS, configuracion, elegibles, type Etapa } from '@/lib/etapasCursos';
 export { ETAPAS, type Etapa } from '@/lib/etapasCursos';
 import { EstadoCursoBadge } from '@/components/EstadoCursoBadge';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { Cargando, ErrorCarga } from '@/components/Estados';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,113 @@ const etiquetas: Record<string, string> = {
   NO_SE_DICTARA: 'No se dictará',
 };
 
+function MenuCurso({
+  codigo,
+  detalle,
+  ocupado,
+  cambiar,
+}: {
+  codigo: string;
+  detalle: string;
+  ocupado: boolean;
+  cambiar?: (estado: string) => void;
+}) {
+  const [menu, setMenu] = useState<{ top: number; right: number } | null>(null);
+  const boton = useRef<HTMLButtonElement>(null);
+  const opciones = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menu) return;
+    opciones.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    const cerrar = (ev: PointerEvent) => {
+      if (!opciones.current?.contains(ev.target as Node) && !boton.current?.contains(ev.target as Node)) setMenu(null);
+    };
+    const desplazar = () => setMenu(null);
+    document.addEventListener('pointerdown', cerrar);
+    window.addEventListener('scroll', desplazar, true);
+    window.addEventListener('resize', desplazar);
+    return () => {
+      document.removeEventListener('pointerdown', cerrar);
+      window.removeEventListener('scroll', desplazar, true);
+      window.removeEventListener('resize', desplazar);
+    };
+  }, [menu]);
+  return (
+    <div className="flex justify-end">
+      <Button
+        ref={boton}
+        variant="ghost"
+        size="icon"
+        aria-label={`Opciones de ${codigo}`}
+        aria-haspopup="menu"
+        aria-expanded={!!menu}
+
+        onClick={() => {
+          const rect = boton.current!.getBoundingClientRect();
+          setMenu(
+            menu
+              ? null
+              : {
+                  top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 160)),
+                  right: Math.max(8, window.innerWidth - rect.right),
+                },
+          );
+        }}
+      >
+        <MoreVertical aria-hidden className="h-5 w-5" />
+      </Button>
+      {menu &&
+        createPortal(
+          <div
+            ref={opciones}
+            role="menu"
+            aria-label={`Acciones de ${codigo}`}
+            style={menu}
+            className="fixed z-50 w-64 rounded-md border bg-card p-1 shadow-lg"
+            onKeyDown={(ev) => {
+              if (ev.key === 'Escape') {
+                setMenu(null);
+                boton.current?.focus();
+              }
+              if (ev.key === 'Tab') setMenu(null);
+              if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+                ev.preventDefault();
+                const items = Array.from(opciones.current!.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+                const i = items.indexOf(document.activeElement as HTMLElement);
+                items[(i + (ev.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length]?.focus();
+              }
+            }}
+          >
+            <Link
+              role="menuitem"
+              to={detalle}
+              onClick={() => setMenu(null)}
+              className="block rounded px-3 py-2 text-sm hover:bg-accent focus:bg-accent focus:outline-none"
+            >
+              Ver detalle
+            </Link>
+            {cambiar &&
+              ['SELECCIONADO_PARA_REVISION', 'NO_SELECCIONADO'].map((estado) => (
+                <button
+                  key={estado}
+                  role="menuitem"
+                  disabled={ocupado}
+                  className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-accent focus:bg-accent focus:outline-none disabled:opacity-50"
+                  onClick={() => {
+                    setMenu(null);
+                    boton.current?.focus();
+                    cambiar(estado);
+                  }}
+                >
+                  {etiquetas[estado]}
+                </button>
+              ))}
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
 function TablaEtapa({
   cursos,
   ranking,
@@ -39,6 +147,7 @@ function TablaEtapa({
   etapa: Etapa;
 }) {
   const cliente = useQueryClient();
+  const { rutaProceso } = useProcesoSeleccionado();
   const [marcados, setMarcados] = useState<string[]>([]);
   const [estado, setEstado] = useState('');
   const config = configuracion[etapa];
@@ -64,22 +173,32 @@ function TablaEtapa({
       cliente.invalidateQueries({ queryKey: ['coord'] });
     },
   });
-  const resto = filas.filter((c) => !seleccionados.includes(c.codigo) && c.seleccion !== 'NO_SELECCIONADO');
+  const estadoResto = { seleccion: 'NO_SELECCIONADO', consejo: 'NO_APROBADO', dictado: 'NO_SE_DICTARA' }[etapa];
+  const resto = filas.filter((c) => !seleccionados.includes(c.codigo) && c[config.campo] !== estadoResto);
   const descartarResto = useMutation({
     mutationFn: () =>
       api.decidirCursos(
         proceso.id,
-        'seleccion',
-        'NO_SELECCIONADO',
+        etapa,
+        estadoResto,
         resto.map((c) => c.codigo),
       ),
     onSuccess: async () => {
       await cliente.invalidateQueries({ queryKey: ['coord'] });
-      toast.success('El resto quedó como No seleccionado');
+      toast.success(`El resto quedó como ${etiquetas[estadoResto]}`);
     },
     onError: (error: Error) => toast.error(error.message),
   });
-  const bloqueado = !cerrado || guardar.isPending || descartarResto.isPending;
+  const individual = useMutation({
+    mutationFn: ({ codigo, estado }: { codigo: string; estado: string }) =>
+      api.decidirCursos(proceso.id, 'seleccion', estado, [codigo]),
+    onSuccess: async () => {
+      await cliente.invalidateQueries({ queryKey: ['coord'] });
+      toast.success('Selección actualizada');
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const bloqueado = !cerrado || guardar.isPending || descartarResto.isPending || individual.isPending;
   const aplicar = async () => {
     const reinicia =
       etapa === 'seleccion'
@@ -127,23 +246,27 @@ function TablaEtapa({
           <Button disabled={bloqueado || !seleccionados.length || !estado} onClick={aplicar}>
             {guardar.isPending ? 'Aplicando…' : 'Aplicar a marcados'}
           </Button>
-          {etapa === 'seleccion' && (
+          {
             <Button
               variant="outline"
               disabled={bloqueado || !seleccionados.length || !resto.length}
               onClick={async () => {
-                const reinicia = resto.some((c) => c.consejo !== 'PENDIENTE' || c.dictado !== 'PENDIENTE');
+                const reinicia = resto.some((c) =>
+                  etapa === 'seleccion'
+                    ? c.consejo !== 'PENDIENTE' || c.dictado !== 'PENDIENTE'
+                    : etapa === 'consejo' && c.dictado !== 'PENDIENTE',
+                );
                 if (
                   await confirmar(
-                    `Se dejarán ${resto.length} cursos sin marcar como «No seleccionado». Los ${seleccionados.length} marcados conservarán su estado.${reinicia ? ' Se borrarán las decisiones posteriores de los cursos descartados.' : ''}`,
+                    `Se dejarán ${resto.length} cursos sin marcar como «${etiquetas[estadoResto]}». Los ${seleccionados.length} marcados conservarán su estado.${reinicia ? ' Se borrarán las decisiones posteriores de los cursos descartados.' : ''}`,
                   )
                 )
                   descartarResto.mutate();
               }}
             >
-              Resto como no seleccionado ({resto.length})
+              Resto como {etiquetas[estadoResto].toLowerCase()} ({resto.length})
             </Button>
-          )}
+          }
         </div>
       )}
       <div className="overflow-x-auto rounded-lg border bg-card">
@@ -161,6 +284,11 @@ function TablaEtapa({
               <th className="px-4 py-3">Electivo</th>
               <th className="px-4 py-3 text-center">Votos</th>
               <th className="px-4 py-3">Estado en esta etapa</th>
+              {etapa === 'seleccion' && (
+                <th className="w-14">
+                  <span className="sr-only">Opciones del curso</span>
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -199,6 +327,31 @@ function TablaEtapa({
                     }
                   />
                 </td>
+                {etapa === 'seleccion' && (
+                  <td className="px-4 py-4">
+                    <MenuCurso
+                      codigo={c.codigo}
+                      detalle={`${rutaProceso}/resultados/${c.codigo}`}
+                      ocupado={bloqueado}
+                      cambiar={
+                        cerrado
+                          ? async (estado) => {
+                              if (bloqueado) return;
+                              if (c.consejo !== 'PENDIENTE' || c.dictado !== 'PENDIENTE') {
+                                if (
+                                  !(await confirmar(
+                                    'Cambiar esta selección borrará las decisiones posteriores de este curso. ¿Continuar?',
+                                  ))
+                                )
+                                  return;
+                              }
+                              individual.mutate({ codigo: c.codigo, estado });
+                            }
+                          : undefined
+                      }
+                    />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
