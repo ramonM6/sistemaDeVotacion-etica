@@ -12,7 +12,7 @@ El sistema valida y guarda cada archivo automáticamente. Si encuentra errores, 
 
 La contraseña de los 16 alumnos es `Alumno#2026`. El coordinador usa `coordinador` y su contraseña configurada mediante `COORD_PASSWORD` (por defecto `Coordinador#2026`); no se incluye en el CSV de alumnos.
 
-Después de cargar los archivos, abre la votación para iniciar sesión como alumno. Los archivos no contienen votos: todos los cursos comienzan «No votado». Los casos condicionales se muestran en amarillo como «No apto», con explicación al pasar el mouse, y siguen permitiendo el voto condicional.
+Después de cargar los archivos, abre la votación para iniciar sesión como alumno. Los archivos no contienen votos: todos los cursos comienzan «No votado». Los casos condicionales se muestran en amarillo como «Condicional», con explicación de los requisitos y créditos pendientes al pasar el mouse, y siguen permitiendo el voto condicional.
 
 | Código | Caso de prueba |
 | --- | --- |

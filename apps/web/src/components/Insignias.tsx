@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 
 /** Texto corto para el badge de aptitud del alumno (sección 11). */
 export function textoAptitud(e: ResultadoElegibilidad): string {
-  return e.aptitud === 'CONFIRMADO' ? 'Apto' : 'No apto';
+  return { CONFIRMADO: 'Apto', CONDICIONAL: 'Condicional', NO_APTO: 'No apto' }[e.aptitud];
 }
 
 export function AptitudBadge({ elegibilidad, className }: { elegibilidad: ResultadoElegibilidad; className?: string }) {
@@ -19,9 +19,8 @@ export function AptitudBadge({ elegibilidad, className }: { elegibilidad: Result
       {textoAptitud(elegibilidad)}
     </Badge>
   );
-  if (elegibilidad.aptitud === 'CONDICIONAL') {
-    const pendientes = [...elegibilidad.cursosEnCursoNecesarios];
-    if (elegibilidad.dependeDeCreditosEnCurso) pendientes.push('los créditos de tus cursos en curso');
+  if (elegibilidad.aptitud !== 'CONFIRMADO') {
+    const pendientes = elegibilidad.requisitos.filter((r) => !r.cumple || r.dependeDeEnCurso);
     return (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -29,11 +28,17 @@ export function AptitudBadge({ elegibilidad, className }: { elegibilidad: Result
             {etiqueta}
           </span>
         </TooltipTrigger>
-        <TooltipContent className="max-w-xs">
-          <p>
-            Debes aprobar {pendientes.join(' y ') || 'los requisitos que estás cursando'}. Puedes emitir un voto
-            condicional.
+        <TooltipContent className="max-w-sm space-y-2">
+          <p className="font-semibold">
+            {elegibilidad.aptitud === 'CONDICIONAL'
+              ? 'Puedes votar, pero debes completar estos requisitos:'
+              : 'No puedes votar porque no cumples estos requisitos:'}
           </p>
+          <ul className="list-disc space-y-1 pl-4">
+            {pendientes.map((r, i) => (
+              <li key={i}>{r.detalle}</li>
+            ))}
+          </ul>
         </TooltipContent>
       </Tooltip>
     );
