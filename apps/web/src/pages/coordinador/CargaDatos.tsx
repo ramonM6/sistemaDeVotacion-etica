@@ -134,6 +134,7 @@ function DatosVotacion() {
   );
   const iniciada = useRef(false);
   const operando = useRef(false);
+  const [arrastrando, setArrastrando] = useState<TipoArchivo | null>(null);
   const [ocupado, setOcupado] = useState<TipoArchivo | null>(null);
   const [estados, setEstados] = useState<Partial<Record<TipoArchivo, EstadoCarga>>>({});
   const archivos = useQuery({ queryKey: ['coord', 'archivos', procesoId], queryFn: () => api.archivos(procesoId) });
@@ -304,7 +305,29 @@ function DatosVotacion() {
           const presente = !!archivo || datos;
           const estado = estados[t.tipo];
           return (
-            <Card key={t.tipo}>
+            <Card
+              key={t.tipo}
+              className={cn(arrastrando === t.tipo && 'border-primary bg-primary/5 ring-2 ring-primary/20')}
+              onDragOver={(ev) => {
+                if (!ev.dataTransfer.types.includes('Files')) return;
+                ev.preventDefault();
+                ev.dataTransfer.dropEffect = enPreparacion && !presente && !ocupado ? 'copy' : 'none';
+                if (enPreparacion && !presente && !ocupado) setArrastrando(t.tipo);
+              }}
+              onDragLeave={(ev) => {
+                if (!ev.currentTarget.contains(ev.relatedTarget as Node | null)) setArrastrando(null);
+              }}
+              onDrop={(ev) => {
+                ev.preventDefault();
+                setArrastrando(null);
+                if (!enPreparacion || presente || operando.current) return;
+                if (ev.dataTransfer.files.length !== 1) {
+                  toast.error('Arrastra un solo archivo para esta sección.');
+                  return;
+                }
+                void procesar(t.tipo, ev.dataTransfer.files[0]);
+              }}
+            >
               <CardHeader className="px-4 pb-1 pt-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -365,7 +388,7 @@ function DatosVotacion() {
                   )}
                 </div>
                 {enPreparacion && !presente && (
-                  <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3 rounded-md border border-dashed p-3">
                     <label
                       className={cn(
                         'inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground',
@@ -387,6 +410,7 @@ function DatosVotacion() {
                         }}
                       />
                     </label>
+                    <span className="text-xs text-muted-foreground">o arrastra aquí tu archivo CSV o Excel</span>
                     {pendientes.current[t.tipo] && estado?.mensaje && (
                       <Button
                         variant="outline"
