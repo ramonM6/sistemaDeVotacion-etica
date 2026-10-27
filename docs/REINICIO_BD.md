@@ -1,5 +1,7 @@
 # Empezar con una BD limpia
 
+Este procedimiento es solo para una BD local descartable. Con Supabase compartido no ejecutes `db:reset`: elimina los datos de todos los integrantes. Para reiniciar una BD local, tanto `DATABASE_URL` como `DIRECT_URL` deben apuntar a esa misma BD local.
+
 Para pasar de la versión anterior a esta entrega se descartan los datos anteriores. No se intentan reutilizar sus votaciones, padrones, historiales, votos, decisiones ni referencias a archivos.
 
 ## Respaldo opcional antes de borrar

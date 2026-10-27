@@ -1,15 +1,15 @@
 # Votación de electivos · Ingeniería Informática PUCP
 
-API NestJS + Prisma, interfaz React/Vite y PostgreSQL local. Las cuentas de alumnos son globales; cada votación tiene su propia malla e historial, que determina quién puede participar. Los archivos originales, las plantillas y los ejemplos descargables se guardan en Supabase Storage privado.
+API NestJS + Prisma, interfaz React/Vite y PostgreSQL en Supabase. Las cuentas de alumnos son globales; cada votación tiene su propia malla e historial, que determina quién puede participar. Los archivos originales, las plantillas y los ejemplos descargables se guardan en Supabase Storage privado.
 
 ## 1. Requisitos
 
 - Git, para clonar el repositorio.
 - Node.js **20 o superior** y npm.
-- Docker con Docker Compose; en Windows puedes usar Docker Desktop. Déjalo iniciado.
+- Acceso a PostgreSQL de Supabase. Docker solo es necesario si eliges una BD local alternativa.
 - Acceso al proyecto/bucket privado de Supabase usado por el equipo y sus credenciales de servidor.
 
-Los puertos por defecto son `5432` (PostgreSQL), `3000` (API) y `5173` (web). Los siguientes comandos se ejecutan desde la raíz del proyecto, donde están este README y `package.json`.
+Los puertos por defecto son `3000` (API) y `5173` (web); Supabase usa `6543` para la aplicación y `5432` para migraciones. Los siguientes comandos se ejecutan desde la raíz del proyecto, donde están este README y `package.json`.
 
 ## 2. Clonar e instalar
 
@@ -43,7 +43,8 @@ Abre `apps/api/.env` y completa:
 
 | Variable | Configuración |
 | --- | --- |
-| `DATABASE_URL` | Con el Docker Compose incluido: `postgresql://votacion:votacion@localhost:5432/votacion?schema=public`. |
+| `DATABASE_URL` | Conexión de Supabase en modo transacción, puerto `6543`, con `?pgbouncer=true`. |
+| `DIRECT_URL` | Conexión de Supabase en modo sesión, puerto `5432`; Prisma la usa para las migraciones. |
 | `JWT_SECRET` | Un secreto propio para las sesiones. |
 | `COORD_USER` | Usuario del coordinador que se creará. Por defecto `coordinador`. |
 | `COORD_PASSWORD` | Contraseña inicial del coordinador. Por defecto `Coordinador#2026`. |
@@ -52,6 +53,8 @@ Abre `apps/api/.env` y completa:
 | `SUPABASE_STORAGE_BUCKET` | Bucket privado existente, por defecto `votainf-importaciones`. |
 | `PORT`, `WEB_ORIGIN` | Por defecto `3000` y `http://localhost:5173`. |
 
+Las dos conexiones de PostgreSQL están en `.env.example` con un marcador de contraseña. Sustitúyelo en tu `.env` local. Con Supabase no necesitas iniciar Docker. Todos los integrantes que usen el mismo proyecto comparten los datos: no ejecutes `db:reset` sobre esa BD compartida. Para trabajar con Docker como alternativa, configura ambas URL con `postgresql://votacion:votacion@localhost:5432/votacion?schema=public` y ejecuta `docker compose up -d`.
+
 Las credenciales de Supabase se comparten por separado entre los integrantes autorizados: **no están en GitHub**. No pongas la clave de servicio en el frontend ni en variables `VITE_`.
 
 El bucket del equipo ya contiene los seis recursos de Plantillas. Si configuras otro proyecto/bucket, primero cópialos respetando las rutas de [PLANTILLAS_SUPABASE.md](docs/PLANTILLAS_SUPABASE.md). El arranque y las migraciones no los generan ni los suben. Supabase es necesario también para guardar los CSV que importes desde tu equipo.
@@ -59,7 +62,6 @@ El bucket del equipo ya contiene los seis recursos de Plantillas. Si configuras 
 ## 4. Arrancar por primera vez
 
 ```sh
-docker compose up -d
 npm run dev
 ```
 
@@ -137,7 +139,6 @@ No se crean al clonar ni al arrancar. El último CSV/Excel de Alumnos reemplaza 
 Para las siguientes ejecuciones:
 
 ```sh
-docker compose up -d
 npm run dev
 ```
 
@@ -147,7 +148,7 @@ En Windows también basta `iniciar.bat`. Detén API y web con **Ctrl+C**. Para d
 docker compose stop
 ```
 
-El volumen de Docker conserva tus datos. Cada computadora tiene su propia BD: clonar/pushear código o compartir el bucket de Supabase no copia votaciones, alumnos ni votos entre equipos.
+Los datos se conservan en PostgreSQL de Supabase. Los integrantes que configuren las mismas conexiones comparten alumnos, votaciones y votos. Clonar o pushear código no crea una copia de la BD. Si usas la alternativa local, sus datos permanecen en el volumen de Docker.
 
 ## 8. Si ya tenías la BD de la versión anterior
 
@@ -168,7 +169,7 @@ Los pasos de respaldo y el alcance están en [REINICIO_BD.md](docs/REINICIO_BD.m
 
 | Problema | Qué revisar |
 | --- | --- |
-| No conecta a PostgreSQL | Docker debe estar iniciado. Ejecuta `docker compose up -d` y revisa `DATABASE_URL`. Si `5432` está ocupado, revisa la instalación de PostgreSQL que ya esté usando ese puerto. |
+| No conecta a PostgreSQL | Comprueba la contraseña y el proyecto en `DATABASE_URL` y `DIRECT_URL`, el acceso a internet y que Supabase esté activo. La aplicación usa `6543` y las migraciones `5432`. |
 | No inicia API o web | Los puertos `3000` y `5173` deben estar disponibles; detén una instancia anterior antes de abrir otra. |
 | Fallan las cargas o descargas | Revisa las tres variables `SUPABASE_*`, el bucket privado y los objetos de plantilla. Reinicia la API después de cambiar `.env`. |
 | El alumno no puede iniciar sesión | Importa primero sus cuentas en **Alumnos** y usa el código/contraseña del CSV; revisa también mayúsculas y caracteres de la contraseña. |
@@ -176,7 +177,9 @@ Los pasos de respaldo y el alcance están en [REINICIO_BD.md](docs/REINICIO_BD.m
 | El historial rechaza un código | Ese alumno debe tener una cuenta global creada antes de importar el historial. |
 | Ves la interfaz anterior | Confirma que estás en `feature/nuevos-requisitos`, que el servidor usa esta carpeta y recarga con `Ctrl+Shift+R`. |
 
-La conexión local para DBeaver, con el Compose incluido, es: host `localhost`, puerto `5432`, base `votacion`, usuario `votacion`, contraseña `votacion`.
+Para DBeaver con Supabase, usa los datos de `DIRECT_URL` (modo sesión, puerto `5432`). La contraseña se comparte por separado.
+
+La conexión local alternativa para DBeaver, con el Compose incluido, es: host `localhost`, puerto `5432`, base `votacion`, usuario `votacion`, contraseña `votacion`.
 
 ## 10. Desarrollo y estructura
 

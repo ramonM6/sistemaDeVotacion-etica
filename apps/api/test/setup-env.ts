@@ -1,6 +1,7 @@
 import { urlBaseDePruebas } from './url-test';
 
 process.env.DATABASE_URL = urlBaseDePruebas();
+process.env.DIRECT_URL = process.env.DATABASE_URL;
 process.env.JWT_SECRET = 'secreto-de-pruebas';
 process.env.COORD_USER = 'coord-test';
 process.env.COORD_PASSWORD = 'Coordinador#Test1';

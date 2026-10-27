@@ -15,6 +15,8 @@ if (!existsSync(env)) {
 // al ejecutar `prisma generate` en `npm install`, y en un clon nuevo todavía no existe.
 // No sobrescribe variables ya definidas en el entorno.
 loadEnv({ path: env });
+// Compatibilidad con configuraciones locales anteriores sin pooler.
+process.env.DIRECT_URL ??= process.env.DATABASE_URL;
 
 const ejecutar = (cmd) => execSync(cmd, { cwd: raiz, stdio: 'inherit' });
 // Regenera el cliente también al actualizar el esquema sin reinstalar dependencias.
@@ -32,8 +34,8 @@ for (;;) {
     if (++intentos >= 15) {
       console.error(String(e.stderr ?? e.message));
       console.error('✖ No se pudo aplicar las migraciones en PostgreSQL.');
-      console.error('  Verifica que la base esté en ejecución (`docker compose up -d`) y que DATABASE_URL');
-      console.error('  en apps/api/.env tenga el usuario, la contraseña y la base correctos.');
+      console.error('  Verifica el acceso a PostgreSQL y las variables DATABASE_URL y DIRECT_URL');
+      console.error('  en apps/api/.env: usuario, contraseña, host, puerto y base de datos.');
       process.exit(1);
     }
     if (intentos === 1) console.log('› Esperando a PostgreSQL…');

@@ -24,7 +24,7 @@ export default async function globalSetup() {
 
   execSync('npx prisma migrate deploy', {
     cwd: resolve(__dirname, '..'),
-    env: { ...process.env, DATABASE_URL: url.toString() },
+    env: { ...process.env, DATABASE_URL: url.toString(), DIRECT_URL: url.toString() },
     stdio: 'pipe',
   });
 }
