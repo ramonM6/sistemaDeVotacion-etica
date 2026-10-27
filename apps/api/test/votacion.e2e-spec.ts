@@ -34,6 +34,35 @@ describe('Votación (e2e)', () => {
       expect(res.body.message).toBe('Código o contraseña incorrectos');
     });
 
+    it('un padrón de borrador no habilita el login de un estudiante', async () => {
+      await prisma.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'BORRADOR' } });
+      await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ codigo: '20000001', password: PASSWORD })
+        .expect(401);
+      await sesion(app, process.env.COORD_USER!, process.env.COORD_PASSWORD!);
+    });
+
+    it('permite entrar por una votación cerrada aunque la activa pertenezca a otros alumnos', async () => {
+      await prisma.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'CERRADO' } });
+      const ajena = await prisma.procesoVotacion.create({
+        data: {
+          nombre: 'Votación ajena',
+          cicloObjetivo: '2028-1',
+          estado: 'ABIERTO',
+          fechaInicio: new Date(),
+          fechaFin: new Date(Date.now() + 86400000),
+        },
+      });
+      const alumno = await sesion(app, '20000001');
+      const lista = await alumno.get('/api/alumno/procesos').expect(200);
+      expect(lista.body.map((p: { id: string }) => p.id)).toEqual([esc.procesoId]);
+      expect((await alumno.get('/api/procesos/activo').expect(200)).body.id).toBe(esc.procesoId);
+      await alumno.get(`/api/alumno/estado?procesoId=${ajena.id}`).expect(403);
+      await alumno.get(`/api/alumno/seguimiento?procesoId=${ajena.id}`).expect(403);
+      await alumno.get(`/api/resultados/publicos?procesoId=${ajena.id}`).expect(403);
+    });
+
     it('un código inexistente y una contraseña errónea dan el mismo mensaje genérico', async () => {
       const a = await request(app.getHttpServer())
         .post('/api/auth/login')

@@ -182,6 +182,7 @@ describe('Requisitos integrados de VotaInf', () => {
     await coord.post('/api/coord/import/historial/preview').attach('archivo', archivo, 'historial.xlsx').expect(400);
   });
   it('importa CSV y conserva el original en Storage con descarga restringida', async () => {
+    const alumno = await sesion(app, '20000001');
     await db.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'BORRADOR' } });
     const csv = Buffer.from('codigo_alumno,codigo_curso,nota\n20000003,1INF24,15');
     const preview = await coord
@@ -207,7 +208,6 @@ describe('Requisitos integrados de VotaInf', () => {
       })
       .expect(200);
     expect(original.body).toEqual(csv);
-    const alumno = await sesion(app, '20000001');
     await alumno.get(`/api/coord/import/archivos/${archivo.id}`).expect(403);
   });
 

@@ -127,7 +127,13 @@ describe('Importación y exportación (e2e)', () => {
       expect(maria.passwordHash).toMatch(/^\$2[aby]\$10\$/);
       expect(await prisma.padronAlumno.count({ where: { procesoId: esc.procesoId } })).toBe(2);
 
-      // la cuenta importada puede entrar; un alumno que quedó fuera del padrón ya no
+      // La importación en borrador no habilita acceso hasta publicar la votación.
+      await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ codigo: '20201234', password: 'Temporal#2026' })
+        .expect(401);
+      await prisma.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'ABIERTO' } });
+      // La cuenta importada puede entrar; un alumno que quedó fuera del padrón ya no.
       await request(app.getHttpServer())
         .post('/api/auth/login')
         .send({ codigo: '20201234', password: 'Temporal#2026' })
@@ -239,6 +245,7 @@ describe('Importación y exportación (e2e)', () => {
     });
 
     it('un alumno no puede importar', async () => {
+      await prisma.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'ABIERTO' } });
       const alumno = await sesion(app, '20000001');
       const res = await alumno
         .post('/api/coord/import/historial/preview')

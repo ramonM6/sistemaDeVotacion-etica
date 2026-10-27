@@ -25,11 +25,10 @@ export class AuthService {
     const usuario = await this.prisma.usuario.findUnique({ where: { codigo } });
     const passwordOk = await bcrypt.compare(password, usuario?.passwordHash ?? HASH_FICTICIO);
 
-    // Un alumno solo puede entrar si figura en el padrón (Excel de cuentas) del proceso activo.
+    // Basta pertenecer a una votación publicada, abierta o cerrada; los borradores no habilitan acceso.
     let habilitado = !!usuario && passwordOk;
     if (habilitado && usuario!.rol === 'ALUMNO') {
-      const proceso = await this.procesos.obtenerActivo();
-      habilitado = !!proceso && (await this.procesos.estaEnPadron(proceso.id, usuario!.id));
+      habilitado = (await this.procesos.listarDelAlumno(usuario!.id)).length > 0;
     }
 
     if (!habilitado) {
@@ -44,7 +43,8 @@ export class AuthService {
 
   async me(usuarioId: string) {
     const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
-    if (!usuario) throw new UnauthorizedException('Sesión inválida');
+    if (!usuario || (usuario.rol === 'ALUMNO' && !(await this.procesos.listarDelAlumno(usuario.id)).length))
+      throw new UnauthorizedException('Sesión inválida');
     return this.aPublico(usuario);
   }
 
