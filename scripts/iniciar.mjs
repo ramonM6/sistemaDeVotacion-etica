@@ -3,8 +3,8 @@
 //
 // Pasos: verifica Node, instala dependencias si hace falta, comprueba PostgreSQL (y lo levanta con
 // Docker si está disponible) y ejecuta `npm run dev`. El script `predev` (apps/api/scripts/setup.mjs)
-// es el que crea apps/api/.env si no existe, aplica migraciones y carga el seed la primera vez.
-// Solo usa módulos de Node: debe funcionar antes de `npm install`.
+// es el que crea apps/api/.env si no existe, aplica migraciones y crea únicamente el coordinador si falta.
+// Solo usa módulos de Node: debe funcionar antes de `npm ci`.
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import net from 'node:net';
@@ -97,8 +97,8 @@ function instalarDependencias() {
   const desactualizado = !existsSync(marca) || (existsSync(lock) && statSync(lock).mtimeMs > statSync(marca).mtimeMs);
   if (desactualizado) {
     console.log('      Instalando dependencias (la primera vez tarda unos minutos)...');
-    if (ejecutar('npm', ['install']) !== 0) {
-      fallar('Falló `npm install`.', 'Revisa tu conexión a internet y vuelve a ejecutar iniciar.bat.');
+    if (ejecutar('npm', ['ci']) !== 0) {
+      fallar('Falló `npm ci`.', 'Revisa tu conexión a internet y vuelve a ejecutar iniciar.bat.');
     }
   }
   // postinstall de apps/api genera el cliente Prisma; si una instalación se interrumpió, se regenera.
@@ -203,9 +203,10 @@ async function abrirCuandoEsteListo() {
 
 function iniciarServicios() {
   paso(5, 'Preparando la base de datos e iniciando la aplicación');
-  console.log('      (crea apps/api/.env si falta, aplica migraciones y, la primera vez, carga los datos de prueba)');
+  console.log('      (crea apps/api/.env si falta, aplica migraciones y, crea únicamente el coordinador si falta)');
   console.log(`\n      Web:  ${URL_WEB}`);
   console.log('      API:  http://localhost:3000/api');
+  console.log('      Plantillas y ejemplos: Supabase Storage (configurar apps/api/.env).');
   console.log('      Para detenerla presiona Ctrl+C en esta ventana.\n');
 
   const [c, a, o] = comandoSO('npm', ['run', 'dev']);

@@ -1,3 +1,4 @@
+import { Readable } from 'stream';
 import * as ExcelJS from 'exceljs';
 
 export type Valor = string | number | null;
@@ -18,12 +19,7 @@ export const MAX_FILAS = 20_000;
 
 /** Normaliza un encabezado: minúsculas, sin tildes ni espacios sobrantes. */
 export function normalizarEncabezado(texto: string): string {
-  return texto
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '_');
+  return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, '_');
 }
 
 /**
@@ -60,14 +56,28 @@ export async function leerHoja(
   nombreHoja: string,
   columnasObligatorias: string[],
   columnasOpcionales: string[] = [],
+  formato: string = 'xlsx',
 ): Promise<HojaLeida> {
   const erroresGenerales: string[] = [];
   const advertenciasGenerales: string[] = [];
   const libro = new ExcelJS.Workbook();
   try {
-    await libro.xlsx.load(archivo as unknown as ExcelJS.Buffer);
+    if (formato === 'csv') {
+      const texto = new TextDecoder('utf-8', { fatal: true }).decode(archivo);
+      if (texto.includes('\0') || archivo.subarray(0, 2).toString() === 'PK') throw new Error('CSV inválido');
+      const hoja = await libro.csv.read(Readable.from([archivo]), { map: (valor: string) => valor });
+      hoja.name = nombreHoja;
+    } else await libro.xlsx.load(archivo as unknown as ExcelJS.Buffer);
   } catch {
-    return { filas: [], erroresGenerales: ['El archivo no es un Excel .xlsx válido'], advertenciasGenerales };
+    return {
+      filas: [],
+      erroresGenerales: [
+        formato === 'csv'
+          ? 'El archivo no es un CSV válido en UTF-8. Revisa el formato y los encabezados.'
+          : 'El archivo no es un Excel .xlsx válido',
+      ],
+      advertenciasGenerales,
+    };
   }
 
   let hoja = libro.worksheets.find((h) => h.name.trim().toLowerCase() === nombreHoja);
@@ -85,6 +95,9 @@ export async function leerHoja(
     if (texto !== null) encabezados.set(col, normalizarEncabezado(String(texto)));
   });
   const presentes = new Set(encabezados.values());
+  if (presentes.size !== encabezados.size) {
+    return { filas: [], erroresGenerales: ['El archivo contiene encabezados duplicados'], advertenciasGenerales };
+  }
   const faltantes = columnasObligatorias.filter((c) => !presentes.has(c));
   if (faltantes.length) {
     erroresGenerales.push(`Faltan columnas obligatorias: ${faltantes.join(', ')}`);

@@ -1,3 +1,4 @@
+import { SeguimientoModule } from './modules/seguimiento/seguimiento.module';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard, RolesGuard } from './common/auth.guards';
@@ -26,6 +27,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ResultadosModule,
     ImportacionModule,
     ExportModule,
+    SeguimientoModule,
   ],
   providers: [
     // Orden: primero autenticación (coloca req.usuario), luego roles.

@@ -44,9 +44,7 @@ function aptitudDe(requisitos: string, entradas: HistorialEntrada[]): Aptitud {
 
 describe('parsearRequisitos', () => {
   it('reconoce las cinco notaciones', () => {
-    const { terminos, errores } = parsearRequisitos(
-      '1INF24, (1INF29), [1INF39], {INF238}, 140 créditos aprobados *',
-    );
+    const { terminos, errores } = parsearRequisitos('1INF24, (1INF29), [1INF39], {INF238}, 140 créditos aprobados *');
     expect(errores).toEqual([]);
     expect(terminos).toEqual([
       { texto: '1INF24', tipo: 'APROBADO', cursoRequerido: '1INF24' },
@@ -124,9 +122,21 @@ describe('resumirHistorial', () => {
 describe('evaluarElegibilidad — cada tipo de término con nota 7, 8, 10, 11 y vacía', () => {
   const casos: Array<[string, string, Record<string, Aptitud>]> = [
     ['APROBADO', '1INF24', { 7: 'NO_APTO', 8: 'NO_APTO', 10: 'NO_APTO', 11: 'CONFIRMADO', vacia: 'CONDICIONAL' }],
-    ['CURSADO_NOTA_MIN_8', '(1INF24)', { 7: 'NO_APTO', 8: 'CONFIRMADO', 10: 'CONFIRMADO', 11: 'CONFIRMADO', vacia: 'CONDICIONAL' }],
-    ['APROBADO_O_SIMULTANEO', '[1INF24]', { 7: 'NO_APTO', 8: 'NO_APTO', 10: 'NO_APTO', 11: 'CONFIRMADO', vacia: 'CONDICIONAL' }],
-    ['CURSADO_O_SIMULTANEO', '{1INF24}', { 7: 'CONFIRMADO', 8: 'CONFIRMADO', 10: 'CONFIRMADO', 11: 'CONFIRMADO', vacia: 'CONDICIONAL' }],
+    [
+      'CURSADO_NOTA_MIN_8',
+      '(1INF24)',
+      { 7: 'NO_APTO', 8: 'CONFIRMADO', 10: 'CONFIRMADO', 11: 'CONFIRMADO', vacia: 'CONDICIONAL' },
+    ],
+    [
+      'APROBADO_O_SIMULTANEO',
+      '[1INF24]',
+      { 7: 'NO_APTO', 8: 'NO_APTO', 10: 'NO_APTO', 11: 'CONFIRMADO', vacia: 'CONDICIONAL' },
+    ],
+    [
+      'CURSADO_O_SIMULTANEO',
+      '{1INF24}',
+      { 7: 'CONFIRMADO', 8: 'CONFIRMADO', 10: 'CONFIRMADO', 11: 'CONFIRMADO', vacia: 'CONDICIONAL' },
+    ],
   ];
 
   for (const [tipo, requisito, esperado] of casos) {
@@ -136,7 +146,10 @@ describe('evaluarElegibilidad — cada tipo de término con nota 7, 8, 10, 11 y 
       });
 
       it('con nota vacía (en curso)', () => {
-        const r = evaluarElegibilidad(parsearRequisitos(requisito).terminos, contexto([{ cursoCodigo: '1INF24', nota: null }]));
+        const r = evaluarElegibilidad(
+          parsearRequisitos(requisito).terminos,
+          contexto([{ cursoCodigo: '1INF24', nota: null }]),
+        );
         expect(r.aptitud).toBe(esperado.vacia);
         expect(r.requisitos[0]).toMatchObject({ cumple: true, dependeDeEnCurso: true });
         expect(r.cursosEnCursoNecesarios).toEqual(['1INF24']);
@@ -346,6 +359,17 @@ describe('evaluarElegibilidad — casos de la especificación', () => {
     expect(r.dependeDeCreditosEnCurso).toBe(true);
   });
 
+  it('explica cuántos créditos faltan cuando se permite un voto condicional', () => {
+    const r = evaluarElegibilidad(parsearRequisitos('140 créditos aprobados *').terminos, {
+      historial: new Map(),
+      creditos: { aprobados: 125.5, enCurso: 20 },
+    });
+    expect(r.aptitud).toBe('CONDICIONAL');
+    expect(r.requisitos[0].detalle).toBe(
+      'Se exigen 140 créditos aprobados. Tienes 125.5; te faltan 14.5. Estás llevando 20 créditos: debes aprobar al menos los que te faltan.',
+    );
+  });
+
   it('cada requisito trae un detalle legible', () => {
     const r = evaluarElegibilidad(
       parsearRequisitos('1INF24, (1INF29), 140 créditos aprobados *').terminos,
@@ -357,7 +381,7 @@ describe('evaluarElegibilidad — casos de la especificación', () => {
     expect(r.requisitos.map((x) => x.detalle)).toEqual([
       '1INF24 con nota máxima 9 (no aprobado)',
       'Cursó 1INF29 con 8',
-      '0 créditos contando los en curso (faltan 140 para 140)', // 1INF29 con 8 no está aprobado: no suma
+      'Se exigen 140 créditos aprobados. Tienes 0 y llevas 0. Aun aprobándolos todos, llegarías a 0: te faltarían 140 créditos.', // 1INF29 con 8 no está aprobado: no suma
     ]);
   });
 });

@@ -9,7 +9,11 @@ export class ProcesosController {
 
   /** Proceso abierto (o el último). Cualquier usuario autenticado. */
   @Get('activo')
-  activo() {
+  async activo(@UsuarioActual() u: UsuarioSesion) {
+    if (u.rol === 'ALUMNO') {
+      const disponibles = await this.procesos.listarDelAlumno(u.id);
+      return disponibles.find((p) => p.estado === 'ABIERTO') ?? disponibles[0] ?? null;
+    }
     return this.procesos.obtenerActivo();
   }
 }

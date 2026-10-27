@@ -1,119 +1,204 @@
-# Sistema de Votación de Electivos — Ingeniería Informática PUCP
+# Votación de electivos · Ingeniería Informática PUCP
 
-Sondeo de demanda de cursos electivos: los alumnos aptos votan por hasta 5 electivos y, en cada uno, por 1 o 2 franjas horarias. El coordinador ve los resultados en vivo (ranking, mapa de calor curso × franja) y los exporta a Excel. Es un MVP que corre solo en **localhost**.
+API NestJS + Prisma, interfaz React/Vite y PostgreSQL local. Las cuentas de alumnos son globales; cada votación tiene su propia malla e historial, que determina quién puede participar. Los archivos originales, las plantillas y los ejemplos descargables se guardan en Supabase Storage privado.
 
-La especificación completa está en [`docs/ESPECIFICACION.md`](docs/ESPECIFICACION.md) y el plan de estudios en [`docs/PLAN_DE_ESTUDIOS.md`](docs/PLAN_DE_ESTUDIOS.md).
+## 1. Requisitos
 
-## Inicio rápido en Windows (doble clic)
+- Git, para clonar el repositorio.
+- Node.js **20 o superior** y npm.
+- Docker con Docker Compose; en Windows puedes usar Docker Desktop. Déjalo iniciado.
+- Acceso al proyecto/bucket privado de Supabase usado por el equipo y sus credenciales de servidor.
 
-### Requisitos (solo la primera vez)
+Los puertos por defecto son `5432` (PostgreSQL), `3000` (API) y `5173` (web). Los siguientes comandos se ejecutan desde la raíz del proyecto, donde están este README y `package.json`.
 
-1. **Node.js 20 o superior** (versión LTS): <https://nodejs.org>. Al terminar la instalación, cierra y vuelve a abrir cualquier ventana de consola.
-2. **Git**: <https://git-scm.com/download/win>, para clonar el repositorio.
-3. **Una base PostgreSQL**. Elige una opción:
-   - **Opción A (recomendada): Docker Desktop**: <https://www.docker.com/products/docker-desktop>. Ábrelo y espera a que diga *Engine running*. `iniciar.bat` levanta la base solo (`docker compose up -d`).
-   - **Opción B: PostgreSQL 16 instalado en Windows.** Crea un usuario y una base, copia `apps\api\.env.example` como `apps\api\.env` y pon tu URL en `DATABASE_URL` (por ejemplo `postgresql://USUARIO:CLAVE@localhost:5432/BASE?schema=public`).
+## 2. Clonar e instalar
 
-### Clonar y ejecutar
+Mientras los cambios estén en `feature/nuevos-requisitos`, clona esa rama:
 
-```bat
-git clone https://github.com/diego4yala/sistemaDeVotacion-etica.git
+```sh
+git clone --branch feature/nuevos-requisitos https://github.com/ramonM6/sistemaDeVotacion-etica.git
 cd sistemaDeVotacion-etica
+npm ci
 ```
 
-Después, haz **doble clic en `iniciar.bat`** (o ejecútalo desde la consola). El script:
+La rama debe estar subida a GitHub para que tus compañeros puedan obtenerla. Si el repositorio es privado, necesitarán acceso. Si ya lo clonaron, pueden actualizarlo con Git y cambiar a esa rama antes de ejecutar `npm ci`.
 
-1. Verifica que estén instalados Node.js 20+ y npm.
-2. Ejecuta `npm install` si faltan dependencias o si `package-lock.json` cambió.
-3. Comprueba que PostgreSQL responda en la `DATABASE_URL` configurada. Si no responde y la base es local, la levanta con Docker; si no hay Docker, explica qué instalar.
-4. Verifica que los puertos 3000 (API) y 5173 (web) estén libres.
-5. Ejecuta `npm run dev`. Este comando crea `apps\api\.env` desde `.env.example` **solo si no existe**, aplica las migraciones, carga los datos de prueba solo si la base está vacía y levanta la API y la web.
+## 3. Configurar el entorno
 
-Cuando la web está lista se abre el navegador en <http://localhost:5173>. Para detener la aplicación, presiona **Ctrl+C** en la ventana. Si algo falla, la ventana se queda abierta con el mensaje de error.
+Copia el archivo de ejemplo. Solo es necesario la primera vez; conserva tu `.env` en los siguientes arranques.
 
-Las siguientes veces basta con volver a hacer doble clic en `iniciar.bat`: no reinstala ni vuelve a sembrar datos si no hace falta. Si no quieres que se abra el navegador, ejecútalo como `iniciar.bat --sin-navegador`.
+**Windows PowerShell:**
 
-> La lógica está en `scripts/iniciar.mjs`, un script de Node, así que en Linux o macOS se usa igual: `node scripts/iniciar.mjs`.
-
-## Cómo levantarlo manualmente
-
-Requisitos: Node 20+, Docker.
-
-```bash
-docker compose up -d   # PostgreSQL 16 en localhost:5432
-npm install            # instala API y web, y genera el cliente Prisma
-npm run dev            # migra, siembra datos la primera vez y levanta API + web
+```powershell
+Copy-Item apps/api/.env.example apps/api/.env
 ```
 
-- Web: <http://localhost:5173>
-- API: <http://localhost:3000/api>
+**Linux / macOS:**
 
-`npm run dev` crea `apps/api/.env` a partir de `.env.example` si no existe, aplica las migraciones y, si la base está vacía, ejecuta el seed.
-
-### Cuentas de prueba
-
-| Rol | Usuario | Contraseña |
-|---|---|---|
-| Coordinador | `coordinador` | `Coordinador#2026` (variables `COORD_USER` / `COORD_PASSWORD`) |
-| Alumnos | ver tabla | `Alumno#2026` |
-
-El seed crea el catálogo completo (148 cursos, desde `docs/plantillas/plantilla_catalogo_cursos.xlsx`), un proceso **ABIERTO** "Electivos 2027-1", 16 alumnos sintéticos y 21 votos de ejemplo:
-
-| Código | Caso que cubre |
-|---|---|
-| 20220101 | Ciclo 5: casi ningún electivo apto |
-| 20210202 | Ciclo 6 |
-| 20200303 | Ciclo 8 con IA (1INF24) en curso → CONDICIONAL en los electivos de IA |
-| 20201234 | (plantilla) 1INF29 con 8; 1INF24 y 1INF39 en curso |
-| 20195678 | (plantilla) 1INF24 jalado (9) y luego aprobado (15) |
-| 20200404 | 1INF29 con 8 y 1INF35 en curso → 1INF51 CONDICIONAL |
-| 20190505 | Curso jalado (1INF24: 7) y luego aprobado (14) |
-| 20190606 | Llega a 140 créditos solo con los cursos en curso → DER349 CONDICIONAL |
-| 20180707 | Último ciclo: apta para casi todo (1INF41 jalado y en curso) |
-| 20190808 | Ya aprobó INF310 y lleva INF356 (etiquetas "Ya aprobaste" / "Lo estás llevando") |
-| 20210909 | Curso de otra facultad (TEL618, 0 créditos) y un electivo libre |
-| 20201010 | Ciclo 8, línea de seguridad: 1INF39 y 1INF41 en curso |
-| 20221111 | Ciclo 3: ningún electivo apto |
-| 20201212 | INF238 desaprobado y no lo lleva → `[INF238]` NO_APTO |
-| 20181515 | 15 créditos de libre disponibilidad (solo cuentan 12) |
-| 20231414 | Sin historial (aparece como aviso en el panel) |
-
-Para volver al estado inicial: `npm run db:reset` (borra **todos** los datos de la base de desarrollo y vuelve a sembrar).
-
-## Tests
-
-```bash
-npm test            # unitarios: motor de requisitos (sin base de datos)
-npm run test:e2e    # e2e con Supertest contra PostgreSQL
+```sh
+cp apps/api/.env.example apps/api/.env
 ```
 
-Los e2e usan una base aparte, `<base>_test` (por defecto `votacion_test`, en el mismo PostgreSQL de Docker): la crean si no existe, le aplican las migraciones y vacían sus tablas en cada suite. No tocan la base de desarrollo. Cubren los criterios de aceptación: login solo para alumnos del padrón, rate limit, términos obligatorios, 1–2 franjas, máximo 5 cursos, sin duplicados (también con peticiones simultáneas), votos no editables, proceso cerrado, resultados públicos sin datos personales, evento Socket.IO, importaciones con vista previa y que el mapa de calor coincida con el Excel exportado.
+Abre `apps/api/.env` y completa:
 
-## Estructura
+| Variable | Configuración |
+| --- | --- |
+| `DATABASE_URL` | Con el Docker Compose incluido: `postgresql://votacion:votacion@localhost:5432/votacion?schema=public`. |
+| `JWT_SECRET` | Un secreto propio para las sesiones. |
+| `COORD_USER` | Usuario del coordinador que se creará. Por defecto `coordinador`. |
+| `COORD_PASSWORD` | Contraseña inicial del coordinador. Por defecto `Coordinador#2026`. |
+| `SUPABASE_URL` | URL del proyecto de Supabase del equipo. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clave de servicio de ese proyecto; solo la usa la API. |
+| `SUPABASE_STORAGE_BUCKET` | Bucket privado existente, por defecto `votainf-importaciones`. |
+| `PORT`, `WEB_ORIGIN` | Por defecto `3000` y `http://localhost:5173`. |
 
+Las credenciales de Supabase se comparten por separado entre los integrantes autorizados: **no están en GitHub**. No pongas la clave de servicio en el frontend ni en variables `VITE_`.
+
+El bucket del equipo ya contiene los seis recursos de Plantillas. Si configuras otro proyecto/bucket, primero cópialos respetando las rutas de [PLANTILLAS_SUPABASE.md](docs/PLANTILLAS_SUPABASE.md). El arranque y las migraciones no los generan ni los suben. Supabase es necesario también para guardar los CSV que importes desde tu equipo.
+
+## 4. Arrancar por primera vez
+
+```sh
+docker compose up -d
+npm run dev
 ```
-apps/api      NestJS + Prisma
-  src/modules/elegibilidad/motor   motor de requisitos (puro, con tests)
-  src/modules/{auth,procesos,votos,resultados,importacion,export,catalogo,padron,audit}
-  prisma/schema.prisma · prisma/seed.ts · test/ (e2e)
-apps/web      React 18 + Vite + TanStack Query + Tailwind (componentes estilo shadcn/ui) + Recharts
-  src/pages/alumno/* · src/pages/coordinador/* · src/lib/api.ts · src/lib/socket.ts
-docker-compose.yml
+
+El arranque genera el cliente Prisma, aplica **todas las migraciones pendientes**, crea el coordinador si falta y levanta API y web. No debes ejecutar SQL manualmente ni reiniciar una BD nueva.
+
+Abre **http://localhost:5173**. La API está en **http://localhost:3000/api**.
+
+Una instalación nueva empieza **solo con el coordinador**, sin alumnos, votaciones ni votos. Los CSV del repositorio no se cargan automáticamente.
+
+### Alternativa: doble clic en Windows
+
+Después de configurar `.env`, puedes usar **`iniciar.bat`** en lugar de escribir los comandos de arranque. Es un atajo de Windows que llama a `scripts/iniciar.mjs`; no es un ejecutable independiente.
+
+El script comprueba Node/npm, ejecuta `npm ci` si faltan dependencias o cambió el lock, comprueba PostgreSQL y lo inicia mediante Docker si es local y hace falta, comprueba los puertos y ejecuta `npm run dev`. Abre el navegador cuando la web está lista. Si prefieres abrirlo tú, usa `iniciar.bat --sin-navegador`.
+
+No borra la BD ni vuelve a cargar alumnos o plantillas. En Linux/macOS existe el mismo asistente:
+
+```sh
+node scripts/iniciar.mjs
 ```
 
-El backend sigue Controller → Service → Repository (Prisma). Todas las reglas (elegibilidad, límites, estado del proceso) se validan en el backend; el frontend solo las refleja. El frontend llama a `/api` y `/socket.io` en su mismo origen y Vite los reenvía al API, así la cookie `SameSite=Strict` funciona sin configuración extra.
+## 5. Cargar los datos para la presentación
 
-## Decisiones de implementación
+Los tres archivos están en [docs/datos-prueba](docs/datos-prueba) para poder usarlos directamente. También puedes descargarlos desde **Plantillas** dentro del sistema.
 
-Puntos que la especificación no detalla y cómo se resolvieron:
+1. Inicia sesión como coordinador con las credenciales de la siguiente sección.
+2. En el navbar, entra a **Alumnos** y sube `docs/datos-prueba/02_alumnos.csv`. Esto crea las **16 cuentas globales**. Ya pueden iniciar sesión, aunque todavía no tengan votaciones disponibles.
+3. En **Votaciones → Nueva votación**, crea un borrador. Puedes indicar ciclo actual `2026-2` y objetivo `2027-1`; elige fechas que incluyan el momento de la presentación.
+4. Adjunta `01_malla.csv` y después `03_historial.csv`, o súbelos desde **Datos y archivos** del borrador. Las cuentas no se cargan dentro de la votación.
+5. Comprueba que hay **54 electivos**, **16 alumnos** en el padrón y **751 registros académicos**. La malla completa contiene 148 cursos, incluidos los obligatorios necesarios para evaluar requisitos.
+6. Pulsa **Abrir votación**. Los alumnos incluidos en ese historial podrán verla y votar. Una cuenta que no figure en ningún historial publicado verá «No tienes votaciones disponibles».
+7. Entra con una cuenta de alumno, marca hasta **5 electivos**, elige **1–2 franjas por curso** y confirma. Los resultados se muestran en vivo. Para gestionar las tres etapas de decisión del coordinador, cierra primero la votación.
 
-- **Curso aprobado y vuelto a llevar** (nota ≥ 11 y además una fila vacía): para los requisitos cuenta como aprobado con nota real, y sus créditos se suman una sola vez, como aprobados.
-- **Tope de 12 créditos de `ELECTIVO_LIBRE`**: primero se cuentan los aprobados y el saldo se completa con los que están en curso.
-- **CONDICIONAL por créditos**: si el requisito de créditos solo se alcanza sumando los cursos en curso, el badge dice "Apto si apruebas tus cursos en curso" (el resultado trae `dependeDeCreditosEnCurso: true`).
-- **Padrón y login**: un alumno solo puede iniciar sesión si está en el padrón (Excel de cuentas) del proceso activo, es decir, el abierto o, si no hay ninguno, el último.
-- **Reimportar el catálogo**: los cursos que ya no vienen en el archivo se eliminan, salvo los que tienen votos (se conservan y la vista previa avisa).
-- **Reabrir un proceso**: desde `CERRADO` se puede volver a `ABIERTO` solo si la fecha de fin está en el futuro (primero se edita la fecha para extender el plazo).
-- **Hoja con otro nombre**: si el Excel no tiene la hoja esperada (`cursos`, `alumnos`, `historial`), se usa la primera hoja que no sea `LEEME` y se muestra una advertencia.
-- **Rate limit**: cuenta todos los intentos de login (correctos o no) por IP y código, 5 por minuto.
-- **Descripciones**: la plantilla del catálogo no trae descripciones y el seed no las inventa, así que el panel avisa "54 electivos sin descripción" hasta que el coordinador las complete.
-- **`SIMULTANEO_PERMISIVO`**: es una constante en `apps/api/src/modules/elegibilidad/motor/constantes.ts` (por defecto `false`, como pide la especificación).
+La API valida y guarda cada archivo automáticamente. Una nota vacía en el historial significa que el curso está en progreso. La etiqueta **Condicional** informa de requisitos pendientes: el voto cuenta desde que se registra. Los casos de cada cuenta se explican en [DATOS_PRUEBA.md](docs/DATOS_PRUEBA.md).
+
+Las descargas de Plantillas siguen obteniéndose exclusivamente desde Supabase; la API no lee los tres CSV locales como alternativa. Se conservan en GitHub para la presentación. Las pruebas generan sus propios archivos ficticios en memoria.
+
+## 6. Usuarios y contraseñas de prueba
+
+### Coordinador
+
+| Usuario | Contraseña por defecto |
+| --- | --- |
+| `coordinador` | `Coordinador#2026` |
+
+Estos valores vienen de `COORD_USER` y `COORD_PASSWORD` en `.env`. El seed crea la cuenta si no existe; cambiar esas variables no reemplaza automáticamente la contraseña de una cuenta ya creada.
+
+### Alumnos
+
+**Primero importa `02_alumnos.csv` desde Alumnos.** El usuario es la columna `codigo` y la contraseña está en `password`. Estas son las 16 cuentas ficticias del archivo:
+
+| Usuario | Alumno | Contraseña |
+| --- | --- | --- |
+| `20220101` | Ana Lucía Torres Medina | `Alumno#2026` |
+| `20210202` | Bruno Castillo Ramos | `Alumno#2026` |
+| `20200303` | Carla Huamán Flores | `Alumno#2026` |
+| `20201234` | María Fernanda Quispe Rojas | `Alumno#2026` |
+| `20195678` | Luis Alberto Gonzales Paredes | `Alumno#2026` |
+| `20200404` | Diego Salazar Vega | `Alumno#2026` |
+| `20190505` | Elena Ríos Paredes | `Alumno#2026` |
+| `20190606` | Fernando Quispe Mamani | `Alumno#2026` |
+| `20180707` | Gabriela Mendoza Chávez | `Alumno#2026` |
+| `20190808` | Hugo Paredes Lazo | `Alumno#2026` |
+| `20210909` | Isabel Cárdenas Soto | `Alumno#2026` |
+| `20201010` | Jorge Villanueva Rojas | `Alumno#2026` |
+| `20221111` | Karen Espinoza Díaz | `Alumno#2026` |
+| `20201212` | Luis Gutiérrez Núñez | `Alumno#2026` |
+| `20181515` | Olga Ramírez León | `Alumno#2026` |
+| `20231414` | Nicolás Herrera Campos | `Alumno#2026` |
+
+No se crean al clonar ni al arrancar. El último CSV/Excel de Alumnos reemplaza la lista habilitada: incluye todas las cuentas que deban conservar acceso. Las omitidas se deshabilitan, incluso si tenían sesión abierta, conservando votos e historial. Reimportar su código reactiva la misma cuenta. El historial y la publicación de cada votación determinan a cuáles tienen acceso.
+
+## 7. Volver a arrancar y detener
+
+Para las siguientes ejecuciones:
+
+```sh
+docker compose up -d
+npm run dev
+```
+
+En Windows también basta `iniciar.bat`. Detén API y web con **Ctrl+C**. Para detener PostgreSQL conservando sus datos:
+
+```sh
+docker compose stop
+```
+
+El volumen de Docker conserva tus datos. Cada computadora tiene su propia BD: clonar/pushear código o compartir el bucket de Supabase no copia votaciones, alumnos ni votos entre equipos.
+
+## 8. Si ya tenías la BD de la versión anterior
+
+La presentación se prepara con una **BD limpia**, sin reutilizar las votaciones anteriores. Solo en ese caso, detén API/web, configura `.env`, respalda si necesitas conservar algo y ejecuta **una sola vez**:
+
+```sh
+npm ci
+docker compose up -d
+npm run db:reset
+npm run dev
+```
+
+**`db:reset` elimina los datos de la BD configurada**, reconstruye la estructura actual y crea únicamente el coordinador. Después vuelve a cargar los CSV según la sección 5. No lo ejecutes en cada arranque. Para un clon con BD nueva no hace falta.
+
+Los pasos de respaldo y el alcance están en [REINICIO_BD.md](docs/REINICIO_BD.md). Conserva las migraciones antiguas: Prisma las necesita para reconstruir el esquema, incluida la eliminación de las funciones retiradas.
+
+## 9. Si algo no funciona
+
+| Problema | Qué revisar |
+| --- | --- |
+| No conecta a PostgreSQL | Docker debe estar iniciado. Ejecuta `docker compose up -d` y revisa `DATABASE_URL`. Si `5432` está ocupado, revisa la instalación de PostgreSQL que ya esté usando ese puerto. |
+| No inicia API o web | Los puertos `3000` y `5173` deben estar disponibles; detén una instancia anterior antes de abrir otra. |
+| Fallan las cargas o descargas | Revisa las tres variables `SUPABASE_*`, el bucket privado y los objetos de plantilla. Reinicia la API después de cambiar `.env`. |
+| El alumno no puede iniciar sesión | Importa primero sus cuentas en **Alumnos** y usa el código/contraseña del CSV; revisa también mayúsculas y caracteres de la contraseña. |
+| El alumno entra pero no ve votaciones | Debe estar en el historial académico de una votación publicada. Los borradores no se muestran. |
+| El historial rechaza un código | Ese alumno debe tener una cuenta global creada antes de importar el historial. |
+| Ves la interfaz anterior | Confirma que estás en `feature/nuevos-requisitos`, que el servidor usa esta carpeta y recarga con `Ctrl+Shift+R`. |
+
+La conexión local para DBeaver, con el Compose incluido, es: host `localhost`, puerto `5432`, base `votacion`, usuario `votacion`, contraseña `votacion`.
+
+## 10. Desarrollo y estructura
+
+```sh
+npm run dev              # prepara BD y arranca API + web
+npm run lint             # comprobación de tipos
+npm test                 # pruebas del motor de requisitos
+npm run test:e2e:local    # integración en BD temporal; sin Docker ni Supabase real
+npm run build            # compila API y web
+```
+
+`test:e2e:local` usa el puerto temporal `54339` y descarta la BD al terminar. También existe `npm run test:e2e` contra PostgreSQL con una base separada terminada en `_test`.
+
+| Ruta | Contenido |
+| --- | --- |
+| `apps/api` | API, esquema Prisma, migraciones, seed mínimo y pruebas. |
+| `apps/web` | Interfaz React y configuración de Vite. |
+| `docs/datos-prueba` | Los tres CSV para la presentación. |
+| `docs` | Reglas, plan de estudios, cuentas de prueba, reinicio de BD y rutas de Storage. |
+| `docker-compose.yml`, `iniciar.bat`, `scripts/iniciar.mjs` | Arranque local. |
+| `package.json`, `package-lock.json` | Comandos y dependencias para `npm ci`. |
+
+No se incluyen `.env`, `node_modules`, `dist`, configuraciones del IDE ni claves de Supabase. Las contraseñas ficticias de prueba sí están documentadas arriba y en el CSV.
+
+Referencias: [reglas vigentes](docs/SISTEMA.md), [plan de estudios](docs/PLAN_DE_ESTUDIOS.md), [casos de prueba](docs/DATOS_PRUEBA.md), [Supabase](docs/PLANTILLAS_SUPABASE.md) y [reinicio de BD](docs/REINICIO_BD.md).

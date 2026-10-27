@@ -6,6 +6,7 @@ export type AccionAudit =
   | 'LOGIN_OK'
   | 'LOGIN_FAIL'
   | 'LOGOUT'
+  | 'ELIMINAR_ARCHIVO'
   | 'IMPORT_CATALOGO'
   | 'IMPORT_CUENTAS'
   | 'IMPORT_HISTORIAL'
@@ -13,8 +14,10 @@ export type AccionAudit =
   | 'EDITAR_PROCESO'
   | 'CAMBIO_ESTADO_PROCESO'
   | 'EDITAR_CURSO'
-  | 'ACEPTAR_TERMINOS'
-  | 'VOTO';
+  | 'VOTO'
+  | 'EDITAR_VOTO'
+  | 'RETIRAR_VOTO'
+  | 'SEGUIMIENTO_CONSEJO';
 
 @Injectable()
 export class AuditService {

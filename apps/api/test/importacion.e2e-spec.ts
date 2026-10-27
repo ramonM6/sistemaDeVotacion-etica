@@ -1,12 +1,9 @@
 import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import * as ExcelJS from 'exceljs';
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
 import request from 'supertest';
-import { Escenario, PASSWORD, aceptarTerminos, crearApp, escenarioBase, sesion, voto, xlsx } from './utils';
+import { Escenario, PASSWORD, crearApp, escenarioBase, sesion, voto, xlsx } from './utils';
 
-const PLANTILLAS = resolve(__dirname, '../../../docs/plantillas');
 type Agente = Awaited<ReturnType<typeof sesion>>;
 
 describe('Importación y exportación (e2e)', () => {
@@ -27,6 +24,10 @@ describe('Importación y exportación (e2e)', () => {
 
   beforeEach(async () => {
     esc = await escenarioBase(prisma);
+    await prisma.procesoVotacion.update({
+      where: { id: esc.procesoId },
+      data: { estado: 'BORRADOR', primeraApertura: null },
+    });
     coord = await sesion(app, process.env.COORD_USER!, process.env.COORD_PASSWORD!);
   });
 
@@ -34,8 +35,18 @@ describe('Importación y exportación (e2e)', () => {
     coord.post(`/api/coord/import/${tipo}/preview`).attach('archivo', archivo, nombre);
 
   describe('catálogo', () => {
-    it('la plantilla oficial pasa sin errores: 148 cursos y 54 electivos', async () => {
-      const res = await subir('catalogo', readFileSync(resolve(PLANTILLAS, 'plantilla_catalogo_cursos.xlsx')));
+    it('importa 148 cursos con 54 electivos desde un Excel generado en memoria', async () => {
+      const archivo = await xlsx('cursos', [
+        ['codigo', 'nombre', 'creditos', 'tipo', 'requisitos'],
+        ...Array.from({ length: 148 }, (_, i) => [
+          `TST${String(i + 1).padStart(3, '0')}`,
+          `Curso de prueba ${i + 1}`,
+          3,
+          i < 54 ? 'ELECTIVO' : 'OBLIGATORIO',
+          i < 54 ? 'TST148' : null,
+        ]),
+      ]);
+      const res = await subir('catalogo', archivo);
       expect(res.status).toBe(200);
       expect(res.body.resumen).toEqual({ total: 148, validas: 148, conErrores: 0, conAdvertencias: 0 });
       expect(res.body.token).toEqual(expect.any(String));
@@ -83,16 +94,24 @@ describe('Importación y exportación (e2e)', () => {
       ]);
       const res = await subir('catalogo', archivo);
       await coord.post('/api/coord/import/catalogo/confirmar').send({ token: res.body.token }).expect(200);
-      expect((await prisma.curso.findUniqueOrThrow({ where: { codigo: 'INF310' } })).descripcion).toBe('Editada en el sistema');
-      expect((await prisma.curso.findUniqueOrThrow({ where: { codigo: '1INF02' } })).descripcion).toBe('Nueva descripción');
+      expect((await prisma.curso.findUniqueOrThrow({ where: { codigo: 'INF310' } })).descripcion).toBe(
+        'Editada en el sistema',
+      );
+      expect((await prisma.curso.findUniqueOrThrow({ where: { codigo: '1INF02' } })).descripcion).toBe(
+        'Nueva descripción',
+      );
       // los cursos que ya no vienen en el archivo se eliminan
       expect(await prisma.curso.findUnique({ where: { codigo: 'INF356' } })).toBeNull();
     });
 
     it('conserva (con advertencia) los cursos con votos que no vienen en el archivo', async () => {
-      await aceptarTerminos(prisma, esc.procesoId, esc.alumnos['20000001']);
+      await prisma.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'ABIERTO' } });
+
       const alumno = await sesion(app, '20000001');
-      await alumno.post('/api/alumno/votos').send(voto('INF356', ['NOCHE'])).expect(201);
+      await alumno
+        .post('/api/alumno/votos')
+        .send(voto('INF356', ['NOCHE']))
+        .expect(201);
       const archivo = await xlsx('cursos', [
         ['codigo', 'nombre', 'creditos', 'tipo'],
         ['INF310', 'Teoría de Grafos', 3, 'ELECTIVO'],
@@ -105,19 +124,28 @@ describe('Importación y exportación (e2e)', () => {
   });
 
   describe('cuentas', () => {
-    it('crea cuentas con contraseña hasheada, reemplaza el padrón y nunca devuelve contraseñas', async () => {
-      const res = await subir('cuentas', readFileSync(resolve(PLANTILLAS, 'plantilla_cuentas_alumnos.xlsx')));
+    it('crea cuentas globales sin reemplazar padrones y sin devolver contraseñas', async () => {
+      const archivo = await xlsx('alumnos', [
+        ['codigo', 'nombres', 'apellidos', 'password'],
+        ['20201234', 'María', 'Prueba', 'Temporal#2026'],
+        ['20195678', 'Luis', 'Prueba', 'Temporal#2026'],
+      ]);
+      const res = await subir('cuentas', archivo);
       expect(res.body.resumen).toMatchObject({ total: 2, validas: 2, conErrores: 0 });
       expect(JSON.stringify(res.body)).not.toContain('Temporal#2026');
       await coord.post('/api/coord/import/cuentas/confirmar').send({ token: res.body.token }).expect(200);
-
-      const maria = await prisma.usuario.findUniqueOrThrow({ where: { codigo: '20201234' } });
-      expect(maria.passwordHash).toMatch(/^\$2[aby]\$10\$/);
-      expect(await prisma.padronAlumno.count({ where: { procesoId: esc.procesoId } })).toBe(2);
-
-      // la cuenta importada puede entrar; un alumno que quedó fuera del padrón ya no
-      await request(app.getHttpServer()).post('/api/auth/login').send({ codigo: '20201234', password: 'Temporal#2026' }).expect(200);
-      await request(app.getHttpServer()).post('/api/auth/login').send({ codigo: '20000001', password: PASSWORD }).expect(401);
+      expect((await prisma.usuario.findUniqueOrThrow({ where: { codigo: '20201234' } })).passwordHash).toMatch(
+        /^\$2[aby]\$10\$/,
+      );
+      expect(await prisma.padronAlumno.count({ where: { procesoId: esc.procesoId } })).toBe(4);
+      const alumno = await sesion(app, '20201234', 'Temporal#2026');
+      expect((await alumno.get('/api/alumno/procesos')).body).toEqual([]);
+      await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ codigo: '20000001', password: PASSWORD })
+        .expect(401);
+      const listado = await coord.get('/api/coord/import/alumnos').expect(200);
+      expect(JSON.stringify(listado.body)).not.toMatch(/password|Temporal#2026/);
     });
 
     it('valida código de 8 dígitos, duplicados, campos obligatorios y contraseña mínima', async () => {
@@ -145,7 +173,7 @@ describe('Importación y exportación (e2e)', () => {
         ['20000003', '1INF24', 15],
         ['20000003', '1INF41', null],
         ['20000003', 'TEL618', 16],
-        ['20000009', '1INF24', 14],
+        ['20000099', '1INF24', 14],
         ['20000003', 'BLOQUE', 21],
         ['20000003', 'BLOQUE', 12.5],
       ]);
@@ -154,7 +182,7 @@ describe('Importación y exportación (e2e)', () => {
       const f = res.body.filas;
       expect(f[2].datos.nota).toBeNull();
       expect(f[3].advertencias[0]).toMatch(/0 créditos/);
-      expect(f[4].errores[0]).toMatch(/no está en las cuentas/);
+      expect(f[4].errores[0]).toMatch(/cuenta registrada/);
       expect(f[5].errores[0]).toMatch(/Nota/);
       expect(f[6].errores[0]).toMatch(/Nota/);
     });
@@ -175,7 +203,10 @@ describe('Importación y exportación (e2e)', () => {
     });
 
     it('un token sirve una sola vez y solo para su tipo', async () => {
-      const archivo = await xlsx('historial', [['codigo_alumno', 'codigo_curso', 'nota'], ['20000003', '1INF24', 15]]);
+      const archivo = await xlsx('historial', [
+        ['codigo_alumno', 'codigo_curso', 'nota'],
+        ['20000003', '1INF24', 15],
+      ]);
       const { body } = await subir('historial', archivo);
       await coord.post('/api/coord/import/catalogo/confirmar').send({ token: body.token }).expect(400);
       await coord.post('/api/coord/import/historial/confirmar').send({ token: body.token }).expect(200);
@@ -184,8 +215,8 @@ describe('Importación y exportación (e2e)', () => {
   });
 
   describe('validación del archivo', () => {
-    it('solo acepta .xlsx', async () => {
-      const res = await subir('historial', Buffer.from('codigo_alumno,codigo_curso\n20000003,1INF24'), 'historial.csv');
+    it('rechaza extensiones distintas de .xlsx y .csv', async () => {
+      const res = await subir('historial', Buffer.from('codigo_alumno,codigo_curso\n20000003,1INF24'), 'historial.txt');
       expect(res.status).toBe(400);
     });
 
@@ -197,7 +228,13 @@ describe('Importación y exportación (e2e)', () => {
     it('un .xlsx corrupto o sin las columnas obligatorias da error general', async () => {
       const corrupto = await subir('historial', Buffer.from('no es un excel'), 'x.xlsx');
       expect(corrupto.body.erroresGenerales[0]).toMatch(/no es un Excel/);
-      const sinColumnas = await subir('historial', await xlsx('historial', [['alumno', 'curso'], ['1', '2']]));
+      const sinColumnas = await subir(
+        'historial',
+        await xlsx('historial', [
+          ['alumno', 'curso'],
+          ['1', '2'],
+        ]),
+      );
       expect(sinColumnas.body.erroresGenerales[0]).toMatch(/Faltan columnas/);
       expect(sinColumnas.body.token).toBeNull();
     });
@@ -212,20 +249,36 @@ describe('Importación y exportación (e2e)', () => {
     });
 
     it('un alumno no puede importar', async () => {
+      await prisma.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'ABIERTO' } });
       const alumno = await sesion(app, '20000001');
-      const res = await alumno.post('/api/coord/import/historial/preview').attach('archivo', Buffer.from('x'), 'x.xlsx');
+      const res = await alumno
+        .post('/api/coord/import/historial/preview')
+        .attach('archivo', Buffer.from('x'), 'x.xlsx');
       expect(res.status).toBe(403);
     });
   });
 
   it('la matriz curso × franja del dashboard coincide con la exportación a Excel', async () => {
+    await prisma.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'ABIERTO' } });
     const votos: [string, [string, string[]][]][] = [
-      ['20000001', [['1INF02', ['NOCHE', 'TARDE']], ['INF310', ['MANANA']], ['DER349', ['NOCHE']]]],
-      ['20000002', [['1INF02', ['NOCHE']], ['INF310', ['MANANA', 'MEDIODIA']]]],
+      [
+        '20000001',
+        [
+          ['1INF02', ['NOCHE', 'TARDE']],
+          ['INF310', ['MANANA']],
+          ['DER349', ['NOCHE']],
+        ],
+      ],
+      [
+        '20000002',
+        [
+          ['1INF02', ['NOCHE']],
+          ['INF310', ['MANANA', 'MEDIODIA']],
+        ],
+      ],
       ['20000004', [['1INF02', ['MEDIA_MANANA']]]],
     ];
     for (const [codigo, lista] of votos) {
-      await aceptarTerminos(prisma, esc.procesoId, esc.alumnos[codigo]);
       const alumno = await sesion(app, codigo);
       for (const [c, f] of lista) await alumno.post('/api/alumno/votos').send(voto(c, f)).expect(201);
     }
@@ -242,7 +295,7 @@ describe('Importación y exportación (e2e)', () => {
     expect(res.status).toBe(200);
     const libro = new ExcelJS.Workbook();
     await libro.xlsx.load(res.body);
-    expect(libro.worksheets.map((h) => h.name)).toEqual(['Ranking', 'Matriz franjas', 'Votos detallados']);
+    expect(libro.worksheets.map((h) => h.name)).toEqual(['Ranking', 'Matriz franjas']);
 
     const matriz: Record<string, number[]> = {};
     libro.getWorksheet('Matriz franjas')!.eachRow((fila, n) => {
@@ -258,6 +311,6 @@ describe('Importación y exportación (e2e)', () => {
     );
     expect(matriz).toEqual(esperado);
     expect(matriz['1INF02']).toEqual([0, 1, 0, 1, 2, 3]);
-    expect(libro.getWorksheet('Votos detallados')!.rowCount - 1).toBe(6);
+    expect(libro.getWorksheet('Votos detallados')).toBeUndefined();
   });
 });

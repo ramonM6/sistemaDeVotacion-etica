@@ -8,7 +8,11 @@ export class ResultadosRepository {
 
   votosDeProceso(procesoId: string, aptitud?: Aptitud) {
     return this.prisma.voto.findMany({
-      where: { procesoId, ...(aptitud ? { aptitud } : {}) },
+      where: {
+        procesoId,
+        ...(aptitud ? { aptitud } : {}),
+        usuario: { padron: { some: { procesoId } } },
+      },
       select: {
         cursoCodigo: true,
         aptitud: true,
@@ -22,24 +26,13 @@ export class ResultadosRepository {
   votosDeCurso(procesoId: string, cursoCodigo: string) {
     return this.prisma.voto.findMany({
       where: { procesoId, cursoCodigo },
-      include: {
-        franjas: { select: { franja: true } },
-        usuario: { select: { codigo: true, nombres: true, apellidos: true, correo: true } },
-      },
+      select: { aptitud: true, franjas: { select: { franja: true } } },
       orderBy: { createdAt: 'asc' },
     });
   }
 
-  votosDetallados(procesoId: string) {
-    return this.prisma.voto.findMany({
-      where: { procesoId },
-      include: {
-        franjas: { select: { franja: true } },
-        usuario: { select: { codigo: true, nombres: true, apellidos: true } },
-        curso: { select: { nombre: true } },
-      },
-      orderBy: [{ cursoCodigo: 'asc' }, { createdAt: 'asc' }],
-    });
+  seguimiento(procesoId: string) {
+    return this.prisma.seguimientoCurso.findMany({ where: { procesoId } });
   }
 
   curso(codigo: string) {
@@ -61,12 +54,12 @@ export class ResultadosRepository {
   }
 
   contarElectivos() {
-    return this.prisma.curso.count({ where: { tipo: 'ELECTIVO' } });
+    return this.prisma.curso.count({ where: { tipo: 'ELECTIVO', activo: true } });
   }
 
   contarElectivosSinDescripcion() {
     return this.prisma.curso.count({
-      where: { tipo: 'ELECTIVO', OR: [{ descripcion: null }, { descripcion: '' }] },
+      where: { tipo: 'ELECTIVO', activo: true, OR: [{ descripcion: null }, { descripcion: '' }] },
     });
   }
 }

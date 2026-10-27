@@ -3,7 +3,6 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { ProcesosService } from '../procesos/procesos.service';
 
 const ERROR_GENERICO = 'Código o contraseña incorrectos';
 
@@ -17,7 +16,6 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly audit: AuditService,
-    private readonly procesos: ProcesosService,
   ) {}
 
   async login(codigoIngresado: string, password: string, ip?: string) {
@@ -25,12 +23,7 @@ export class AuthService {
     const usuario = await this.prisma.usuario.findUnique({ where: { codigo } });
     const passwordOk = await bcrypt.compare(password, usuario?.passwordHash ?? HASH_FICTICIO);
 
-    // Un alumno solo puede entrar si figura en el padrón (Excel de cuentas) del proceso activo.
-    let habilitado = !!usuario && passwordOk;
-    if (habilitado && usuario!.rol === 'ALUMNO') {
-      const proceso = await this.procesos.obtenerActivo();
-      habilitado = !!proceso && (await this.procesos.estaEnPadron(proceso.id, usuario!.id));
-    }
+    const habilitado = !!usuario && usuario.activo && passwordOk;
 
     if (!habilitado) {
       await this.audit.registrar('LOGIN_FAIL', usuario?.id ?? null, { codigo, ip: ip ?? null });
@@ -44,7 +37,7 @@ export class AuthService {
 
   async me(usuarioId: string) {
     const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
-    if (!usuario) throw new UnauthorizedException('Sesión inválida');
+    if (!usuario || !usuario.activo) throw new UnauthorizedException('Sesión inválida');
     return this.aPublico(usuario);
   }
 

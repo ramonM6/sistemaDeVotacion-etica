@@ -7,3 +7,28 @@ coverage/
 *.log
 .vite/
 *.tsbuildinfo
+
+# Configuraciones locales del IDE
+.idea/
+.vscode/
+
+# Credenciales locales de AWS
+.aws/
+
+# Archivos generados
+build/
+.next/
+.cache/
+.turbo/
+
+# Archivos temporales del sistema
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+
+# Archivos de bloqueo de Microsoft Office
+~$*
+
+# Respaldos locales de PostgreSQL
+*.dump

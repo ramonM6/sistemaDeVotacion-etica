@@ -29,7 +29,8 @@ function cumpleConNota(tipo: TerminoRequisito['tipo'], estado: EstadoCurso | und
 }
 
 function describirNoCumple(tipo: TerminoRequisito['tipo'], codigo: string, estado?: EstadoCurso): string {
-  if (!estado || estado.notaMax === null) return `No registra ${codigo}`;
+  if (!estado || estado.notaMax === null)
+    return `Debes ${tipo === 'CURSADO_NOTA_MIN_8' ? 'cursar con nota mínima de 8' : tipo === 'CURSADO_O_SIMULTANEO' ? 'cursar' : 'aprobar'} ${codigo}; no tienes una nota registrada.`;
   const nota = estado.notaMax;
   if (tipo === 'CURSADO_NOTA_MIN_8') return `${codigo} con nota máxima ${nota} (se requiere 08 o más)`;
   return `${codigo} con nota máxima ${nota} (no aprobado)`;
@@ -63,14 +64,14 @@ function evaluarTermino(
         termino: termino.texto,
         cumple: true,
         dependeDeEnCurso: true,
-        detalle: `${fmt(aprobados)} aprobados + ${fmt(enCurso)} en curso = ${fmt(total)} créditos (mínimo ${minimo})`,
+        detalle: `Se exigen ${fmt(minimo)} créditos aprobados. Tienes ${fmt(aprobados)}; te faltan ${fmt(Math.round((minimo - aprobados) * 100) / 100)}. Estás llevando ${fmt(enCurso)} créditos: debes aprobar al menos los que te faltan.`,
       };
     }
     return {
       termino: termino.texto,
       cumple: false,
       dependeDeEnCurso: false,
-      detalle: `${fmt(total)} créditos contando los en curso (faltan ${fmt(minimo - total)} para ${minimo})`,
+      detalle: `Se exigen ${fmt(minimo)} créditos aprobados. Tienes ${fmt(aprobados)} y llevas ${fmt(enCurso)}. Aun aprobándolos todos, llegarías a ${fmt(total)}: te faltarían ${fmt(Math.round((minimo - total) * 100) / 100)} créditos.`,
     };
   }
 
@@ -90,7 +91,7 @@ function evaluarTermino(
       termino: termino.texto,
       cumple: true,
       dependeDeEnCurso: true,
-      detalle: `Estás llevando ${codigo} (se asume que lo apruebas)`,
+      detalle: `Estás llevando ${codigo}; debes ${termino.tipo === 'CURSADO_NOTA_MIN_8' ? 'terminarlo con nota mínima de 8' : termino.tipo === 'CURSADO_O_SIMULTANEO' ? 'terminarlo' : 'aprobarlo'} para cumplir este requisito.`,
     };
   }
   const esSimultaneo = termino.tipo === 'APROBADO_O_SIMULTANEO' || termino.tipo === 'CURSADO_O_SIMULTANEO';

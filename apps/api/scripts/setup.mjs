@@ -1,4 +1,4 @@
-// Se ejecuta antes de `npm run dev`: prepara .env, aplica migraciones y carga el seed la primera vez.
+// Se ejecuta antes de `npm run dev`: prepara .env, aplica migraciones y crea el coordinador la primera vez.
 import { config as loadEnv } from 'dotenv';
 import { execSync } from 'node:child_process';
 import { copyFileSync, existsSync } from 'node:fs';
@@ -17,6 +17,8 @@ if (!existsSync(env)) {
 loadEnv({ path: env });
 
 const ejecutar = (cmd) => execSync(cmd, { cwd: raiz, stdio: 'inherit' });
+// Regenera el cliente también al actualizar el esquema sin reinstalar dependencias.
+ejecutar('npx prisma generate');
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // La base puede tardar unos segundos en aceptar conexiones después de `docker compose up -d`.
@@ -45,6 +47,6 @@ const prisma = new PrismaClient();
 const hayCoordinador = (await prisma.usuario.count({ where: { rol: 'COORDINADOR' } })) > 0;
 await prisma.$disconnect();
 if (!hayCoordinador) {
-  console.log('› Base vacía: cargando datos de prueba');
+  console.log('› Base vacía: creando la cuenta de coordinación');
   ejecutar('npx tsx prisma/seed.ts');
 }

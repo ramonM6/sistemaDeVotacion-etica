@@ -15,8 +15,11 @@ import { useProcesoSeleccionado } from './LayoutCoord';
 /** Historial, créditos y aptitud por electivo: sirve para verificar el motor de requisitos. */
 export default function DetalleAlumno() {
   const { codigo = '' } = useParams();
-  const { procesoId } = useProcesoSeleccionado();
-  const consulta = useQuery({ queryKey: ['coord', 'padron', procesoId, codigo], queryFn: () => api.detalleAlumno(codigo, procesoId) });
+  const { procesoId, rutaProceso } = useProcesoSeleccionado();
+  const consulta = useQuery({
+    queryKey: ['coord', 'padron', procesoId, codigo],
+    queryFn: () => api.detalleAlumno(codigo, procesoId),
+  });
 
   if (consulta.isLoading) return <Cargando />;
   if (consulta.error) return <ErrorCarga error={consulta.error} />;
@@ -27,7 +30,7 @@ export default function DetalleAlumno() {
   return (
     <div className="space-y-6">
       <Button asChild variant="ghost" size="sm" className="-ml-3">
-        <Link to="/coord/padron">
+        <Link to={`${rutaProceso}/padron`}>
           <ArrowLeft /> Volver al padrón
         </Link>
       </Button>
@@ -74,7 +77,10 @@ export default function DetalleAlumno() {
               </TableHeader>
               <TableBody>
                 {d.electivos.map((e) => (
-                  <TableRow key={e.codigo} className={cn(e.elegibilidad.aptitud === 'NO_APTO' && 'text-muted-foreground')}>
+                  <TableRow
+                    key={e.codigo}
+                    className={cn(e.elegibilidad.aptitud === 'NO_APTO' && 'text-muted-foreground')}
+                  >
                     <TableCell>
                       <span className="font-mono text-xs font-semibold">{e.codigo}</span>
                       <div className="text-xs">{e.nombre}</div>
@@ -91,7 +97,10 @@ export default function DetalleAlumno() {
                       {e.elegibilidad.requisitos.length === 0
                         ? 'Sin requisitos'
                         : e.elegibilidad.requisitos.map((r) => (
-                            <p key={r.termino} className={cn(!r.cumple ? 'text-red-700' : r.dependeDeEnCurso ? 'text-amber-800' : '')}>
+                            <p
+                              key={r.termino}
+                              className={cn(!r.cumple ? 'text-red-700' : r.dependeDeEnCurso ? 'text-amber-800' : '')}
+                            >
                               <span className="font-mono">{r.termino}</span>: {r.detalle}
                             </p>
                           ))}
@@ -124,11 +133,13 @@ export default function DetalleAlumno() {
                     <TableCell>
                       <span className="font-mono text-xs font-semibold">{h.cursoCodigo}</span>
                       <div className="text-xs text-muted-foreground">
-                        {h.cursoNombre ?? 'Fuera del catálogo'}
+                        {h.cursoNombre ?? 'Fuera de la malla'}
                         {h.tipo && h.tipo !== 'OBLIGATORIO' && ` · ${ETIQUETA_TIPO[h.tipo]}`}
                       </div>
                     </TableCell>
-                    <TableCell className="tabular-nums">{h.notas.map((n) => (n === null ? 'en curso' : n)).join(' → ')}</TableCell>
+                    <TableCell className="tabular-nums">
+                      {h.notas.map((n) => (n === null ? 'en curso' : n)).join(' → ')}
+                    </TableCell>
                     <TableCell className="tabular-nums">{h.enCatalogo ? formatearCreditos(h.creditos) : '0'}</TableCell>
                     <TableCell>
                       {h.aprobado ? (

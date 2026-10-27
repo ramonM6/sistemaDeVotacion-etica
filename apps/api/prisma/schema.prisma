@@ -1,4 +1,4 @@
-// Modelo de datos — sección 9 de docs/ESPECIFICACION.md
+// Modelo de datos — docs/SISTEMA.md
 generator client {
   provider = "prisma-client-js"
 }
@@ -55,15 +55,19 @@ model Usuario {
   apellidos    String
   correo       String?
   passwordHash String
+  activo       Boolean @default(true)
+  ingreso      String?
+  craest       Float?
+  matriculado  Boolean?
   rol          Rol
   createdAt    DateTime             @default(now())
   padron       PadronAlumno[]
   historial    HistorialItem[]
-  aceptaciones AceptacionTerminos[]
   votos        Voto[]
 }
 
 model Curso {
+  activo Boolean @default(true)
   codigo          String      @id
   nombre          String
   creditos        Decimal     @db.Decimal(4, 2)
@@ -100,14 +104,20 @@ model ProcesoVotacion {
   estado        EstadoProceso        @default(BORRADOR)
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
+  cicloActual String?
+  catalogo Json?
+  primeraApertura DateTime?
+  seguimiento SeguimientoCurso[]
   padron        PadronAlumno[]
   historial     HistorialItem[]
-  aceptaciones  AceptacionTerminos[]
   votos         Voto[]
 }
 
 // Alumno habilitado en un proceso
 model PadronAlumno {
+  ingreso String?
+  craest Decimal? @db.Decimal(6, 2)
+  matriculado Boolean?
   procesoId String
   usuarioId String
   proceso   ProcesoVotacion @relation(fields: [procesoId], references: [id], onDelete: Cascade)
@@ -126,17 +136,6 @@ model HistorialItem {
   usuario     Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
   @@index([procesoId, usuarioId])
-}
-
-model AceptacionTerminos {
-  procesoId  String
-  usuarioId  String
-  version    Int
-  aceptadoEn DateTime        @default(now())
-  proceso    ProcesoVotacion @relation(fields: [procesoId], references: [id], onDelete: Cascade)
-  usuario    Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-
-  @@id([procesoId, usuarioId])
 }
 
 model Voto {
@@ -171,4 +170,30 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+model SeguimientoCurso {
+  procesoId String
+  cursoCodigo String
+  seleccion String @default("PENDIENTE")
+  consejo String @default("PENDIENTE")
+  dictado String @default("PENDIENTE")
+  observacion String @default("")
+  updatedAt DateTime @updatedAt
+  proceso ProcesoVotacion @relation(fields: [procesoId], references: [id], onDelete: Cascade)
+  @@id([procesoId, cursoCodigo])
+}
+
+model ArchivoCarga {
+  id String @id @default(uuid())
+  nombre String
+  tipo String
+  procesoId String?
+  actorId String
+  sha256 String
+  filas Int
+  contenido Bytes? // Solo transición de archivos antiguos; nuevas cargas usan Storage.
+  bucket String?
+  ruta String?
+  createdAt DateTime @default(now())
 }

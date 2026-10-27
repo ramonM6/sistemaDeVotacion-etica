@@ -1,7 +1,7 @@
 # Plan de estudios — Ingeniería Informática PUCP
 
 > Fuente: *Plan de Estudios Estudios Generales Ciencias (válido desde 2019-1)* y *Plan de Estudios de Ingeniería Informática FCI (vigente 2026-2)*.
-> Este archivo es la referencia legible. El archivo que importa el sistema es `plantilla_catalogo_cursos.xlsx`, que contiene exactamente los mismos datos.
+> Este archivo es la referencia legible. El archivo que importa el sistema es `plantilla_malla_curricular.xlsx`, que contiene exactamente los mismos datos.
 
 ## Notación de requisitos
 

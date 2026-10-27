@@ -24,7 +24,10 @@ export function useResultadosEnVivo(claves: QueryKey[]) {
     const alActualizar = () => {
       for (const queryKey of JSON.parse(firma) as QueryKey[]) queryClient.invalidateQueries({ queryKey });
     };
-    const alConectar = () => setConectado(true);
+    const alConectar = () => {
+      setConectado(true);
+      alActualizar();
+    };
     const alDesconectar = () => setConectado(false);
     setConectado(s.connected);
     s.on('resultados:actualizados', alActualizar);

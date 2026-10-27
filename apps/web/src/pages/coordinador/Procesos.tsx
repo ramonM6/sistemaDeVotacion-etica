@@ -1,6 +1,19 @@
+import { Link } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Lock, Pencil, Play, Plus, RotateCcw } from 'lucide-react';
+import {
+  ArrowRight,
+  CalendarDays,
+  Loader2,
+  Plus,
+  Users,
+  Vote,
+  Upload,
+  FileSpreadsheet,
+  X,
+  History,
+  CheckCircle2,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -8,28 +21,45 @@ import { z } from 'zod';
 import { Cargando, ErrorCarga, Titulo, Vacio } from '@/components/Estados';
 import { EstadoProcesoBadge } from '@/components/Insignias';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { api } from '@/lib/api';
 import { aInputFecha, formatearFecha } from '@/lib/formato';
-import type { EstadoProceso, Proceso } from '@/lib/tipos';
+import type { Proceso, TipoImportacion } from '@/lib/tipos';
 
 const esquema = z
   .object({
     nombre: z.string().trim().min(3, 'Mínimo 3 caracteres').max(120),
+    cicloActual: z
+      .string()
+      .regex(/^\d{4}-[0-2]$/, 'Formato AAAA-N')
+      .or(z.literal(''))
+      .optional(),
     cicloObjetivo: z.string().regex(/^\d{4}-[0-2]$/, 'Formato AAAA-N, por ejemplo 2027-1'),
     fechaInicio: z.string().min(1, 'Requerido'),
     fechaFin: z.string().min(1, 'Requerido'),
-    maxCursos: z.coerce.number().int().min(1).max(20),
-    maxFranjas: z.coerce.number().int().min(1).max(5),
+    maxCursos: z.coerce.number().int().min(1).max(5),
+    maxFranjas: z.coerce.number().int().min(1).max(2),
   })
-  .refine((d) => new Date(d.fechaFin) > new Date(d.fechaInicio), { path: ['fechaFin'], message: 'Debe ser posterior al inicio' });
+  .refine((d) => new Date(d.fechaFin) > new Date(d.fechaInicio), {
+    path: ['fechaFin'],
+    message: 'Debe ser posterior al inicio',
+  });
 type Datos = z.infer<typeof esquema>;
 
-function FormularioProceso({ proceso, alTerminar }: { proceso: Proceso | null; alTerminar: () => void }) {
+export function FormularioProceso({
+  proceso,
+  alTerminar,
+  alCancelar,
+}: {
+  proceso: Proceso | null;
+  alTerminar: (proceso: Proceso, archivos?: Partial<Record<TipoImportacion, File>>) => void;
+  alCancelar: () => void;
+}) {
+  const [archivos, setArchivos] = useState<Partial<Record<TipoImportacion, File>>>({});
+  const [fuentes, setFuentes] = useState<{ malla?: string; historial?: string }>({});
+  const anteriores = useQuery({ queryKey: ['coord', 'procesos'], queryFn: api.procesos, enabled: !proceso });
   const queryClient = useQueryClient();
   const ahora = new Date();
   const { register, handleSubmit, formState } = useForm<Datos>({
@@ -38,6 +68,7 @@ function FormularioProceso({ proceso, alTerminar }: { proceso: Proceso | null; a
       ? {
           nombre: proceso.nombre,
           cicloObjetivo: proceso.cicloObjetivo,
+          cicloActual: proceso.cicloActual ?? '',
           fechaInicio: aInputFecha(proceso.fechaInicio),
           fechaFin: aInputFecha(proceso.fechaFin),
           maxCursos: proceso.maxCursos,
@@ -46,6 +77,7 @@ function FormularioProceso({ proceso, alTerminar }: { proceso: Proceso | null; a
       : {
           nombre: '',
           cicloObjetivo: '',
+          cicloActual: '',
           fechaInicio: aInputFecha(ahora),
           fechaFin: aInputFecha(new Date(ahora.getTime() + 7 * 86_400_000)),
           maxCursos: 5,
@@ -55,13 +87,20 @@ function FormularioProceso({ proceso, alTerminar }: { proceso: Proceso | null; a
 
   const guardar = useMutation({
     mutationFn: (d: Datos) => {
-      const datos = { ...d, fechaInicio: new Date(d.fechaInicio).toISOString(), fechaFin: new Date(d.fechaFin).toISOString() };
+      const datos = {
+        ...(!proceso ? { reutilizar: fuentes } : {}),
+        ...d,
+        cicloActual: d.cicloActual || undefined,
+        fechaInicio:
+          proceso && proceso.estado !== 'BORRADOR' ? proceso.fechaInicio : new Date(d.fechaInicio).toISOString(),
+        fechaFin: new Date(d.fechaFin).toISOString(),
+      };
       return proceso ? api.editarProceso(proceso.id, datos) : api.crearProceso(datos);
     },
-    onSuccess: () => {
+    onSuccess: (guardado) => {
       toast.success(proceso ? 'Proceso actualizado' : 'Proceso creado en borrador');
       queryClient.invalidateQueries({ queryKey: ['coord'] });
-      alTerminar();
+      alTerminar(guardado, archivos);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -77,139 +116,241 @@ function FormularioProceso({ proceso, alTerminar }: { proceso: Proceso | null; a
   return (
     <form onSubmit={handleSubmit((d) => guardar.mutate(d))} className="space-y-4" noValidate>
       {campo('nombre', 'Nombre', { placeholder: 'Electivos 2027-1' })}
-      {campo('cicloObjetivo', 'Ciclo objetivo', { placeholder: '2027-1' })}
+      {campo('cicloActual', 'Ciclo actual', {
+        placeholder: '2026-2',
+        readOnly: !!proceso && proceso.estado !== 'BORRADOR',
+      })}
+      {campo('cicloObjetivo', 'Ciclo objetivo', {
+        placeholder: '2027-1',
+        readOnly: !!proceso && proceso.estado !== 'BORRADOR',
+      })}
       <div className="grid gap-4 sm:grid-cols-2">
         {campo('fechaInicio', 'Inicio', { type: 'datetime-local' })}
         {campo('fechaFin', 'Fin (cierre automático)', { type: 'datetime-local' })}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        {campo('maxCursos', 'Máximo de cursos por alumno', { type: 'number', min: 1, max: 20 })}
-        {campo('maxFranjas', 'Máximo de franjas por voto', { type: 'number', min: 1, max: 5 })}
+        {campo('maxCursos', 'Máximo de cursos por alumno', {
+          type: 'number',
+          min: 1,
+          max: 5,
+          readOnly: !!proceso && proceso.estado !== 'BORRADOR',
+        })}
+        {campo('maxFranjas', 'Máximo de franjas por voto', {
+          type: 'number',
+          min: 1,
+          max: 2,
+          readOnly: !!proceso && proceso.estado !== 'BORRADOR',
+        })}
       </div>
-      <DialogFooter>
-        <Button type="button" variant="outline" onClick={alTerminar}>
+      {!proceso && (
+        <fieldset className="space-y-3 rounded-lg border p-4">
+          <legend className="px-1 text-sm font-semibold">Archivos de la votación</legend>
+          <p className="text-xs text-muted-foreground">
+            Sube un CSV o Excel (.xlsx), máximo 5 MB, o reutiliza los datos y el archivo disponible de una votación
+            anterior. Al guardar se validan y cargan los archivos en este orden: malla y luego historial.
+          </p>
+          {(
+            [
+              ['malla', 'Malla curricular del ciclo actual'],
+              ['historial', 'Información académica de los estudiantes'],
+            ] as const
+          ).map(([tipo, titulo]) => (
+            <div key={tipo} className="space-y-1">
+              <Label htmlFor={`nuevo-${tipo}`}>{titulo}</Label>
+              <div className="grid gap-3 py-2 sm:grid-cols-2" role="radiogroup" aria-label={`Origen de ${titulo}`}>
+                {(['nuevo', 'reutilizar'] as const).map((origen) => {
+                  const nuevo = origen === 'nuevo';
+                  const activo = nuevo ? fuentes[tipo] === undefined : fuentes[tipo] !== undefined;
+                  const Icono = nuevo ? Upload : History;
+                  return (
+                    <label key={origen} className="relative cursor-pointer">
+                      <input
+                        type="radio"
+                        name={`origen-${tipo}`}
+                        value={origen}
+                        checked={activo}
+                        aria-label={nuevo ? 'Archivo nuevo' : 'Reutilizar de una votación anterior'}
+                        className="peer sr-only"
+                        disabled={!nuevo && anteriores.isLoading}
+                        onChange={() => {
+                          if (nuevo) setFuentes((prev) => ({ ...prev, [tipo]: undefined }));
+                          else {
+                            setArchivos((prev) => ({ ...prev, [tipo]: undefined }));
+                            setFuentes((prev) => ({ ...prev, [tipo]: '' }));
+                          }
+                        }}
+                      />
+                      <span className="flex h-full items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-blue-50/60 peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 peer-disabled:cursor-not-allowed peer-disabled:opacity-50">
+                        <span
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${activo ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}`}
+                        >
+                          <Icono aria-hidden className="h-4 w-4" />
+                        </span>
+                        <span className="flex-1">
+                          <span className="block text-sm font-semibold">
+                            {nuevo ? 'Archivo nuevo' : 'Reutilizar archivo'}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {nuevo ? 'Cargar desde tu equipo' : 'De una votación anterior'}
+                          </span>
+                        </span>
+                        {activo && <CheckCircle2 aria-hidden className="h-4 w-4 shrink-0 text-primary" />}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              {fuentes[tipo] !== undefined ? (
+                <>
+                  <Select
+                    id={`nuevo-${tipo}`}
+                    aria-label={`Votación de origen para ${tipo}`}
+                    value={fuentes[tipo]}
+                    onChange={(event) => setFuentes((prev) => ({ ...prev, [tipo]: event.target.value }))}
+                  >
+                    <option value="">Selecciona una votación anterior</option>
+                    {anteriores.data
+                      ?.filter((p) => (tipo === 'malla' ? !!p.catalogo?.length : (p._count?.historial ?? 0) > 0))
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nombre} · {p.cicloObjetivo}
+                        </option>
+                      ))}
+                  </Select>
+                  {anteriores.error && (
+                    <p className="text-xs text-destructive">No se pudieron cargar las votaciones anteriores.</p>
+                  )}
+                  {tipo === 'historial' && (
+                    <p className="text-xs text-muted-foreground">
+                      El historial determina quién participa en esta votación. Sus alumnos deben tener una cuenta creada
+                      previamente desde la sección Alumnos.
+                    </p>
+                  )}
+                </>
+              ) : archivos[tipo] ? (
+                <div className="flex items-center gap-3 rounded-md border bg-muted/30 px-3 py-2">
+                  <FileSpreadsheet aria-hidden className="h-5 w-5 shrink-0 text-emerald-700" />
+                  <div className="min-w-0 flex-1">
+                    <p className="break-all text-sm font-medium">{archivos[tipo]!.name}</p>
+                    <p className="text-xs text-muted-foreground">Archivo elegido · Se cargará al guardar</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Quitar archivo de ${titulo}`}
+                    onClick={() => setArchivos((prev) => ({ ...prev, [tipo]: undefined }))}
+                  >
+                    <X aria-hidden className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <label className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed px-3 py-4 text-sm hover:bg-muted/30 focus-within:ring-2 focus-within:ring-primary">
+                  <Upload aria-hidden className="h-4 w-4" /> Elegir archivo CSV o Excel
+                  <input
+                    id={`nuevo-${tipo}`}
+                    type="file"
+                    className="sr-only"
+                    aria-label={titulo}
+                    accept=".xlsx,.csv"
+                    onChange={(event) => {
+                      const archivo = event.target.files?.[0];
+                      event.target.value = '';
+                      if (
+                        archivo &&
+                        (!/\.(xlsx|csv)$/i.test(archivo.name) || !archivo.size || archivo.size > 5 * 1024 * 1024)
+                      ) {
+                        toast.error('Usa un archivo CSV o Excel (.xlsx) con contenido y de máximo 5 MB');
+                        return;
+                      }
+                      if (archivo) setArchivos((prev) => ({ ...prev, [tipo]: archivo }));
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+          ))}
+        </fieldset>
+      )}
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button type="button" variant="outline" onClick={alCancelar}>
           Cancelar
         </Button>
-        <Button type="submit" disabled={guardar.isPending}>
+        <Button type="submit" disabled={guardar.isPending || Object.values(fuentes).some((valor) => valor === '')}>
           {guardar.isPending && <Loader2 className="animate-spin" />}
           Guardar
         </Button>
-      </DialogFooter>
+      </div>
     </form>
   );
 }
 
 export default function Procesos() {
-  const queryClient = useQueryClient();
-  const procesos = useQuery({ queryKey: ['coord', 'procesos'], queryFn: api.procesos });
-  const [editando, setEditando] = useState<Proceso | null | undefined>(undefined);
-
-  const cambiar = useMutation({
-    mutationFn: ({ id, estado }: { id: string; estado: EstadoProceso }) => api.cambiarEstado(id, estado),
-    onSuccess: (p) => {
-      toast.success(`"${p.nombre}" ahora está ${p.estado.toLowerCase()}`);
-      queryClient.invalidateQueries({ queryKey: ['coord'] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
+  const procesos = useQuery({ queryKey: ['coord', 'procesos'], queryFn: api.procesos, refetchInterval: 30_000 });
   if (procesos.isLoading) return <Cargando />;
   if (procesos.error) return <ErrorCarga error={procesos.error} />;
-  const hayAbierto = procesos.data!.some((p) => p.estado === 'ABIERTO');
-
   return (
-    <div>
+    <div className="space-y-6">
       <Titulo
-        titulo="Procesos de votación"
-        descripcion="Solo puede haber un proceso abierto a la vez. Se cierra solo al llegar la fecha de fin."
+        titulo="Votaciones"
+        descripcion="Elige una votación para revisar sus resultados, administrar sus datos y decidir los estados de sus cursos."
         acciones={
-          <Button onClick={() => setEditando(null)}>
-            <Plus /> Nuevo proceso
+          <Button asChild>
+            <Link to="/coord/nueva-votacion">
+              <Plus /> Nueva votación
+            </Link>
           </Button>
         }
       />
-
-      {procesos.data!.length === 0 ? (
-        <Vacio>No hay procesos. Crea uno para empezar.</Vacio>
+      {!procesos.data!.length ? (
+        <Vacio>Aún no hay votaciones. Crea la primera para empezar.</Vacio>
       ) : (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Ciclo</TableHead>
-                <TableHead>Periodo</TableHead>
-                <TableHead>Límites</TableHead>
-                <TableHead>Padrón / votos</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {procesos.data!.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.nombre}</TableCell>
-                  <TableCell>{p.cicloObjetivo}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {procesos.data!.map((p) => (
+            <Link
+              key={p.id}
+              to={`/coord/votaciones/${p.id}`}
+              className="group overflow-hidden rounded-xl border bg-card shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <div
+                className={`relative flex h-32 items-end justify-between overflow-hidden p-5 ${p.estado === 'ABIERTO' ? 'bg-blue-700' : p.estado === 'CERRADO' ? 'bg-slate-700' : 'bg-teal-700'}`}
+              >
+                <div className="absolute -right-5 -top-9 h-40 w-40 rounded-full border-[22px] border-white/10" />
+                <div className="relative">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-white/75">Votación de electivos</p>
+                  <p className="mt-1 text-3xl font-bold text-white">{p.cicloObjetivo}</p>
+                </div>
+                <Vote className="relative h-9 w-9 text-white/80" />
+              </div>
+              <div className="space-y-4 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="text-lg font-semibold leading-snug group-hover:text-primary">{p.nombre}</h2>
+                  <EstadoProcesoBadge estado={p.estado} />
+                </div>
+                <p className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <CalendarDays className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
                     {formatearFecha(p.fechaInicio)}
                     <br />
-                    {formatearFecha(p.fechaFin)}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {p.maxCursos} cursos · {p.maxFranjas} franjas
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    {p._count?.padron ?? 0} / {p._count?.votos ?? 0}
-                  </TableCell>
-                  <TableCell>
-                    <EstadoProcesoBadge estado={p.estado} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => setEditando(p)} aria-label={`Editar ${p.nombre}`}>
-                        <Pencil />
-                      </Button>
-                      {p.estado === 'BORRADOR' && (
-                        <Button size="sm" disabled={hayAbierto || cambiar.isPending} onClick={() => cambiar.mutate({ id: p.id, estado: 'ABIERTO' })}>
-                          <Play /> Abrir
-                        </Button>
-                      )}
-                      {p.estado === 'ABIERTO' && (
-                        <Button size="sm" variant="destructive" disabled={cambiar.isPending} onClick={() => cambiar.mutate({ id: p.id, estado: 'CERRADO' })}>
-                          <Lock /> Cerrar
-                        </Button>
-                      )}
-                      {p.estado === 'CERRADO' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={hayAbierto || cambiar.isPending}
-                          title="Para extender el plazo, edita la fecha de fin antes de reabrir"
-                          onClick={() => cambiar.mutate({ id: p.id, estado: 'ABIERTO' })}
-                        >
-                          <RotateCcw /> Reabrir
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+                    hasta {formatearFecha(p.fechaFin)}
+                  </span>
+                </p>
+                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <Users className="h-4 w-4" />
+                    {p._count?.padron ?? 0} alumnos
+                  </span>
+                  <span>{p._count?.votos ?? 0} votos</span>
+                </div>
+                <div className="flex items-center justify-between border-t pt-4 text-sm font-semibold text-primary">
+                  <span>Entrar a la votación</span>
+                  <ArrowRight className="h-4 w-4" />
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
       )}
-
-      <Dialog open={editando !== undefined} onOpenChange={(v) => !v && setEditando(undefined)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editando ? 'Editar proceso' : 'Nuevo proceso'}</DialogTitle>
-            <DialogDescription>
-              {editando ? 'Para extender el plazo de un proceso cerrado, cambia la fecha de fin y luego reábrelo.' : 'El proceso se crea en borrador.'}
-            </DialogDescription>
-          </DialogHeader>
-          {editando !== undefined && <FormularioProceso proceso={editando} alTerminar={() => setEditando(undefined)} />}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

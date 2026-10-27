@@ -1,12 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Franja } from '@prisma/client';
-import { FRANJAS } from '../../common/franjas';
 import { ElegibilidadService } from '../elegibilidad/elegibilidad.service';
 import { NOTA_APROBATORIA } from '../elegibilidad/motor';
 import { ProcesosService } from '../procesos/procesos.service';
 import { PadronRepository } from './padron.repository';
-
-const ordenFranja = (f: Franja) => FRANJAS.findIndex((x) => x.valor === f);
 
 @Injectable()
 export class PadronService {
@@ -33,7 +29,6 @@ export class PadronService {
         creditosEnCurso: creditos.get(u.id)?.enCurso ?? 0,
         votos: u._count.votos,
         tieneHistorial: u._count.historial > 0,
-        terminosAceptados: u.aceptaciones.length > 0,
       })),
     };
   }
@@ -44,10 +39,7 @@ export class PadronService {
     const alumno = await this.repo.alumnoEnProceso(proceso.id, codigo);
     if (!alumno) throw new NotFoundException('El alumno no está en el padrón de este proceso');
 
-    const [evaluacion, votos] = await Promise.all([
-      this.elegibilidad.evaluarAlumno(proceso.id, alumno.id),
-      this.repo.votosDeAlumno(proceso.id, alumno.id),
-    ]);
+    const evaluacion = await this.elegibilidad.evaluarAlumno(proceso.id, alumno.id);
 
     const notasPorCurso = new Map<string, (number | null)[]>();
     for (const e of evaluacion.entradas) {
@@ -72,24 +64,13 @@ export class PadronService {
       })
       .sort((a, b) => a.cursoCodigo.localeCompare(b.cursoCodigo));
 
-    const votoPorCurso = new Map(votos.map((v) => [v.cursoCodigo, v]));
     return {
       proceso: { id: proceso.id, nombre: proceso.nombre },
       alumno,
       creditos: evaluacion.creditos,
       historial,
       electivos: evaluacion.electivos.map((e) => {
-        const voto = votoPorCurso.get(e.codigo);
-        return {
-          ...e,
-          voto: voto
-            ? {
-                aptitud: voto.aptitud,
-                franjas: voto.franjas.map((f) => f.franja).sort((a, b) => ordenFranja(a) - ordenFranja(b)),
-                createdAt: voto.createdAt,
-              }
-            : null,
-        };
+        return { ...e, voto: null };
       }),
     };
   }

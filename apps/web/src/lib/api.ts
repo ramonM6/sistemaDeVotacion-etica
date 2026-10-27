@@ -41,12 +41,20 @@ async function solicitar<T>(ruta: string, opciones: RequestInit = {}): Promise<T
   });
   if (res.status === 204) return undefined as T;
   const texto = await res.text();
-  const cuerpo = texto ? JSON.parse(texto) : null;
+  let cuerpo: { message?: string | string[]; error?: string } | null;
+  try {
+    cuerpo = texto ? JSON.parse(texto) : null;
+  } catch {
+    throw new ApiError(res.status, 'El servidor no está disponible. Inténtalo de nuevo en unos momentos.');
+  }
+  if (!res.ok && res.status >= 500) {
+    throw new ApiError(res.status, 'El servidor no está disponible. Inténtalo de nuevo en unos momentos.');
+  }
   if (!res.ok) {
     const mensaje = cuerpo?.message;
     const lista: string[] = Array.isArray(mensaje) ? mensaje : mensaje ? [String(mensaje)] : [];
     const principal =
-      res.status === 413 ? 'El archivo supera el máximo de 5 MB' : lista[0] ?? cuerpo?.error ?? `Error ${res.status}`;
+      res.status === 413 ? 'El archivo supera el máximo de 5 MB' : (lista[0] ?? cuerpo?.error ?? `Error ${res.status}`);
     throw new ApiError(res.status, principal, lista);
   }
   return cuerpo as T;
@@ -70,36 +78,95 @@ export const api = {
   me: () => get<Usuario>('/auth/me'),
   procesoActivo: () => get<Proceso | null>('/procesos/activo'),
 
-  // Alumno
-  estadoAlumno: () => get<EstadoAlumno>('/alumno/estado'),
-  aceptarTerminos: () => post('/alumno/terminos'),
-  electivos: () => get<{ creditos: Creditos; electivos: ElectivoAlumno[] }>('/alumno/electivos'),
-  electivo: (codigo: string) => get<ElectivoAlumno & { creditosAlumno: Creditos }>(`/alumno/electivos/${encodeURIComponent(codigo)}`),
-  votar: (cursoCodigo: string, franjas: Franja[]) => post<MiVoto>('/alumno/votos', { cursoCodigo, franjas }),
-  misVotos: () => get<MiVoto[]>('/alumno/votos'),
-  resultadosPublicos: () => get<ResultadosPublicos>('/resultados/publicos'),
+  // Alumno: todas las operaciones conservan la votación seleccionada.
+  votarLote: (procesoId: string, votos: { cursoCodigo: string; franjas: Franja[] }[]) =>
+    post<MiVoto[]>(`/alumno/votos/lote${qs({ procesoId })}`, { votos }),
+  alumnos: () =>
+    get<{ codigo: string; nombres: string; apellidos: string; correo: string | null }[]>('/coord/import/alumnos'),
+  procesosAlumno: () => get<Proceso[]>('/alumno/procesos'),
+  estadoAlumno: (procesoId?: string) => get<EstadoAlumno>(`/alumno/estado${qs({ procesoId })}`),
+  electivos: (procesoId?: string) =>
+    get<{ creditos: Creditos; electivos: ElectivoAlumno[] }>(`/alumno/electivos${qs({ procesoId })}`),
+  electivo: (codigo: string, procesoId?: string) =>
+    get<ElectivoAlumno & { creditosAlumno: Creditos }>(
+      `/alumno/electivos/${encodeURIComponent(codigo)}${qs({ procesoId })}`,
+    ),
+  votar: (cursoCodigo: string, franjas: Franja[], procesoId?: string) =>
+    post<MiVoto>(`/alumno/votos${qs({ procesoId })}`, { cursoCodigo, franjas }),
+  editarVoto: (cursoCodigo: string, franjas: Franja[], procesoId?: string) =>
+    patch(`/alumno/votos/${encodeURIComponent(cursoCodigo)}${qs({ procesoId })}`, { cursoCodigo, franjas }),
+  retirarVoto: (codigo: string, procesoId?: string) =>
+    solicitar(`/alumno/votos/${encodeURIComponent(codigo)}${qs({ procesoId })}`, { method: 'DELETE' }),
+  misVotos: (procesoId?: string) => get<MiVoto[]>(`/alumno/votos${qs({ procesoId })}`),
+  resultadosPublicos: (procesoId?: string) => get<ResultadosPublicos>(`/resultados/publicos${qs({ procesoId })}`),
+  seguimientoAlumno: (procesoId: string) =>
+    get<{ proceso: Proceso; cursos: SeguimientoCurso[] }>(`/alumno/seguimiento${qs({ procesoId })}`),
 
+  seguimiento: (procesoId?: string) =>
+    get<{ proceso: Proceso; cursos: SeguimientoCurso[] }>(`/coord/seguimiento${qs({ procesoId })}`),
+  decidirCursos: (procesoId: string, etapa: 'seleccion' | 'consejo' | 'dictado', estado: string, codigos: string[]) =>
+    post<{ proceso: Proceso; cursos: SeguimientoCurso[] }>(`/coord/seguimiento/lote${qs({ procesoId })}`, {
+      etapa,
+      estado,
+      codigos,
+    }),
+  guardarSeguimiento: (procesoId: string, codigo: string, d: SeguimientoCurso) =>
+    patch(`/coord/seguimiento/${codigo}${qs({ procesoId })}`, {
+      seleccion: d.seleccion,
+      consejo: d.consejo,
+      dictado: d.dictado,
+      observacion: d.observacion,
+    }),
+  previewConsejo: (procesoId: string, csv: string) =>
+    post<{ procesoId: string; filas: unknown[] }>(`/coord/seguimiento/csv/preview${qs({ procesoId })}`, { csv }),
+  confirmarConsejo: (procesoId: string, csv: string) =>
+    post(`/coord/seguimiento/csv/confirmar${qs({ procesoId })}`, { csv }),
   // Coordinador
   procesos: () => get<Proceso[]>('/coord/procesos'),
   crearProceso: (datos: ProcesoForm) => post<Proceso>('/coord/procesos', datos),
   editarProceso: (id: string, datos: Partial<ProcesoForm>) => patch<Proceso>(`/coord/procesos/${id}`, datos),
   cambiarEstado: (id: string, estado: Proceso['estado']) => patch<Proceso>(`/coord/procesos/${id}/estado`, { estado }),
 
+  archivos: (procesoId?: string) =>
+    get<
+      {
+        id: string;
+        nombre: string;
+        tipo: string;
+        procesoId: string | null;
+        filas: number;
+        sha256: string;
+        createdAt: string;
+      }[]
+    >(`/coord/import/archivos${qs({ procesoId })}`),
+  eliminarImportacion: (tipo: 'malla' | 'historial', procesoId: string) =>
+    solicitar<{ tipos: string[]; advertencias: string[] }>(`/coord/import/${tipo}${qs({ procesoId })}`, {
+      method: 'DELETE',
+    }),
+  urlArchivo: (id: string) => `/api/coord/import/archivos/${id}`,
   previewImportacion: (tipo: TipoImportacion, archivo: File, procesoId?: string) => {
     const fd = new FormData();
     fd.append('archivo', archivo);
-    return solicitar<PreviewImportacion>(`/coord/import/${tipo}/preview${qs({ procesoId })}`, { method: 'POST', body: fd });
+    return solicitar<PreviewImportacion>(`/coord/import/${tipo}/preview${qs({ procesoId })}`, {
+      method: 'POST',
+      body: fd,
+    });
   },
   confirmarImportacion: (tipo: TipoImportacion, token: string) =>
     post<Record<string, unknown>>(`/coord/import/${tipo}/confirmar`, { token }),
+  urlEjemplo: (tipo: TipoImportacion) => `/api/coord/import/${tipo}/ejemplo`,
   urlPlantilla: (tipo: TipoImportacion) => `/api/coord/import/${tipo}/plantilla`,
 
   cursos: (tipo?: TipoCurso) => get<CursoCoord[]>(`/coord/cursos${qs({ tipo })}`),
-  editarCurso: (codigo: string, datos: Partial<Pick<CursoCoord, 'nombre' | 'creditos' | 'descripcion'>> & { requisitosTexto?: string }) =>
-    patch<CursoCoord>(`/coord/cursos/${encodeURIComponent(codigo)}`, datos),
+  editarCurso: (
+    codigo: string,
+    datos: Partial<Pick<CursoCoord, 'nombre' | 'creditos' | 'descripcion'>> & { requisitosTexto?: string },
+  ) => patch<CursoCoord>(`/coord/cursos/${encodeURIComponent(codigo)}`, datos),
 
   padron: (procesoId?: string) =>
-    get<{ proceso: { id: string; nombre: string; maxCursos: number }; alumnos: AlumnoPadron[] }>(`/coord/padron${qs({ procesoId })}`),
+    get<{ proceso: { id: string; nombre: string; maxCursos: number }; alumnos: AlumnoPadron[] }>(
+      `/coord/padron${qs({ procesoId })}`,
+    ),
   detalleAlumno: (codigo: string, procesoId?: string) =>
     get<DetalleAlumno>(`/coord/padron/${encodeURIComponent(codigo)}${qs({ procesoId })}`),
 
@@ -107,7 +174,8 @@ export const api = {
     get<ResultadosCoord>(`/coord/resultados${qs({ procesoId, aptitud })}`),
   detalleCurso: (codigo: string, procesoId?: string) =>
     get<DetalleCursoCoord>(`/coord/resultados/${encodeURIComponent(codigo)}${qs({ procesoId })}`),
-  urlExportResultados: (procesoId?: string) => `/api/coord/export/resultados.xlsx${qs({ procesoId })}`,
+  urlExportResultados: (procesoId?: string, aptitud?: Aptitud) =>
+    `/api/coord/export/resultados.xlsx${qs({ procesoId, aptitud })}`,
   urlExportCurso: (codigo: string, procesoId?: string) =>
     `/api/coord/export/cursos/${encodeURIComponent(codigo)}/votantes.xlsx${qs({ procesoId })}`,
 };
@@ -115,8 +183,20 @@ export const api = {
 export interface ProcesoForm {
   nombre: string;
   cicloObjetivo: string;
+  cicloActual?: string;
   fechaInicio: string;
   fechaFin: string;
   maxCursos: number;
   maxFranjas: number;
+  reutilizar?: { malla?: string; historial?: string };
+}
+
+export interface SeguimientoCurso {
+  codigo: string;
+  nombre: string;
+  seleccion: string;
+  consejo: string;
+  dictado: string;
+  observacion: string;
+  updatedAt?: string;
 }

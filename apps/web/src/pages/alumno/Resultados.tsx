@@ -1,3 +1,4 @@
+import { useVotacionAlumno } from './LayoutAlumno';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Cargando, ErrorCarga, Titulo, Vacio } from '@/components/Estados';
@@ -7,10 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { api } from '@/lib/api';
 import { useResultadosEnVivo } from '@/lib/socket';
 
-/** Resultados en vivo para alumnos. Nunca muestra quién votó. */
+/** Resultados agregados disponibles para alumnos durante la votación y después del cierre. */
 export default function Resultados() {
-  const consulta = useQuery({ queryKey: ['resultados', 'publicos'], queryFn: api.resultadosPublicos });
-  const conectado = useResultadosEnVivo([['resultados', 'publicos']]);
+  const { procesoId } = useVotacionAlumno();
+  const consulta = useQuery({
+    queryKey: ['alumno', procesoId, 'resultados'],
+    queryFn: () => api.resultadosPublicos(procesoId),
+    refetchInterval: 30_000,
+  });
+  const conectado = useResultadosEnVivo([['alumno', procesoId, 'resultados']]);
   const [seleccionado, setSeleccionado] = useState<string | null>(null);
 
   if (consulta.isLoading) return <Cargando />;
@@ -21,7 +27,7 @@ export default function Resultados() {
   return (
     <div>
       <Titulo
-        titulo="Resultados en vivo"
+        titulo="Resultados"
         descripcion={`${proceso.nombre} · ${totalVotos} votos en total. Los resultados son referenciales y no muestran quién votó.`}
         acciones={<EnVivo conectado={conectado} />}
       />

@@ -1,3 +1,5 @@
+import { StorageService } from '../src/modules/importacion/storage.service';
+import { StorageFalso } from './storage-falso';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -7,7 +9,6 @@ import * as ExcelJS from 'exceljs';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { configurarApp } from '../src/bootstrap';
-import { TERMINOS_VERSION } from '../src/common/terminos';
 import { parsearRequisitos } from '../src/modules/elegibilidad/motor';
 import { aplicarCatalogo } from '../src/modules/importacion/aplicar';
 import { CursoImportado } from '../src/modules/importacion/validadores/catalogo';
@@ -15,7 +16,12 @@ import { CursoImportado } from '../src/modules/importacion/validadores/catalogo'
 export const PASSWORD = 'Alumno#Test1';
 
 export async function crearApp(): Promise<INestApplication> {
-  const modulo = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  const storage = new StorageFalso();
+  await storage.prepararRecursos();
+  const modulo = await Test.createTestingModule({ imports: [AppModule] })
+    .overrideProvider(StorageService)
+    .useValue(storage)
+    .compile();
   const app = modulo.createNestApplication<NestExpressApplication>();
   configurarApp(app);
   await app.init();
@@ -25,7 +31,7 @@ export async function crearApp(): Promise<INestApplication> {
 /** Vacía todas las tablas. */
 export async function limpiar(prisma: PrismaClient) {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE "VotoFranja","Voto","AceptacionTerminos","HistorialItem","PadronAlumno","ProcesoVotacion","Requisito","Curso","AuditLog","Usuario" CASCADE',
+    'TRUNCATE "ArchivoCarga","VotoFranja","Voto","HistorialItem","PadronAlumno","ProcesoVotacion","Requisito","Curso","AuditLog","Usuario" CASCADE',
   );
 }
 
@@ -72,7 +78,7 @@ export interface Escenario {
  * Crea coordinador, catálogo, un proceso ABIERTO y alumnos:
  * - 20000001: 1INF24 aprobado, BLOQUE aprobado → casi todo CONFIRMADO
  * - 20000002: 1INF24 en curso → 1INF02 CONDICIONAL
- * - 20000003: sin historial → solo electivos sin requisitos
+ * - 20000003: sin créditos aprobados → solo electivos sin requisitos
  * - 20000004: igual que el 1 (para pruebas de concurrencia)
  * - 20000009: tiene cuenta pero NO está en el padrón
  */
@@ -111,6 +117,7 @@ export async function escenarioBase(prisma: PrismaClient): Promise<Escenario> {
     ['20000001', '1INF41', 13],
     ['20000001', 'BLOQUE', 14],
     ['20000002', '1INF24', null],
+    ['20000003', 'BLOQUE', 0],
     ['20000004', '1INF24', 12],
     ['20000004', 'BLOQUE', 12],
   ];
@@ -123,10 +130,6 @@ export async function escenarioBase(prisma: PrismaClient): Promise<Escenario> {
     })),
   });
   return { procesoId: proceso.id, alumnos };
-}
-
-export async function aceptarTerminos(prisma: PrismaClient, procesoId: string, usuarioId: string) {
-  await prisma.aceptacionTerminos.create({ data: { procesoId, usuarioId, version: TERMINOS_VERSION } });
 }
 
 /** Inicia sesión y devuelve un agente de Supertest con la cookie. */

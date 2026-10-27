@@ -1,55 +1,88 @@
+import { createContext, useContext } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { createContext, useContext, useState } from 'react';
+import { Link, NavLink, useMatch } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { Layout } from '@/components/Layout';
-import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { EstadoProcesoBadge } from '@/components/Insignias';
 import { api } from '@/lib/api';
-import { ETIQUETA_ESTADO } from '@/lib/formato';
+import type { Proceso } from '@/lib/tipos';
+import { cn } from '@/lib/utils';
+import AdministrarVotacion from './AdministrarVotacion';
 
+const ProcesoContext = createContext<{
+  procesoId?: string;
+  rutaProceso: string;
+  proceso?: Proceso;
+  enPreparacion: boolean;
+  cargandoProceso: boolean;
+}>({ rutaProceso: '/coord', enPreparacion: false, cargandoProceso: false });
+export const useProcesoSeleccionado = () => useContext(ProcesoContext);
 const ENLACES = [
-  { a: '/coord', texto: 'Panel', fin: true },
-  { a: '/coord/resultados', texto: 'Resultados' },
-  { a: '/coord/procesos', texto: 'Procesos' },
-  { a: '/coord/carga', texto: 'Carga de datos' },
-  { a: '/coord/cursos', texto: 'Catálogo' },
-  { a: '/coord/padron', texto: 'Padrón' },
+  { a: '/coord', texto: 'Votaciones', fin: true },
+  { a: '/coord/alumnos', texto: 'Alumnos' },
+  { a: '/coord/plantillas', texto: 'Plantillas' },
 ];
 
-/** Proceso con el que trabaja el coordinador (undefined = el activo: abierto o el último). */
-const ProcesoContext = createContext<{ procesoId?: string; setProcesoId: (id?: string) => void }>({ setProcesoId: () => {} });
-export const useProcesoSeleccionado = () => useContext(ProcesoContext);
-
-export function SelectorProceso() {
-  const { procesoId, setProcesoId } = useProcesoSeleccionado();
-  const procesos = useQuery({ queryKey: ['coord', 'procesos'], queryFn: api.procesos });
-  if (!procesos.data || procesos.data.length < 2) return null;
-  return (
-    <div className="flex items-center gap-2">
-      <Label htmlFor="selector-proceso" className="whitespace-nowrap text-muted-foreground">
-        Proceso
-      </Label>
-      <Select
-        id="selector-proceso"
-        className="h-9 w-64"
-        value={procesoId ?? ''}
-        onChange={(e) => setProcesoId(e.target.value || undefined)}
-      >
-        <option value="">Activo (abierto o el último)</option>
-        {procesos.data.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.nombre} — {ETIQUETA_ESTADO[p.estado]}
-          </option>
-        ))}
-      </Select>
-    </div>
-  );
-}
-
 export default function LayoutCoord() {
-  const [procesoId, setProcesoId] = useState<string | undefined>();
+  const coincidencia = useMatch('/coord/votaciones/:procesoId/*');
+  const enCreacion = !!useMatch('/coord/nueva-votacion');
+  const procesoId = coincidencia?.params.procesoId;
+  const rutaProceso = procesoId ? `/coord/votaciones/${procesoId}` : '/coord';
+  const consulta = useQuery({
+    queryKey: ['coord', 'procesos'],
+    queryFn: api.procesos,
+    enabled: !!procesoId,
+    refetchInterval: procesoId ? 30_000 : false,
+  });
+  const proceso = consulta.data?.find((p) => p.id === procesoId);
+  const enPreparacion = proceso?.estado === 'BORRADOR' && !proceso.primeraApertura;
   return (
-    <ProcesoContext.Provider value={{ procesoId, setProcesoId }}>
-      <Layout enlaces={ENLACES} rolTexto="Coordinación" />
+    <ProcesoContext.Provider
+      value={{ procesoId, rutaProceso, proceso, enPreparacion, cargandoProceso: consulta.isLoading }}
+    >
+      <Layout
+        enlaces={ENLACES.map((e) => ({ ...e, activo: e.a === '/coord' && (!!procesoId || enCreacion) }))}
+        rolTexto="Coordinación"
+      >
+        {procesoId && (
+          <section className="mb-7 space-y-4">
+            <Button asChild variant="ghost" size="sm" className="-ml-3">
+              <Link to="/coord">
+                <ArrowLeft /> Todas las votaciones
+              </Link>
+            </Button>
+            {proceso && (
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="text-lg font-semibold">{proceso.nombre}</p>
+                <EstadoProcesoBadge estado={proceso.estado} />
+              </div>
+            )}
+            {proceso && <AdministrarVotacion key={proceso.id} proceso={proceso} />}
+            <nav aria-label="Navegación de la votación" className="flex flex-wrap gap-x-5 gap-y-1 border-b">
+              {[
+                { a: `${rutaProceso}/cursos`, texto: 'Cursos' },
+                { a: `${rutaProceso}/resultados`, texto: 'Resultados' },
+                { a: `${rutaProceso}/carga`, texto: 'Datos y archivos' },
+                { a: `${rutaProceso}/padron`, texto: 'Padrón' },
+              ].map((e) => (
+                <NavLink
+                  key={e.a}
+                  to={e.a}
+                  className={({ isActive }) =>
+                    cn(
+                      'border-b-2 border-transparent px-1 py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground',
+                      isActive && 'border-primary text-primary',
+                    )
+                  }
+                >
+                  {e.texto}
+                </NavLink>
+              ))}
+            </nav>
+          </section>
+        )}
+      </Layout>
     </ProcesoContext.Provider>
   );
 }

@@ -4,11 +4,7 @@
  */
 
 export type TipoRequisito =
-  | 'APROBADO'
-  | 'CURSADO_NOTA_MIN_8'
-  | 'APROBADO_O_SIMULTANEO'
-  | 'CURSADO_O_SIMULTANEO'
-  | 'CREDITOS_MIN';
+  'APROBADO' | 'CURSADO_NOTA_MIN_8' | 'APROBADO_O_SIMULTANEO' | 'CURSADO_O_SIMULTANEO' | 'CREDITOS_MIN';
 
 export type TipoCurso = 'OBLIGATORIO' | 'ELECTIVO' | 'ELECTIVO_GENERALES' | 'ELECTIVO_LIBRE';
 
@@ -71,6 +67,7 @@ export interface EvaluacionRequisito {
   termino: string;
   cumple: boolean;
   dependeDeEnCurso: boolean;
+  requiereSimultaneo?: boolean;
   detalle: string;
 }
 

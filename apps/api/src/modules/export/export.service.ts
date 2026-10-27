@@ -1,10 +1,9 @@
+import { Aptitud } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
 import { FRANJAS } from '../../common/franjas';
 import { ProcesosService } from '../procesos/procesos.service';
 import { ResultadosService } from '../resultados/resultados.service';
-
-const etiquetaFranja = (valor: string) => FRANJAS.find((f) => f.valor === valor)?.etiqueta ?? valor;
 
 function estilizarEncabezado(hoja: ExcelJS.Worksheet) {
   const fila = hoja.getRow(1);
@@ -25,12 +24,11 @@ export class ExportService {
     private readonly procesos: ProcesosService,
   ) {}
 
-  async resultadosXlsx(procesoId?: string) {
+  async resultadosXlsx(procesoId?: string, aptitud?: Aptitud) {
     const proceso = await this.procesos.resolver(procesoId);
-    const [ranking, votos, indicadores] = await Promise.all([
-      this.resultados.ranking(proceso.id),
-      this.resultados.votosDetallados(proceso.id),
-      this.resultados.indicadores(proceso.id),
+    const [ranking, indicadores] = await Promise.all([
+      this.resultados.ranking(proceso.id, aptitud),
+      this.resultados.indicadores(proceso.id, aptitud),
     ]);
 
     const libro = new ExcelJS.Workbook();
@@ -46,11 +44,15 @@ export class ExportService {
       { header: 'Votos', key: 'total', width: 8 },
       { header: 'Confirmados', key: 'confirmados', width: 13 },
       { header: 'Condicionales', key: 'condicionales', width: 14 },
+      { header: 'Selección', key: 'seleccion', width: 30 },
+      { header: 'Consejo', key: 'consejo', width: 20 },
+      { header: 'Dictado', key: 'dictado', width: 20 },
     ];
     ranking.forEach((f, i) => hRanking.addRow({ puesto: i + 1, ...f }));
     estilizarEncabezado(hRanking);
     hRanking.addRow([]);
     hRanking.addRow(['Proceso', proceso.nombre]);
+    hRanking.addRow(['Filtro', aptitud ?? 'Todos los votos']);
     hRanking.addRow(['Alumnos habilitados', indicadores.habilitados]);
     hRanking.addRow(['Alumnos que votaron', indicadores.votaron]);
     hRanking.addRow(['Participación (%)', indicadores.participacion]);
@@ -67,40 +69,23 @@ export class ExportService {
     for (const f of ranking) hMatriz.addRow({ codigo: f.codigo, nombre: f.nombre, ...f.franjas, total: f.total });
     estilizarEncabezado(hMatriz);
 
-    const hVotos = libro.addWorksheet('Votos detallados');
-    hVotos.columns = [
-      { header: 'Código curso', key: 'cursoCodigo', width: 13 },
-      { header: 'Curso', key: 'cursoNombre', width: 50 },
-      { header: 'Código alumno', key: 'alumnoCodigo', width: 14 },
-      { header: 'Alumno', key: 'alumnoNombre', width: 38 },
-      { header: 'Aptitud al votar', key: 'aptitud', width: 16 },
-      { header: 'Franjas', key: 'franjas', width: 30 },
-      { header: 'Fecha', key: 'createdAt', width: 20 },
-    ];
-    for (const v of votos) {
-      hVotos.addRow({ ...v, franjas: v.franjas.map(etiquetaFranja).join(', '), createdAt: v.createdAt });
-    }
-    hVotos.getColumn('createdAt').numFmt = 'yyyy-mm-dd hh:mm';
-    estilizarEncabezado(hVotos);
-
     return { buffer: Buffer.from(await libro.xlsx.writeBuffer()), nombre: `resultados-${proceso.cicloObjetivo}.xlsx` };
   }
 
   async cursoXlsx(codigo: string, procesoId?: string) {
     const detalle = await this.resultados.detalleCurso(codigo, procesoId);
     const libro = new ExcelJS.Workbook();
-    const hoja = libro.addWorksheet('Votantes');
+    const hoja = libro.addWorksheet('Resumen');
     hoja.columns = [
-      { header: 'Código', key: 'codigo', width: 12 },
-      { header: 'Apellidos', key: 'apellidos', width: 28 },
-      { header: 'Nombres', key: 'nombres', width: 28 },
-      { header: 'Correo', key: 'correo', width: 30 },
-      { header: 'Aptitud al votar', key: 'aptitud', width: 16 },
-      { header: 'Franjas', key: 'franjas', width: 30 },
-      { header: 'Fecha', key: 'createdAt', width: 20 },
+      { header: 'Dato', key: 'dato', width: 24 },
+      { header: 'Valor', key: 'valor', width: 60 },
     ];
-    for (const v of detalle.votantes) hoja.addRow({ ...v, franjas: v.franjas.map(etiquetaFranja).join(', ') });
-    hoja.getColumn('createdAt').numFmt = 'yyyy-mm-dd hh:mm';
+    hoja.addRows([
+      { dato: 'Curso', valor: `${detalle.curso.codigo} · ${detalle.curso.nombre}` },
+      { dato: 'Votos', valor: detalle.total },
+      { dato: 'Confirmados', valor: detalle.confirmados },
+      { dato: 'Condicionales', valor: detalle.condicionales },
+    ]);
     estilizarEncabezado(hoja);
 
     const hFranjas = libro.addWorksheet('Franjas');
@@ -109,9 +94,10 @@ export class ExportService {
       { header: 'Horario', key: 'horario', width: 16 },
       { header: 'Votos', key: 'votos', width: 8 },
     ];
-    for (const f of FRANJAS) hFranjas.addRow({ franja: f.etiqueta, horario: f.horario, votos: detalle.franjas[f.valor] });
+    for (const f of FRANJAS)
+      hFranjas.addRow({ franja: f.etiqueta, horario: f.horario, votos: detalle.franjas[f.valor] });
     estilizarEncabezado(hFranjas);
 
-    return { buffer: Buffer.from(await libro.xlsx.writeBuffer()), nombre: `votantes-${detalle.curso.codigo}.xlsx` };
+    return { buffer: Buffer.from(await libro.xlsx.writeBuffer()), nombre: `resultados-${detalle.curso.codigo}.xlsx` };
   }
 }
