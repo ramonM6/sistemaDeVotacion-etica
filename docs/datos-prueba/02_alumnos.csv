@@ -1,0 +1,5 @@
+﻿codigo,nombres,apellidos,password,correo,ingreso,craest,matriculado
+20990001,Ana,Prueba Uno,Prueba#2026,ana.prueba@example.com,2026.1,75,si
+20990002,Bruno,Prueba Dos,Prueba#2026,bruno.prueba@example.com,2026.1,65,si
+20990003,Carla,Prueba Tres,Prueba#2026,carla.prueba@example.com,2026.2,55,si
+20990004,Diego,Prueba Cuatro,Prueba#2026,diego.prueba@example.com,2026.2,50,si

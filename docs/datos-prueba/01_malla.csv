@@ -1,0 +1,10 @@
+﻿codigo,nombre,creditos,tipo,ciclo,grupo,requisitos,descripcion
+INF101,Matemática para Informática,3,OBLIGATORIO,1,,,Curso base de prueba.
+INF102,Programación Básica,4,OBLIGATORIO,2,,,Curso base de prueba.
+INF103,Estadística,3,OBLIGATORIO,3,,,Curso base de prueba.
+INF201,Introducción a Tecnologías Web,3,ELECTIVO,6,,,Electivo sin requisitos.
+INF202,Desarrollo de Aplicaciones,3,ELECTIVO,7,,INF102,Requiere aprobar Programación Básica.
+INF203,Análisis de Datos,3,ELECTIVO,7,,INF103,Requiere aprobar Estadística.
+INF204,Algoritmos Aplicados,3.5,ELECTIVO,8,,"INF101,INF102",Requiere aprobar dos cursos.
+INF205,Proyecto de Aplicaciones,3,ELECTIVO,9,,[INF202],Permite llevar INF202 en simultáneo; el sistema incluye la dependencia al votar.
+INF206,Taller de Programación,3,ELECTIVO,6,,(INF102),Requiere haber cursado INF102 con nota mínima de 8.
