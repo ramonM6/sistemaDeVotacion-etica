@@ -1,0 +1,1 @@
+ALTER TABLE "PadronAlumno" ADD COLUMN "intereses" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

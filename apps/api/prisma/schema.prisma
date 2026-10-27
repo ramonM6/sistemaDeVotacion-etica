@@ -113,6 +113,7 @@ model ProcesoVotacion {
 
 // Alumno habilitado en un proceso
 model PadronAlumno {
+  intereses String[] @default([])
   ingreso String?
   craest Decimal? @db.Decimal(6, 2)
   matriculado Boolean?

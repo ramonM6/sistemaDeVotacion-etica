@@ -71,6 +71,9 @@ export const api = {
   procesoActivo: () => get<Proceso | null>('/procesos/activo'),
 
   // Alumno: todas las operaciones conservan la votación seleccionada.
+  interesesAlumno: (procesoId: string) => get<string[]>(`/alumno/intereses${qs({ procesoId })}`),
+  marcarInteres: (procesoId: string, codigo: string, interesado: boolean) =>
+    patch<string[]>(`/alumno/intereses/${encodeURIComponent(codigo)}${qs({ procesoId })}`, { interesado }),
   procesosAlumno: () => get<Proceso[]>('/alumno/procesos'),
   estadoAlumno: (procesoId?: string) => get<EstadoAlumno>(`/alumno/estado${qs({ procesoId })}`),
   aceptarTerminos: (procesoId?: string) => post(`/alumno/terminos${qs({ procesoId })}`),

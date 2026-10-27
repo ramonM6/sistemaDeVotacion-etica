@@ -1,9 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Info, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Cargando, ErrorCarga, Titulo, Vacio } from '@/components/Estados';
 import { AptitudBadge, FranjasTexto } from '@/components/Insignias';
+import { toast } from 'sonner';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +17,7 @@ import type { ElectivoAlumno } from '@/lib/tipos';
 import { cn } from '@/lib/utils';
 import { useEstadoAlumno, useVotacionAlumno } from './LayoutAlumno';
 
-type Filtro = 'todos' | 'aptos' | 'votados';
+type Filtro = 'todos' | 'aptos' | 'votados' | 'interesados';
 
 export function EtiquetaPropia({ estado }: { estado: ElectivoAlumno['estadoPropio'] }) {
   if (estado === 'APROBADO') return <Badge variant="info">Ya aprobaste este curso</Badge>;
@@ -29,6 +31,17 @@ const faltantes = (e: ElectivoAlumno) => e.elegibilidad.requisitos.filter((r) =>
 export default function Catalogo() {
   const { procesoId, rutaProceso } = useVotacionAlumno();
   const estado = useEstadoAlumno();
+  const cliente = useQueryClient();
+  const intereses = useQuery({
+    queryKey: ['alumno', procesoId, 'intereses'],
+    queryFn: () => api.interesesAlumno(procesoId!),
+  });
+  const marcar = useMutation({
+    mutationFn: ({ codigo, interesado }: { codigo: string; interesado: boolean }) =>
+      api.marcarInteres(procesoId!, codigo, interesado),
+    onSuccess: (datos) => cliente.setQueryData(['alumno', procesoId, 'intereses'], datos),
+    onError: (error: Error) => toast.error(error.message),
+  });
   const consulta = useQuery({ queryKey: ['alumno', procesoId, 'electivos'], queryFn: () => api.electivos(procesoId) });
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState<Filtro>('todos');
@@ -38,13 +51,19 @@ export default function Catalogo() {
     return (consulta.data?.electivos ?? [])
       .filter((e) => !q || e.codigo.toLowerCase().includes(q) || e.nombre.toLowerCase().includes(q))
       .filter((e) =>
-        filtro === 'aptos' ? e.elegibilidad.aptitud !== 'NO_APTO' : filtro === 'votados' ? !!e.voto : true,
+        filtro === 'aptos'
+          ? e.elegibilidad.aptitud !== 'NO_APTO'
+          : filtro === 'votados'
+            ? !!e.voto
+            : filtro === 'interesados'
+              ? !!intereses.data?.includes(e.codigo)
+              : true,
       )
       .sort((a, b) => {
         const orden = { CONFIRMADO: 0, CONDICIONAL: 1, NO_APTO: 2 };
         return orden[a.elegibilidad.aptitud] - orden[b.elegibilidad.aptitud] || a.codigo.localeCompare(b.codigo);
       });
-  }, [consulta.data, busqueda, filtro]);
+  }, [consulta.data, busqueda, filtro, intereses.data]);
 
   if (consulta.isLoading || estado.isLoading) return <Cargando />;
   if (consulta.error) return <ErrorCarga error={consulta.error} />;
@@ -53,6 +72,7 @@ export default function Catalogo() {
   const sinVotos = !!e && e.votosUsados >= e.maxCursos;
   const todos = consulta.data!.electivos;
   const conteo = {
+    interesados: todos.filter((x) => intereses.data?.includes(x.codigo)).length,
     todos: todos.length,
     aptos: todos.filter((x) => x.elegibilidad.aptitud !== 'NO_APTO').length,
     votados: todos.filter((x) => x.voto).length,
@@ -71,6 +91,10 @@ export default function Catalogo() {
         }
       />
 
+      <p className="mb-4 text-sm text-muted-foreground">
+        Marca «Me interesa» para guardar cursos de interés. Esto no registra un voto.
+      </p>
+      {intereses.error && <p className="mb-4 text-sm text-destructive">No se pudieron cargar tus cursos de interés.</p>}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -82,8 +106,8 @@ export default function Catalogo() {
             aria-label="Buscar electivo"
           />
         </div>
-        <div className="inline-flex rounded-md border bg-background p-1" role="group" aria-label="Filtro">
-          {(['todos', 'aptos', 'votados'] as Filtro[]).map((f) => (
+        <div className="inline-flex flex-wrap rounded-md border bg-background p-1" role="group" aria-label="Filtro">
+          {(['todos', 'aptos', 'votados', 'interesados'] as Filtro[]).map((f) => (
             <button
               key={f}
               onClick={() => setFiltro(f)}
@@ -132,6 +156,15 @@ export default function Catalogo() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1 pb-3">
+                  <label className="mb-3 flex cursor-pointer items-center gap-2 text-sm font-medium">
+                    <Checkbox
+                      aria-label={`Me interesa ${el.codigo}`}
+                      checked={!!intereses.data?.includes(el.codigo)}
+                      disabled={intereses.isLoading || !!intereses.error || marcar.isPending}
+                      onCheckedChange={(valor) => marcar.mutate({ codigo: el.codigo, interesado: valor === true })}
+                    />
+                    Me interesa
+                  </label>
                   <p className="line-clamp-3 text-sm text-muted-foreground">
                     {el.descripcion || <span className="italic">Sin descripción.</span>}
                   </p>

@@ -41,7 +41,8 @@ export default function App() {
             <Route path="catalogo/:codigo" element={<DetalleElectivo />} />
             <Route path="votos" element={<MisVotos />} />
             <Route path="resultados" element={<AlumnoResultados />} />
-            <Route path="seguimiento" element={<SeguimientoAlumno />} />
+            <Route path="seguimiento" element={<Navigate to="seleccion" replace />} />
+            <Route path="seguimiento/:etapa" element={<SeguimientoAlumno />} />
           </Route>
           <Route path="*" element={<Navigate to="/alumno" replace />} />
         </Route>

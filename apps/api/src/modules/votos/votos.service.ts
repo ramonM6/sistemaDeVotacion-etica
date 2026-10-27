@@ -44,6 +44,17 @@ export class VotosService {
     return this.procesos.listarDelAlumno(usuarioId);
   }
 
+  async intereses(usuarioId: string, procesoId?: string) {
+    const proceso = await this.procesoDelAlumno(usuarioId, procesoId);
+    return this.repo.intereses(proceso.id, usuarioId);
+  }
+
+  async marcarInteres(usuarioId: string, codigo: string, interesado: boolean, procesoId?: string) {
+    const proceso = await this.procesoDelAlumno(usuarioId, procesoId);
+    await this.electivo(usuarioId, codigo, proceso.id);
+    return this.repo.marcarInteres(proceso.id, usuarioId, codigo.toUpperCase(), interesado);
+  }
+
   async estado(usuarioId: string, procesoId?: string) {
     const proceso = await this.procesoDelAlumno(usuarioId, procesoId);
     const [aceptacion, votosUsados] = await Promise.all([

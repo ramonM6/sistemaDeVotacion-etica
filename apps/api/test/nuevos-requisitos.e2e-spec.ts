@@ -510,4 +510,30 @@ describe('Requisitos integrados de VotaInf', () => {
     await alumno.get(`/api/resultados/publicos?procesoId=${otro.id}`).expect(403);
     await alumno.get(`/api/alumno/estado?procesoId=${borrador.id}`).expect(403);
   });
+  it('guarda intereses personales sin emitir votos, también después del cierre', async () => {
+    const alumno = await sesion(app, '20000001');
+    const otro = await sesion(app, '20000002');
+    const ruta = `/api/alumno/intereses?procesoId=${esc.procesoId}`;
+    const marcar = `/api/alumno/intereses/INF310?procesoId=${esc.procesoId}`;
+    expect((await alumno.get(ruta).expect(200)).body).toEqual([]);
+    await alumno.patch(marcar).send({ interesado: true }).expect(200);
+    await alumno.patch(marcar).send({ interesado: true }).expect(200);
+    expect((await alumno.get(ruta).expect(200)).body).toEqual(['INF310']);
+    expect((await otro.get(ruta).expect(200)).body).toEqual([]);
+    expect(await db.voto.count()).toBe(0);
+    await cerrar().expect(200);
+    await alumno.patch(marcar).send({ interesado: false }).expect(200);
+    expect((await alumno.get(ruta).expect(200)).body).toEqual([]);
+    await alumno.patch(marcar).send({ interesado: true }).expect(200);
+    await alumno.patch(marcar).send({ interesado: 'sí' }).expect(400);
+    await alumno
+      .patch(`/api/alumno/intereses/ZZZ999?procesoId=${esc.procesoId}`)
+      .send({ interesado: true })
+      .expect(404);
+    await db.padronAlumno.delete({
+      where: { procesoId_usuarioId: { procesoId: esc.procesoId, usuarioId: esc.alumnos['20000001'] } },
+    });
+    await alumno.get(ruta).expect(403);
+    await alumno.patch(marcar).send({ interesado: true }).expect(403);
+  });
 });
