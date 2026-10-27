@@ -80,6 +80,15 @@ export default function Catalogo() {
   const seleccionados = electivos.filter(
     (c) => marcados.includes(c.codigo) && !c.voto && c.elegibilidad.aptitud !== 'NO_APTO',
   );
+  const retirar = useMutation({
+    mutationFn: (codigo: string) => api.retirarVoto(codigo, procesoId),
+    onSuccess: () => {
+      setMarcados([]);
+      toast.success('Voto retirado');
+    },
+    onError: (error: Error) => toast.error(error.message),
+    onSettled: () => cliente.invalidateQueries({ queryKey: ['alumno'] }),
+  });
   const votar = useMutation({
     mutationFn: () =>
       api.votarLote(
@@ -242,7 +251,32 @@ export default function Catalogo() {
                         <AptitudBadge elegibilidad={c.elegibilidad} />
                       </td>
                       <td className="px-4 py-4">
-                        {c.voto ? <Badge>Votado</Badge> : <Badge variant="outline">No votado</Badge>}
+                        {c.voto ? (
+                          <div className="flex flex-col items-start gap-2">
+                            <Badge>Votado</Badge>
+                            {e.abierto && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-auto p-0 text-xs text-destructive hover:text-destructive"
+                                aria-label={`Retirar voto de ${c.codigo}`}
+                                disabled={retirar.isPending || votar.isPending}
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      `¿Retirar tu voto de ${c.nombre}? También se retirarán los electivos que dependan de este para llevarlos en simultáneo.`,
+                                    )
+                                  )
+                                    retirar.mutate(c.codigo);
+                                }}
+                              >
+                                Retirar voto
+                              </Button>
+                            )}
+                          </div>
+                        ) : (
+                          <Badge variant="outline">No votado</Badge>
+                        )}
                       </td>
                       <td className="px-4 py-4">
                         <AccionesCurso curso={c} detalle={`${rutaProceso}/cursos/${c.codigo}`} />
