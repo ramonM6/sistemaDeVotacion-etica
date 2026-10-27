@@ -28,7 +28,7 @@ describe('Requisitos integrados de VotaInf', () => {
     await coord.patch(`/api/coord/procesos/${esc.procesoId}`).send({ maxFranjas: 3 }).expect(400);
   });
 
-  it('oculta resultados al reabrir y conserva los votos', async () => {
+  it('muestra resultados durante la apertura y conserva los votos al reabrir', async () => {
     const alumno = await sesion(app, '20000001');
     await alumno
       .post('/api/alumno/votos')
@@ -37,7 +37,7 @@ describe('Requisitos integrados de VotaInf', () => {
     await cerrar().expect(200);
     expect((await alumno.get('/api/resultados/publicos')).body.totalVotos).toBe(1);
     await coord.patch(`/api/coord/procesos/${esc.procesoId}/estado`).send({ estado: 'ABIERTO' }).expect(200);
-    expect((await alumno.get('/api/resultados/publicos')).body.ranking).toEqual([]);
+    expect((await alumno.get('/api/resultados/publicos')).body.totalVotos).toBe(1);
     expect(await db.voto.count()).toBe(1);
   });
 

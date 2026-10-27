@@ -259,7 +259,7 @@ describe('Votación (e2e)', () => {
 
     it('los resultados públicos no incluyen datos de los votantes', async () => {
       const alumno = await votar('20000001', [['INF310', ['NOCHE', 'TARDE']]]);
-      expect((await alumno.get('/api/resultados/publicos')).body.ranking).toEqual([]);
+      expect((await alumno.get('/api/resultados/publicos')).body.totalVotos).toBe(1);
       await prisma.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'CERRADO' } });
       const res = await alumno.get('/api/resultados/publicos');
       expect(res.status).toBe(200);

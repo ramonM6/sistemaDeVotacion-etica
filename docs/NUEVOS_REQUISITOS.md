@@ -30,11 +30,11 @@ Se distinguen ciclo actual y objetivo. El ciclo actual es opcional para compatib
 
 Dentro de cada votación en borrador, el selector **Reutilizar catálogo de…** copia el catálogo de otro proceso a un borrador antes de abrirlo. Sin copia explícita, la primera apertura usa el catálogo global vigente. Una copia reutilizada prevalece sobre posteriores cambios al catálogo global.
 
-El cierre automático existente continúa funcionando. Se puede extender y reabrir un proceso sin seguimiento del consejo: los votos permanecen y los resultados de alumnos vuelven a ocultarse. Con seguimiento registrado, la reapertura se bloquea, como en VotaInf.
+El cierre automático existente continúa funcionando. Se puede extender y reabrir un proceso sin seguimiento del consejo: los votos permanecen y los resultados de alumnos continúan visibles. Con seguimiento registrado, la reapertura se bloquea, como en VotaInf.
 
 ## Resultados y consejo
 
-Los alumnos ven ranking, franjas y decisiones de dictado solo al cierre. Se actualizan cada 30 segundos, al recuperar el foco y por los eventos de proceso/votación.
+Los alumnos ven ranking y franjas en vivo desde la apertura. Las decisiones de dictado se registran después del cierre. Se actualizan cada 30 segundos, al recuperar el foco y por los eventos de proceso/votación.
 
 El coordinador puede alternar entre **Todos los votos**, **Solo confirmados** y **Solo condicionales**. El filtro se aplica al ranking, al mapa de calor, a los indicadores y a la exportación. No hay filtros por ingreso/CRAEst/matrícula ni agrupaciones en resultados.
 

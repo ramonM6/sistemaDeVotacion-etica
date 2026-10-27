@@ -3,6 +3,14 @@ import { createPortal } from 'react-dom';
 import { MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { FRANJAS } from '@/lib/formato';
 import type { MiVoto, Franja } from '@/lib/tipos';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
@@ -51,57 +59,69 @@ function EditarVoto({ voto, maxFranjas }: { voto: MiVoto; maxFranjas: number }) 
   });
   return (
     <div className="space-y-2">
-      {editando && (
-        <div className="flex flex-wrap gap-2">
-          {FRANJAS.map((f) => (
-            <label key={f.valor} className="flex items-center gap-1 text-xs">
-              <input
-                type="checkbox"
-                checked={franjas.includes(f.valor)}
-                disabled={cambio.isPending || (!franjas.includes(f.valor) && franjas.length >= maxFranjas)}
-                onChange={() =>
-                  setFranjas((a) => (a.includes(f.valor) ? a.filter((x) => x !== f.valor) : [...a, f.valor]))
-                }
-              />
-              {f.etiqueta}
-            </label>
-          ))}
-        </div>
-      )}
-      <div className="flex gap-2">
-        {editando ? (
-          <>
-            <Button size="sm" disabled={!franjas.length || cambio.isPending} onClick={() => cambio.mutate(false)}>
-              Guardar
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setEditando(false)}>
+      <Dialog
+        open={editando}
+        onOpenChange={(abierto) => {
+          if (!cambio.isPending) setEditando(abierto);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar franjas</DialogTitle>
+            <DialogDescription>
+              {voto.cursoCodigo} · {voto.cursoNombre}. Selecciona de 1 a {maxFranjas} franjas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            {FRANJAS.map((f) => (
+              <label key={f.valor} className="flex items-center gap-3 rounded-md border p-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={franjas.includes(f.valor)}
+                  disabled={cambio.isPending || (!franjas.includes(f.valor) && franjas.length >= maxFranjas)}
+                  onChange={() =>
+                    setFranjas((a) => (a.includes(f.valor) ? a.filter((x) => x !== f.valor) : [...a, f.valor]))
+                  }
+                />
+                <span>
+                  {f.etiqueta} <span className="text-muted-foreground">{f.horario}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" disabled={cambio.isPending} onClick={() => setEditando(false)}>
               Cancelar
             </Button>
-          </>
-        ) : (
-          <Button
-            ref={boton}
-            size="icon"
-            variant="ghost"
-            aria-label={`Opciones de ${voto.cursoCodigo}`}
-            aria-haspopup="menu"
-            aria-expanded={!!menu}
-            disabled={cambio.isPending}
-            onClick={() => {
-              const rect = boton.current!.getBoundingClientRect();
-              setMenu(
-                menu
-                  ? null
-                  : {
-                      top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 110)),
-                      right: Math.max(8, window.innerWidth - rect.right),
-                    },
-              );
-            }}
-          >
-            <MoreVertical aria-hidden className="h-5 w-5" />
-          </Button>
-        )}
+            <Button disabled={!franjas.length || cambio.isPending} onClick={() => cambio.mutate(false)}>
+              {cambio.isPending ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <div className="flex justify-end">
+        <Button
+          ref={boton}
+          size="icon"
+          variant="ghost"
+          aria-label={`Opciones de ${voto.cursoCodigo}`}
+          aria-haspopup="menu"
+          aria-expanded={!!menu}
+          disabled={cambio.isPending}
+          onClick={() => {
+            const rect = boton.current!.getBoundingClientRect();
+            setMenu(
+              menu
+                ? null
+                : {
+                    top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 110)),
+                    right: Math.max(8, window.innerWidth - rect.right),
+                  },
+            );
+          }}
+        >
+          <MoreVertical aria-hidden className="h-5 w-5" />
+        </Button>
         {menu &&
           createPortal(
             <div

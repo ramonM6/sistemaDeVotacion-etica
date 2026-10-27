@@ -1,4 +1,4 @@
-> **Actualización:** las reglas modificadas al integrar VotaInf están en [NUEVOS_REQUISITOS.md](NUEVOS_REQUISITOS.md) y prevalecen sobre las secciones históricas de este documento. En particular, los votos ahora se pueden editar/retirar durante la apertura, los resultados de alumnos se muestran al cierre y los reportes del coordinador no incluyen elecciones individuales identificadas.
+> **Actualización:** las reglas modificadas al integrar VotaInf están en [NUEVOS_REQUISITOS.md](NUEVOS_REQUISITOS.md) y prevalecen sobre las secciones históricas de este documento. En particular, los votos ahora se pueden editar/retirar durante la apertura, los resultados de alumnos se muestran en vivo durante la apertura y después del cierre y los reportes del coordinador no incluyen elecciones individuales identificadas.
 
 # Sistema de Votación de Cursos Electivos — Ingeniería Informática PUCP
 

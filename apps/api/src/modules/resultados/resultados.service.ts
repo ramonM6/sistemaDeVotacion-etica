@@ -73,7 +73,7 @@ export class ResultadosService {
     const proceso = await this.procesos.resolver(procesoId);
     if (usuarioId && (proceso.estado === 'BORRADOR' || !(await this.procesos.estaEnPadron(proceso.id, usuarioId))))
       throw new ForbiddenException('No estás habilitado en esta votación');
-    const ranking = proceso.estado === 'CERRADO' ? await this.ranking(proceso.id) : [];
+    const ranking = proceso.estado !== 'BORRADOR' ? await this.ranking(proceso.id) : [];
     return {
       proceso: {
         id: proceso.id,

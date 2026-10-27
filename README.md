@@ -1,6 +1,6 @@
 # Sistema de Votación de Electivos — Ingeniería Informática PUCP
 
-Sondeo de demanda de cursos electivos: los alumnos aptos votan por hasta 5 electivos y, en cada uno, por 1 o 2 franjas horarias. El coordinador ve los resultados en vivo (ranking, mapa de calor curso × franja) y los exporta a Excel o PDF. Los alumnos ven los resultados al cierre y pueden modificar o retirar sus elecciones mientras la votación esté abierta. Es un MVP que corre solo en **localhost**.
+Sondeo de demanda de cursos electivos: los alumnos aptos votan por hasta 5 electivos y, en cada uno, por 1 o 2 franjas horarias. El coordinador ve los resultados en vivo (ranking, mapa de calor curso × franja) y los exporta a Excel o PDF. Los alumnos ven los resultados en vivo durante la apertura y después del cierre y pueden modificar o retirar sus elecciones mientras la votación esté abierta. Es un MVP que corre solo en **localhost**.
 
 La especificación completa está en [`docs/ESPECIFICACION.md`](docs/ESPECIFICACION.md) y el plan de estudios en [`docs/PLAN_DE_ESTUDIOS.md`](docs/PLAN_DE_ESTUDIOS.md).
 
@@ -122,7 +122,7 @@ Puntos que la especificación no detalla y cómo se resolvieron:
 
 La actualización y sus reglas vigentes están en [docs/NUEVOS_REQUISITOS.md](docs/NUEVOS_REQUISITOS.md). Conserva el login con código y contraseña, hasta **5 electivos** y **1–2 de las cinco franjas originales**. No utiliza Google ni limita la selección a 28 créditos.
 
-Incluye edición/retiro de elecciones durante la apertura, simultaneidad de electivos con inclusión atómica de dependencias, resultados de alumnos al cierre, tablero de votaciones con gestión de estados de cursos dentro de cada período, filtro por votos confirmados/condicionales y exportación visual a PDF del ranking, mapa de calor e indicadores, reutilización de archivos y mallas por votación e importaciones Excel/CSV con archivos originales en Supabase Storage privado y trazabilidad.
+Incluye edición/retiro de elecciones durante la apertura, simultaneidad de electivos con inclusión atómica de dependencias, resultados de alumnos en vivo, tablero de votaciones con gestión de estados de cursos dentro de cada período, filtro por votos confirmados/condicionales y exportación visual a PDF del ranking, mapa de calor e indicadores, reutilización de archivos y mallas por votación e importaciones Excel/CSV con archivos originales en Supabase Storage privado y trazabilidad.
 
 Los resultados y las exportaciones del coordinador muestran agregados. Ya no se publican listas que relacionen alumnos y cursos elegidos. El historial académico del padrón sigue disponible para revisar elegibilidad.
 

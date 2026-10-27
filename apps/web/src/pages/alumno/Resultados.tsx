@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { api } from '@/lib/api';
 import { useResultadosEnVivo } from '@/lib/socket';
 
-/** Resultados agregados disponibles para alumnos después del cierre. */
+/** Resultados agregados disponibles para alumnos durante la votación y después del cierre. */
 export default function Resultados() {
   const { procesoId } = useVotacionAlumno();
   const consulta = useQuery({
@@ -31,9 +31,7 @@ export default function Resultados() {
         descripcion={`${proceso.nombre} · ${totalVotos} votos en total. Los resultados son referenciales y no muestran quién votó.`}
         acciones={<EnVivo conectado={conectado} />}
       />
-      {proceso.estado !== 'CERRADO' ? (
-        <Vacio>Los resultados estarán disponibles al cierre de la votación.</Vacio>
-      ) : ranking.length === 0 ? (
+      {ranking.length === 0 ? (
         <Vacio>Todavía no hay votos registrados.</Vacio>
       ) : (
         <div className="grid gap-6 lg:grid-cols-5">
