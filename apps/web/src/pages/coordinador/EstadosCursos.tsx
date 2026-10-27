@@ -64,7 +64,22 @@ function TablaEtapa({
       cliente.invalidateQueries({ queryKey: ['coord'] });
     },
   });
-  const bloqueado = !cerrado || guardar.isPending;
+  const resto = filas.filter((c) => !seleccionados.includes(c.codigo) && c.seleccion !== 'NO_SELECCIONADO');
+  const descartarResto = useMutation({
+    mutationFn: () =>
+      api.decidirCursos(
+        proceso.id,
+        'seleccion',
+        'NO_SELECCIONADO',
+        resto.map((c) => c.codigo),
+      ),
+    onSuccess: async () => {
+      await cliente.invalidateQueries({ queryKey: ['coord'] });
+      toast.success('El resto quedó como No seleccionado');
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const bloqueado = !cerrado || guardar.isPending || descartarResto.isPending;
   const aplicar = async () => {
     const reinicia =
       etapa === 'seleccion'
@@ -112,6 +127,23 @@ function TablaEtapa({
           <Button disabled={bloqueado || !seleccionados.length || !estado} onClick={aplicar}>
             {guardar.isPending ? 'Aplicando…' : 'Aplicar a marcados'}
           </Button>
+          {etapa === 'seleccion' && (
+            <Button
+              variant="outline"
+              disabled={bloqueado || !seleccionados.length || !resto.length}
+              onClick={async () => {
+                const reinicia = resto.some((c) => c.consejo !== 'PENDIENTE' || c.dictado !== 'PENDIENTE');
+                if (
+                  await confirmar(
+                    `Se dejarán ${resto.length} cursos sin marcar como «No seleccionado». Los ${seleccionados.length} marcados conservarán su estado.${reinicia ? ' Se borrarán las decisiones posteriores de los cursos descartados.' : ''}`,
+                  )
+                )
+                  descartarResto.mutate();
+              }}
+            >
+              Resto como no seleccionado ({resto.length})
+            </Button>
+          )}
         </div>
       )}
       <div className="overflow-x-auto rounded-lg border bg-card">
