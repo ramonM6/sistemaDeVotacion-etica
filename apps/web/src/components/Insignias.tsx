@@ -31,7 +31,7 @@ export function AptitudBadge({ elegibilidad, className }: { elegibilidad: Result
         <TooltipContent className="max-w-sm space-y-2">
           <p className="font-semibold">
             {elegibilidad.aptitud === 'CONDICIONAL'
-              ? 'Puedes votar, pero debes completar estos requisitos:'
+              ? 'Tu voto cuenta normalmente. La etiqueta condicional indica requisitos académicos pendientes:'
               : 'No puedes votar porque no cumples estos requisitos:'}
           </p>
           <ul className="list-disc space-y-1 pl-4">

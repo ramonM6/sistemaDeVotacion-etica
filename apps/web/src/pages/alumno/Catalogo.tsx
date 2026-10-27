@@ -275,7 +275,9 @@ export default function Catalogo() {
                 {c.codigo} · {c.nombre}
               </p>
               {c.elegibilidad.aptitud === 'CONDICIONAL' && (
-                <p className="text-xs text-amber-800">Tu voto depende de aprobar los requisitos que estás cursando.</p>
+                <p className="text-xs text-amber-800">
+                  Tu voto cuenta normalmente. «Condicional» solo indica requisitos académicos pendientes.
+                </p>
               )}
               <div className="flex flex-wrap gap-3">
                 {FRANJAS.map((f) => {

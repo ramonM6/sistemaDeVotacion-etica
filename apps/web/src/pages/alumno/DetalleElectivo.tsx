@@ -226,8 +226,8 @@ export default function DetalleElectivo() {
               {el.elegibilidad.aptitud === 'CONDICIONAL' && puedeVotar && (
                 <Alert variant="warning" className="mt-4">
                   <AlertDescription>
-                    Tu aptitud es condicional: al votar te comprometes a aprobar los cursos que estás llevando y que son
-                    requisito.
+                    Tu voto cuenta normalmente desde que se registra. La etiqueta «Condicional» solo informa sobre
+                    requisitos académicos pendientes para llevar el electivo.
                   </AlertDescription>
                 </Alert>
               )}
