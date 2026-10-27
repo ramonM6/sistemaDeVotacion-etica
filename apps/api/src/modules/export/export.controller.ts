@@ -1,3 +1,4 @@
+import { Aptitud } from '@prisma/client';
 import { FiltrosResultadosDto } from '../resultados/filtros.dto';
 import { Controller, Get, Param, ParseUUIDPipe, Query, Res, StreamableFile } from '@nestjs/common';
 import { Response } from 'express';
@@ -11,20 +12,13 @@ const MIME_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
 export class ExportController {
   constructor(private readonly exportar: ExportService) {}
 
-  @Get('resultados.pdf')
-  async pdf(@Res({ passthrough: true }) res: Response, @Query() filtros: FiltrosResultadosDto) {
-    const { buffer, nombre } = await this.exportar.resultadosPdf(filtros.procesoId, filtros);
-    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${nombre}"` });
-    return new StreamableFile(buffer);
-  }
-
   /** Hojas agregadas: Ranking y Matriz franjas. */
   @Get('resultados.xlsx')
-  async resultados(
-    @Res({ passthrough: true }) res: Response,
-    @Query('procesoId', new ParseUUIDPipe({ optional: true })) procesoId?: string,
-  ) {
-    const { buffer, nombre } = await this.exportar.resultadosXlsx(procesoId);
+  async resultados(@Res({ passthrough: true }) res: Response, @Query() filtros: FiltrosResultadosDto) {
+    const { buffer, nombre } = await this.exportar.resultadosXlsx(
+      filtros.procesoId,
+      filtros.aptitud as Aptitud | undefined,
+    );
     res.set({ 'Content-Type': MIME_XLSX, 'Content-Disposition': `attachment; filename="${nombre}"` });
     return new StreamableFile(buffer);
   }

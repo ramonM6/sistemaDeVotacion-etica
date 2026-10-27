@@ -1,4 +1,3 @@
-import { FiltrosResultadosDto, filtroPadron } from './filtros.dto';
 import { Injectable } from '@nestjs/common';
 import { Aptitud } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -7,20 +6,17 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class ResultadosRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  votosDeProceso(procesoId: string, aptitud?: Aptitud, filtros: FiltrosResultadosDto = {}) {
+  votosDeProceso(procesoId: string, aptitud?: Aptitud) {
     return this.prisma.voto.findMany({
       where: {
         procesoId,
         ...(aptitud ? { aptitud } : {}),
-        usuario: { padron: { some: filtroPadron(procesoId, filtros) } },
+        usuario: { padron: { some: { procesoId } } },
       },
       select: {
         cursoCodigo: true,
         aptitud: true,
         usuarioId: true,
-        usuario: {
-          select: { padron: { where: { procesoId }, select: { ingreso: true, craest: true, matriculado: true } } },
-        },
         franjas: { select: { franja: true } },
         curso: { select: { nombre: true, creditos: true } },
       },
@@ -39,19 +35,12 @@ export class ResultadosRepository {
     return this.prisma.seguimientoCurso.findMany({ where: { procesoId } });
   }
 
-  poblacion(procesoId: string, filtros: FiltrosResultadosDto) {
-    return this.prisma.padronAlumno.findMany({
-      where: filtroPadron(procesoId, filtros),
-      select: { ingreso: true, craest: true, matriculado: true },
-    });
-  }
-
   curso(codigo: string) {
     return this.prisma.curso.findUnique({ where: { codigo } });
   }
 
-  contarPadron(procesoId: string, filtros: FiltrosResultadosDto = {}) {
-    return this.prisma.padronAlumno.count({ where: filtroPadron(procesoId, filtros) });
+  contarPadron(procesoId: string) {
+    return this.prisma.padronAlumno.count({ where: { procesoId } });
   }
 
   contarHistorial(procesoId: string) {

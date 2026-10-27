@@ -1,4 +1,15 @@
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  LabelList,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { FRANJAS } from '@/lib/formato';
 import type { ConteoFranjas, FilaResultado } from '@/lib/tipos';
 import { cn } from '@/lib/utils';
@@ -6,13 +17,33 @@ import { cn } from '@/lib/utils';
 // Paleta validada (CVD-safe en pares adyacentes): serie 1 azul, serie 2 naranja; rampa secuencial azul.
 export const COLOR_SERIE_1 = '#2a78d6';
 export const COLOR_SERIE_2 = '#eb6834';
-const RAMPA = ['#cde2fb', '#b7d3f6', '#9ec5f4', '#86b6ef', '#6da7ec', '#5598e7', '#3987e5', '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b'];
+const RAMPA = [
+  '#cde2fb',
+  '#b7d3f6',
+  '#9ec5f4',
+  '#86b6ef',
+  '#6da7ec',
+  '#5598e7',
+  '#3987e5',
+  '#2a78d6',
+  '#256abf',
+  '#1c5cab',
+  '#184f95',
+  '#104281',
+  '#0d366b',
+];
 const TINTA = '#52514e';
 const GRILLA = '#e5e7eb';
 
 const ejeProps = { tick: { fill: TINTA, fontSize: 12 }, axisLine: false, tickLine: false } as const;
 
-function CajaTooltip({ titulo, filas }: { titulo: string; filas: { color?: string; etiqueta: string; valor: number }[] }) {
+function CajaTooltip({
+  titulo,
+  filas,
+}: {
+  titulo: string;
+  filas: { color?: string; etiqueta: string; valor: number }[];
+}) {
   return (
     <div className="rounded-md border bg-popover px-3 py-2 text-xs shadow-md">
       <p className="mb-1 max-w-[260px] font-semibold text-foreground">{titulo}</p>
@@ -65,7 +96,11 @@ export function RankingBarras({
           className={alSeleccionar ? 'cursor-pointer' : undefined}
         >
           {datos.map((d) => (
-            <Cell key={d.codigo} fill={COLOR_SERIE_1} fillOpacity={!seleccionado || seleccionado === d.codigo ? 1 : 0.35} />
+            <Cell
+              key={d.codigo}
+              fill={COLOR_SERIE_1}
+              fillOpacity={!seleccionado || seleccionado === d.codigo ? 1 : 0.35}
+            />
           ))}
           <LabelList dataKey="total" position="right" fill={TINTA} fontSize={12} />
         </Bar>
@@ -75,7 +110,15 @@ export function RankingBarras({
 }
 
 /** Ranking del coordinador: barras apiladas confirmados + condicionales. */
-export function RankingApilado({ datos, alSeleccionar }: { datos: FilaResultado[]; alSeleccionar?: (codigo: string) => void }) {
+export function RankingApilado({
+  datos,
+  alSeleccionar,
+  animar = true,
+}: {
+  datos: FilaResultado[];
+  alSeleccionar?: (codigo: string) => void;
+  animar?: boolean;
+}) {
   return (
     <ResponsiveContainer width="100%" height={alturaPara(datos.length) + 28}>
       <BarChart data={datos} layout="vertical" margin={{ top: 4, right: 36, bottom: 4, left: 8 }} barCategoryGap={6}>
@@ -107,6 +150,7 @@ export function RankingApilado({ datos, alSeleccionar }: { datos: FilaResultado[
           }}
         />
         <Bar
+          isAnimationActive={animar}
           dataKey="confirmados"
           name="Confirmados"
           stackId="a"
@@ -118,6 +162,7 @@ export function RankingApilado({ datos, alSeleccionar }: { datos: FilaResultado[
           className="cursor-pointer"
         />
         <Bar
+          isAnimationActive={animar}
           dataKey="condicionales"
           name="Condicionales"
           stackId="a"
@@ -174,21 +219,31 @@ function colorCelda(valor: number, maximo: number) {
  * Mapa de calor curso × franja: filas = electivos con al menos un voto (ordenados por total),
  * columnas = 5 franjas. La intensidad es la cantidad de votos y cada celda muestra el número.
  */
-export function MapaCalor({ filas, alSeleccionar }: { filas: FilaResultado[]; alSeleccionar?: (codigo: string) => void }) {
+export function MapaCalor({
+  filas,
+  alSeleccionar,
+}: {
+  filas: FilaResultado[];
+  alSeleccionar?: (codigo: string) => void;
+}) {
   const maximo = Math.max(0, ...filas.flatMap((f) => FRANJAS.map((x) => f.franjas[x.valor])));
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] border-separate border-spacing-[2px] text-sm">
         <thead>
           <tr>
-            <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Electivo</th>
+            <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Electivo
+            </th>
             {FRANJAS.map((f) => (
               <th key={f.valor} className="px-1 py-2 text-center text-xs font-semibold text-muted-foreground">
                 <div>{f.etiqueta}</div>
                 <div className="font-normal">{f.horario}</div>
               </th>
             ))}
-            <th className="px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total</th>
+            <th className="px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Total
+            </th>
           </tr>
         </thead>
         <tbody>

@@ -133,13 +133,12 @@ export const api = {
   detalleAlumno: (codigo: string, procesoId?: string) =>
     get<DetalleAlumno>(`/coord/padron/${encodeURIComponent(codigo)}${qs({ procesoId })}`),
 
-  resultadosCoord: (procesoId?: string, aptitud?: Aptitud, filtros: Record<string, string> = {}) =>
-    get<ResultadosCoord>(`/coord/resultados${qs({ procesoId, aptitud, ...filtros })}`),
+  resultadosCoord: (procesoId?: string, aptitud?: Aptitud) =>
+    get<ResultadosCoord>(`/coord/resultados${qs({ procesoId, aptitud })}`),
   detalleCurso: (codigo: string, procesoId?: string) =>
     get<DetalleCursoCoord>(`/coord/resultados/${encodeURIComponent(codigo)}${qs({ procesoId })}`),
-  urlReportePdf: (procesoId?: string, aptitud?: Aptitud, opciones: Record<string, string> = {}) =>
-    `/api/coord/export/resultados.pdf${qs({ procesoId, aptitud, ...opciones })}`,
-  urlExportResultados: (procesoId?: string) => `/api/coord/export/resultados.xlsx${qs({ procesoId })}`,
+  urlExportResultados: (procesoId?: string, aptitud?: Aptitud) =>
+    `/api/coord/export/resultados.xlsx${qs({ procesoId, aptitud })}`,
   urlExportCurso: (codigo: string, procesoId?: string) =>
     `/api/coord/export/cursos/${encodeURIComponent(codigo)}/votantes.xlsx${qs({ procesoId })}`,
 };

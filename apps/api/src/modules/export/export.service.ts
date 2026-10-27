@@ -1,5 +1,3 @@
-import PDFDocument from 'pdfkit';
-import { FiltrosResultadosDto } from '../resultados/filtros.dto';
 import { Aptitud } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
@@ -26,63 +24,11 @@ export class ExportService {
     private readonly procesos: ProcesosService,
   ) {}
 
-  async resultadosPdf(procesoId: string | undefined, filtros: FiltrosResultadosDto) {
-    const datos = await this.resultados.coordinador(procesoId, filtros.aptitud as Aptitud | undefined, filtros);
-    const doc = new PDFDocument({ size: 'A4', margin: 45, bufferPages: true });
-    const partes: Buffer[] = [];
-    const fin = new Promise<Buffer>((resolve, reject) => {
-      doc.on('data', (b) => partes.push(b));
-      doc.on('end', () => resolve(Buffer.concat(partes)));
-      doc.on('error', reject);
-    });
-    const texto = (t: string, size = 10) => {
-      if (doc.y > 730) doc.addPage();
-      doc.fontSize(size).fillColor('#172c4a').text(t);
-      doc.moveDown(0.4);
-    };
-    texto('Sondeo de electivos · Ingeniería Informática PUCP', 17);
-    texto(`${datos.proceso.nombre} · ${datos.proceso.cicloObjetivo}`, 13);
-    texto(`Generado: ${new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' })}`);
-    texto(
-      `Filtros: ingreso ${filtros.ingreso ?? 'todos'}; CRAEst ${filtros.craestMin ?? 0} a ${filtros.craestMax ?? 100}; matrícula ${filtros.matriculado ?? 'todos'}; aptitud ${filtros.aptitud ?? 'todas'}`,
-    );
-    if (filtros.estadisticas !== 'no') {
-      texto('Estadísticas', 13);
-      texto(
-        `Habilitados: ${datos.indicadores.habilitados} · Participantes: ${datos.indicadores.votaron} · Participación: ${datos.indicadores.participacion}% · Votos: ${datos.indicadores.totalVotos}`,
-      );
-    }
-    if (filtros.tabla !== 'no') {
-      texto('Ranking de electivos', 13);
-      for (const f of datos.ranking)
-        texto(`${f.codigo} · ${f.nombre}
-${f.total} votos · ${f.confirmados} confirmados · ${f.condicionales} condicionales\nSelección: ${f.seleccion} · Consejo: ${f.consejo} · Dictado: ${f.dictado}`);
-    }
-    if (filtros.graficos !== 'no') {
-      texto('Demanda por curso', 13);
-      const maximo = Math.max(1, ...datos.ranking.map((f) => f.total));
-      for (const f of datos.ranking) {
-        if (doc.y > 700) doc.addPage();
-        texto(`${f.codigo} · ${f.total} votos`);
-        doc.rect(45, doc.y, (450 * f.total) / maximo, 9).fill('#2563eb');
-        doc.y += 19;
-      }
-    }
-    if (filtros.agrupaciones !== 'no') {
-      texto('Agrupaciones de participantes', 13);
-      for (const g of datos.agrupaciones)
-        texto(`${g.codigo} · ${g.grupo}: ${g.alumnos} participantes de ${g.poblacion} habilitados · ${g.votos} votos`);
-    }
-    texto('Resultados referenciales. No garantizan la apertura de cursos u horarios.');
-    doc.end();
-    return { buffer: await fin, nombre: `resultados-${datos.proceso.cicloObjetivo}.pdf` };
-  }
-
-  async resultadosXlsx(procesoId?: string) {
+  async resultadosXlsx(procesoId?: string, aptitud?: Aptitud) {
     const proceso = await this.procesos.resolver(procesoId);
     const [ranking, indicadores] = await Promise.all([
-      this.resultados.ranking(proceso.id),
-      this.resultados.indicadores(proceso.id),
+      this.resultados.ranking(proceso.id, aptitud),
+      this.resultados.indicadores(proceso.id, aptitud),
     ]);
 
     const libro = new ExcelJS.Workbook();
@@ -106,6 +52,7 @@ ${f.total} votos · ${f.confirmados} confirmados · ${f.condicionales} condicion
     estilizarEncabezado(hRanking);
     hRanking.addRow([]);
     hRanking.addRow(['Proceso', proceso.nombre]);
+    hRanking.addRow(['Filtro', aptitud ?? 'Todos los votos']);
     hRanking.addRow(['Alumnos habilitados', indicadores.habilitados]);
     hRanking.addRow(['Alumnos que votaron', indicadores.votaron]);
     hRanking.addRow(['Participación (%)', indicadores.participacion]);

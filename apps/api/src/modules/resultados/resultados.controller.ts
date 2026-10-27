@@ -1,5 +1,5 @@
 import { FiltrosResultadosDto } from './filtros.dto';
-import { Controller, Get, Param, ParseEnumPipe, ParseUUIDPipe, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import { Aptitud } from '@prisma/client';
 import { Roles } from '../../common/auth.decorators';
 import { ResultadosService } from './resultados.service';
@@ -25,9 +25,8 @@ export class CoordResultadosController {
   resultadosCoord(
     @Query() filtros: FiltrosResultadosDto,
     @Query('procesoId', new ParseUUIDPipe({ optional: true })) procesoId?: string,
-    @Query('aptitud', new ParseEnumPipe(Aptitud, { optional: true })) aptitud?: Aptitud,
   ) {
-    return this.resultados.coordinador(procesoId, aptitud, filtros);
+    return this.resultados.coordinador(procesoId, filtros.aptitud as Aptitud | undefined);
   }
 
   @Get(':codigo')

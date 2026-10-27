@@ -111,7 +111,6 @@ export interface Aviso {
 }
 
 export interface ResultadosCoord {
-  agrupaciones: { codigo: string; grupo: string; votos: number; alumnos: number; poblacion: number }[];
   proceso: Proceso;
   indicadores: { habilitados: number; votaron: number; participacion: number; totalVotos: number };
   ranking: FilaResultado[];

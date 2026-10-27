@@ -122,7 +122,7 @@ Puntos que la especificación no detalla y cómo se resolvieron:
 
 La actualización y sus reglas vigentes están en [docs/NUEVOS_REQUISITOS.md](docs/NUEVOS_REQUISITOS.md). Conserva el login con código y contraseña, hasta **5 electivos** y **1–2 de las cinco franjas originales**. No utiliza Google ni limita la selección a 28 créditos.
 
-Incluye edición/retiro de elecciones durante la apertura, simultaneidad de electivos con inclusión atómica de dependencias, resultados de alumnos al cierre, seguimiento del consejo, filtros por ingreso/CRAEst/matrícula y agrupaciones por curso, PDF con secciones configurables, reutilización y congelamiento de catálogos e importaciones Excel/CSV con archivos originales cifrados y trazabilidad.
+Incluye edición/retiro de elecciones durante la apertura, simultaneidad de electivos con inclusión atómica de dependencias, resultados de alumnos al cierre, seguimiento del consejo, filtro por votos confirmados/condicionales y exportación visual a PDF del ranking, mapa de calor e indicadores, reutilización y congelamiento de catálogos e importaciones Excel/CSV con archivos originales cifrados y trazabilidad.
 
 Los resultados y las exportaciones del coordinador muestran agregados. Ya no se publican listas que relacionen alumnos y cursos elegidos. El historial académico del padrón sigue disponible para revisar elegibilidad.
 

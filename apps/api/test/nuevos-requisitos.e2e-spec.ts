@@ -1,3 +1,4 @@
+import * as ExcelJS from 'exceljs';
 import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { crearApp, escenarioBase, Escenario, sesion, aceptarTerminos, voto, xlsx } from './utils';
@@ -103,31 +104,54 @@ describe('Requisitos integrados de VotaInf', () => {
     expect(await db.seguimientoCurso.count()).toBe(1);
   });
 
-  it('filtra agregados por ingreso, CRAEst y matrícula sin exponer identidades', async () => {
-    await db.padronAlumno.update({
-      where: { procesoId_usuarioId: { procesoId: esc.procesoId, usuarioId: esc.alumnos['20000001'] } },
-      data: { ingreso: '2020', craest: 65, matriculado: false },
-    });
+  it('filtra ranking e indicadores solo por aptitud y elimina las agrupaciones', async () => {
     await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000001']);
-    const alumno = await sesion(app, '20000001');
-    await alumno
+    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000002']);
+    const a = await sesion(app, '20000001');
+    const b = await sesion(app, '20000002');
+    await a
       .post('/api/alumno/votos')
-      .send(voto('INF310', ['TARDE']))
+      .send(voto('1INF02', ['MANANA']))
       .expect(201);
-    const res = await coord
-      .get('/api/coord/resultados?ingreso=2020&craestMin=60&craestMax=70&matriculado=no')
-      .expect(200);
-    expect(res.body.indicadores).toMatchObject({ habilitados: 1, votaron: 1, totalVotos: 1 });
-    expect(res.body.agrupaciones).toContainEqual(
-      expect.objectContaining({ codigo: 'INF310', grupo: 'ingreso: 2020', alumnos: 1, votos: 1, poblacion: 1 }),
-    );
-    expect(JSON.stringify(res.body)).not.toContain('20000001');
-    expect((await coord.get('/api/coord/resultados?matriculado=si')).body.ranking).toEqual([]);
+    await b
+      .post('/api/alumno/votos')
+      .send(voto('1INF02', ['NOCHE']))
+      .expect(201);
+    const todos = await coord.get('/api/coord/resultados').expect(200);
+    expect(todos.body.indicadores.totalVotos).toBe(2);
+    expect(todos.body).not.toHaveProperty('agrupaciones');
+    expect(todos.body).not.toHaveProperty('filtros');
+    for (const aptitud of ['CONFIRMADO', 'CONDICIONAL']) {
+      const res = await coord.get(`/api/coord/resultados?aptitud=${aptitud}`).expect(200);
+      expect(res.body.indicadores.totalVotos).toBe(1);
+      expect(res.body.ranking[0]).toMatchObject({
+        total: 1,
+        confirmados: aptitud === 'CONFIRMADO' ? 1 : 0,
+        condicionales: aptitud === 'CONDICIONAL' ? 1 : 0,
+      });
+      expect(res.body.ranking[0].franjas).toMatchObject({
+        MANANA: aptitud === 'CONFIRMADO' ? 1 : 0,
+        NOCHE: aptitud === 'CONDICIONAL' ? 1 : 0,
+      });
+    }
+    await coord.get('/api/coord/resultados?ingreso=2020').expect(400);
   });
 
-  it('genera PDF descargable y exige rol coordinador', async () => {
+  it('la exportación de datos respeta el filtro de aptitud y exige rol coordinador', async () => {
+    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000001']);
+    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000002']);
+    const a = await sesion(app, '20000001');
+    const b = await sesion(app, '20000002');
+    await a
+      .post('/api/alumno/votos')
+      .send(voto('1INF02', ['MANANA']))
+      .expect(201);
+    await b
+      .post('/api/alumno/votos')
+      .send(voto('1INF02', ['NOCHE']))
+      .expect(201);
     const res = await coord
-      .get('/api/coord/export/resultados.pdf?tabla=si&graficos=no')
+      .get('/api/coord/export/resultados.xlsx?aptitud=CONDICIONAL')
       .buffer(true)
       .parse((r, cb) => {
         const partes: Buffer[] = [];
@@ -135,10 +159,12 @@ describe('Requisitos integrados de VotaInf', () => {
         r.on('end', () => cb(null, Buffer.concat(partes)));
       })
       .expect(200);
-    expect(res.headers['content-type']).toMatch(/application\/pdf/);
-    expect(res.body.subarray(0, 4).toString()).toBe('%PDF');
-    const alumno = await sesion(app, '20000001');
-    await alumno.get('/api/coord/export/resultados.pdf').expect(403);
+    const libro = new ExcelJS.Workbook();
+    await libro.xlsx.load(res.body);
+    expect(libro.getWorksheet('Ranking')!.getRow(2).getCell(5).value).toBe(1);
+    expect(libro.getWorksheet('Matriz franjas')!.getRow(2).getCell(3).value).toBe(0);
+    expect(libro.getWorksheet('Matriz franjas')!.getRow(2).getCell(7).value).toBe(1);
+    await a.get('/api/coord/export/resultados.xlsx').expect(403);
   });
 
   it('congela catálogo y datos académicos desde la primera apertura', async () => {

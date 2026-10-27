@@ -1,9 +1,11 @@
-import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { useQuery } from '@tanstack/react-query';
 import { Download, Percent, UserCheck, Users, Vote } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { toast } from 'sonner';
+import type { ResultadosCoord } from '@/lib/tipos';
+import { ReporteResultados, descargarGraficos } from '@/components/ReporteResultados';
 import { Cargando, ErrorCarga, Titulo, Vacio } from '@/components/Estados';
 import { MapaCalor, RankingApilado } from '@/components/Graficos';
 import { Indicador } from '@/components/Indicador';
@@ -21,19 +23,31 @@ export default function Resultados() {
   const { procesoId } = useProcesoSeleccionado();
   const navigate = useNavigate();
   const [aptitud, setAptitud] = useState<Aptitud | undefined>();
-  const [filtros, setFiltros] = useState<Record<string, string>>({});
-  const [secciones, setSecciones] = useState<Record<string, string>>({
-    tabla: 'si',
-    graficos: 'si',
-    estadisticas: 'si',
-    agrupaciones: 'si',
-  });
+  const [exportando, setExportando] = useState<ResultadosCoord | null>(null);
+  const reporte = useRef<HTMLDivElement>(null);
   const consulta = useQuery({
-    queryKey: ['coord', 'resultados', procesoId, aptitud ?? null, filtros],
-    queryFn: () => api.resultadosCoord(procesoId, aptitud, filtros),
+    queryKey: ['coord', 'resultados', procesoId, aptitud ?? null],
+    queryFn: () => api.resultadosCoord(procesoId, aptitud),
   });
   const conectado = useResultadosEnVivo([['coord', 'resultados']]);
   const irA = (codigo: string) => navigate(`/coord/resultados/${codigo}`);
+
+  const exportar = async () => {
+    if (!consulta.data || exportando) return;
+    // Copia inmutable de la consulta: cambios en vivo o de filtro no alteran el reporte en curso.
+    const datos = consulta.data;
+    flushSync(() => setExportando(datos));
+    try {
+      await document.fonts.ready;
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+      if (!reporte.current) throw new Error('No se pudo preparar el reporte');
+      await descargarGraficos(reporte.current, datos);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo exportar el PDF');
+    } finally {
+      setExportando(null);
+    }
+  };
 
   if (consulta.isLoading) return <Cargando />;
   if (consulta.error) return <ErrorCarga error={consulta.error} />;
@@ -50,81 +64,17 @@ export default function Resultados() {
         }
         acciones={
           <>
-            <SelectorProceso />
+            <fieldset disabled={!!exportando}>
+              <SelectorProceso />
+            </fieldset>
             <EnVivo conectado={conectado} />
-            <Button asChild>
-              <a href={api.urlExportResultados(procesoId)} download>
-                <Download /> Exportar Excel
-              </a>
+            <Button onClick={exportar} disabled={!!exportando || consulta.isFetching}>
+              <Download /> {exportando ? 'Exportando…' : 'Exportar gráficos PDF'}
             </Button>
           </>
         }
       />
 
-      <Card className="space-y-3 p-4">
-        <p className="font-medium">Filtros de resultados y reporte</p>
-        <div className="grid gap-3 sm:grid-cols-4">
-          {[
-            ['ingreso', 'Ciclo de ingreso', 1900, 2200],
-            ['craestMin', 'CRAEst mínimo', 0, 100],
-            ['craestMax', 'CRAEst máximo', 0, 100],
-          ].map(([campo, etiqueta, min, max]) => (
-            <label key={campo} className="text-sm">
-              {etiqueta}
-              <Input
-                type={campo === 'ingreso' ? 'text' : 'number'}
-                placeholder={campo === 'ingreso' ? '2020.1' : undefined}
-                min={Number(min)}
-                max={Number(max)}
-                value={filtros[String(campo)] ?? ''}
-                onChange={(e) => setFiltros((f) => ({ ...f, [campo]: e.target.value }))}
-              />
-            </label>
-          ))}
-          <label className="text-sm">
-            Matrícula
-            <Select
-              value={filtros.matriculado ?? ''}
-              onChange={(e) => setFiltros((f) => ({ ...f, matriculado: e.target.value }))}
-            >
-              <option value="">Todos</option>
-              <option value="si">Matriculados</option>
-              <option value="no">No matriculados</option>
-            </Select>
-          </label>
-        </div>
-        <label className="block max-w-sm text-sm">
-          Agrupar por
-          <Select value={filtros.grupo ?? ''} onChange={(e) => setFiltros((f) => ({ ...f, grupo: e.target.value }))}>
-            <option value="">Todas las agrupaciones</option>
-            <option value="ingreso">Ciclo de ingreso</option>
-            <option value="craest">CRAEst</option>
-            <option value="matricula">Matrícula</option>
-          </Select>
-        </label>
-        <div className="flex flex-wrap gap-4">
-          {Object.entries({
-            tabla: 'Tabla',
-            graficos: 'Gráficos',
-            estadisticas: 'Estadísticas',
-            agrupaciones: 'Agrupaciones',
-          }).map(([campo, texto]) => (
-            <label key={campo} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={secciones[campo] === 'si'}
-                onChange={(e) => setSecciones((s) => ({ ...s, [campo]: e.target.checked ? 'si' : 'no' }))}
-              />
-              {texto}
-            </label>
-          ))}
-        </div>
-        <Button asChild variant="outline">
-          <a href={api.urlReportePdf(procesoId, aptitud, { ...filtros, ...secciones })} download>
-            Descargar reporte PDF
-          </a>
-        </Button>
-      </Card>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Indicador titulo="Alumnos habilitados" valor={indicadores.habilitados} icono={Users} />
         <Indicador titulo="Alumnos que votaron" valor={indicadores.votaron} icono={UserCheck} />
@@ -144,6 +94,7 @@ export default function Resultados() {
         ].map((o) => (
           <button
             key={o.texto}
+            disabled={!!exportando}
             onClick={() => setAptitud(o.valor)}
             aria-pressed={aptitud === o.valor}
             className={cn(
@@ -156,18 +107,8 @@ export default function Resultados() {
         ))}
       </div>
 
-      <Card className="p-4">
-        <h2 className="mb-2 font-semibold">Agrupaciones</h2>
-        <div className="grid gap-2 sm:grid-cols-3">
-          {consulta.data!.agrupaciones.map((g) => (
-            <p key={`${g.codigo}-${g.grupo}`} className="text-sm">
-              {g.codigo} · {g.grupo}: {g.alumnos} participantes de {g.poblacion} habilitados · {g.votos} votos
-            </p>
-          ))}
-        </div>
-      </Card>
       {ranking.length === 0 ? (
-        <Vacio>{aptitud ? 'No hay votos confirmados todavía.' : 'Todavía no hay votos registrados.'}</Vacio>
+        <Vacio>{aptitud ? 'No hay votos para el filtro seleccionado.' : 'Todavía no hay votos registrados.'}</Vacio>
       ) : (
         <div className="grid gap-6">
           <Card>
@@ -190,6 +131,16 @@ export default function Resultados() {
               <MapaCalor filas={ranking} alSeleccionar={irA} />
             </CardContent>
           </Card>
+        </div>
+      )}
+      {exportando && (
+        <div
+          aria-hidden="true"
+          style={{ position: 'fixed', left: '-20000px', top: 0, width: 1100, pointerEvents: 'none' }}
+        >
+          <div ref={reporte}>
+            <ReporteResultados datos={exportando} />
+          </div>
         </div>
       )}
     </div>

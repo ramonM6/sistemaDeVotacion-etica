@@ -30,15 +30,14 @@ El cierre automático existente continúa funcionando. Se puede extender y reabr
 
 Los alumnos ven ranking, franjas y decisiones de dictado solo al cierre. Se actualizan cada 30 segundos, al recuperar el foco y por los eventos de proceso/votación.
 
-El coordinador tiene filtros por ingreso, CRAEst mínimo/máximo y matrícula. Las cuentas admiten columnas opcionales `ingreso` (AAAA o AAAA.1/AAAA.2), `craest` (0–100) y `matriculado` (si/no). Los datos ausentes permanecen sin clasificar: no se infieren del código del alumno. Los no matriculados pueden participar si pertenecen al padrón.
-
-Las agrupaciones muestran votos por curso e ingreso, tramo CRAEst o matrícula, con participantes y población habilitada del grupo. Los filtros se aplican a indicadores, ranking, agrupaciones y PDF. El Excel general conserva la exportación agregada completa del proceso.
+El coordinador puede alternar entre **Todos los votos**, **Solo confirmados** y **Solo condicionales**. El filtro se aplica al ranking, al mapa de calor, a los indicadores y a la exportación. No hay filtros por ingreso/CRAEst/matrícula ni agrupaciones en resultados.
 
 **Consejo** permite seleccionar manualmente cursos para revisión, registrar Aprobado/No aprobado y decidir Confirmado/No se dictará después del cierre. Solo un curso seleccionado puede recibir una decisión del consejo y solo uno aprobado puede confirmarse. No se registran docentes ni se seleccionan cursos automáticamente por cantidad de votos.
 
 El CSV del consejo tiene exactamente las columnas `codigo,consejo,dictado,observacion`. Los estados válidos son `PENDIENTE`, `APROBADO`/`NO_APROBADO` para consejo y `PENDIENTE`, `CONFIRMADO`/`NO_SE_DICTARA` para dictado. Primero se valida y previsualiza; después se confirma. Los cursos deben estar previamente seleccionados para revisión. Si alguna fila es inválida, no se aplica ninguna.
 
-El PDF permite incluir o excluir tabla, gráficos, estadísticas y agrupaciones y usa los filtros activos. No incluye nombres de alumnos. Los Excel generales y de curso también son agregados. El detalle académico del padrón no revela qué cursos eligió un alumno.
+**Exportar gráficos PDF** genera tres páginas con los mismos componentes visuales que el dashboard: indicadores de participación, ranking de barras apiladas y mapa de calor. Conserva colores, leyendas, valores y nombres completos; cada gráfico se captura completo y la altura de su página se adapta para no cortar filas. El encabezado indica el proceso y el filtro seleccionado. La generación ocurre en el navegador con una copia de los datos visibles, sin volver a consultar resultados que puedan cambiar durante la descarga. Se conserva el endpoint de Excel para exportación de datos, también filtrado por aptitud. El detalle académico del padrón no revela qué cursos eligió un alumno. No hay migraciones nuevas para este ajuste.
+
 
 ## Importaciones y archivos
 
