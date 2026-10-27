@@ -122,7 +122,7 @@ Puntos que la especificación no detalla y cómo se resolvieron:
 
 La actualización y sus reglas vigentes están en [docs/NUEVOS_REQUISITOS.md](docs/NUEVOS_REQUISITOS.md). Conserva el login con código y contraseña, hasta **5 electivos** y **1–2 de las cinco franjas originales**. No utiliza Google ni limita la selección a 28 créditos.
 
-Incluye edición/retiro de elecciones durante la apertura, simultaneidad de electivos con inclusión atómica de dependencias, resultados de alumnos al cierre, tablero de votaciones con gestión de estados de cursos dentro de cada período, filtro por votos confirmados/condicionales y exportación visual a PDF del ranking, mapa de calor e indicadores, reutilización y congelamiento de catálogos e importaciones Excel/CSV con archivos originales cifrados y trazabilidad.
+Incluye edición/retiro de elecciones durante la apertura, simultaneidad de electivos con inclusión atómica de dependencias, resultados de alumnos al cierre, tablero de votaciones con gestión de estados de cursos dentro de cada período, filtro por votos confirmados/condicionales y exportación visual a PDF del ranking, mapa de calor e indicadores, reutilización y congelamiento de catálogos e importaciones Excel/CSV con archivos originales en Supabase Storage privado y trazabilidad.
 
 Los resultados y las exportaciones del coordinador muestran agregados. Ya no se publican listas que relacionen alumnos y cursos elegidos. El historial académico del padrón sigue disponible para revisar elegibilidad.
 
@@ -135,3 +135,22 @@ npm run test:e2e:local
 ```
 
 Este comando aplica todas las migraciones en una base efímera y usa `127.0.0.1:54339`. Al terminar elimina la base. Para comprobar el comportamiento específico de PostgreSQL de producción, también se conserva `npm run test:e2e` contra una base cuyo nombre termina en `_test`.
+
+
+### Archivos originales en Supabase Storage
+
+Configura `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` y `SUPABASE_STORAGE_BUCKET` en `apps/api/.env`. El bucket debe existir y ser privado. La clave se usa exclusivamente en NestJS. La base de datos conserva metadatos (nombre, hash, ruta, tipo y proceso), además de los datos académicos procesados; las nuevas cargas nunca guardan el contenido del archivo en PostgreSQL.
+
+Al crear una votación se pueden adjuntar la malla del ciclo actual, las cuentas y el historial en CSV o Excel `.xlsx` (máximo 5 MB cada uno). El borrador abre «Datos y archivos» para revisar y confirmar, en este orden: malla, cuentas, historial. La malla utiliza la hoja `cursos` y las columnas de la plantilla de catálogo; se conserva una copia para la votación. Las cuentas usan `alumnos` y el historial `historial`. En CSV se leen los mismos encabezados sin hojas.
+
+Para una instalación previa, aplica las migraciones y migra los originales antiguos:
+
+```sh
+npm exec -w apps/api -- prisma migrate deploy
+cd apps/api
+npx tsx scripts/migrar-archivos-storage.ts
+```
+
+El migrador sube cada original y solo entonces vacía su contenido antiguo. Conserva `ARCHIVOS_SECRET` (o el `JWT_SECRET` original) hasta terminar. La columna antigua es temporal y nullable para migrar sin perder archivos; ninguna carga nueva la utiliza. Las descargas siguen pasando por la API y requieren rol de coordinador.
+
+Referencias: [buckets privados](https://supabase.com/docs/guides/storage/buckets/fundamentals), [descargas autenticadas](https://supabase.com/docs/guides/storage/serving/downloads).

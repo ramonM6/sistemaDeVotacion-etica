@@ -190,7 +190,7 @@ export interface DetalleAlumno {
   })[];
 }
 
-export type TipoImportacion = 'catalogo' | 'cuentas' | 'historial';
+export type TipoImportacion = 'catalogo' | 'malla' | 'cuentas' | 'historial';
 
 export interface PreviewImportacion {
   tipo: TipoImportacion;

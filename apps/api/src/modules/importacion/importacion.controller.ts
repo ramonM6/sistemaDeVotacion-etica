@@ -84,7 +84,8 @@ export class ImportacionController {
     @Query('procesoId', new ParseUUIDPipe({ optional: true })) procesoId?: string,
   ) {
     const t = validarTipo(tipo);
-    if (!archivo?.buffer?.length) throw new BadRequestException('Adjunta un archivo .xlsx en el campo "archivo"');
+    if (!archivo?.buffer?.length)
+      throw new BadRequestException('Adjunta un archivo .xlsx o .csv en el campo "archivo"');
     return this.importacion.preview(t, archivo.buffer, u.id, procesoId, archivo.originalname);
   }
 

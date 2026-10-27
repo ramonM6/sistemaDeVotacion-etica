@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { cifrarArchivo, descifrarArchivo } from './archivos';
+import { StorageService, OriginalGuardado } from './storage.service';
+import { descifrarArchivo } from './archivos';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
 import { config } from '../../config';
@@ -26,19 +27,21 @@ import {
 } from './validadores/historial';
 import { ResultadoValidacion } from './validadores/tipos';
 
-export const TIPOS_IMPORTACION = ['catalogo', 'cuentas', 'historial'] as const;
+export const TIPOS_IMPORTACION = ['catalogo', 'malla', 'cuentas', 'historial'] as const;
 export type TipoImportacion = (typeof TIPOS_IMPORTACION)[number];
 
 const VIGENCIA_TOKEN_MS = 30 * 60 * 1000;
 
 const PLANTILLAS: Record<TipoImportacion, string> = {
   catalogo: 'plantilla_catalogo_cursos.xlsx',
+  malla: 'plantilla_catalogo_cursos.xlsx',
   cuentas: 'plantilla_cuentas_alumnos.xlsx',
   historial: 'plantilla_historial_academico.xlsx',
 };
 
 type Pendiente =
   | { tipo: 'catalogo'; datos: CursoImportado[] }
+  | { tipo: 'malla'; datos: CursoImportado[] }
   | { tipo: 'cuentas'; datos: CuentaImportada[] }
   | { tipo: 'historial'; datos: HistorialImportado[] };
 
@@ -75,6 +78,7 @@ export class ImportacionService {
     private readonly procesos: ProcesosService,
     private readonly audit: AuditService,
     private readonly gateway: ResultadosGateway,
+    private readonly storage: StorageService,
   ) {}
 
   rutaPlantilla(tipo: TipoImportacion) {
@@ -100,7 +104,7 @@ export class ImportacionService {
     let pendiente: Pendiente;
     let columnas: string[];
 
-    if (tipo === 'catalogo') {
+    if (tipo === 'catalogo' || tipo === 'malla') {
       const hoja = await leerHoja(archivo, 'cursos', COLUMNAS_CATALOGO, COLUMNAS_CATALOGO_OPCIONALES, formato);
       const r = validarCatalogo(hoja);
       const codigos = new Set(r.filas.map((f) => f.datos.codigo));
@@ -179,7 +183,7 @@ export class ImportacionService {
       advertenciasGenerales: resultado.advertenciasGenerales,
       filas: resultado.filas.map((f) => ({
         ...f,
-        datos: tipo === 'catalogo' ? this.sinTerminos(f.datos as CursoImportado) : f.datos,
+        datos: tipo === 'catalogo' || tipo === 'malla' ? this.sinTerminos(f.datos as CursoImportado) : f.datos,
       })),
     };
   }
@@ -193,12 +197,35 @@ export class ImportacionService {
     this.vistas.delete(token); // un solo uso
     const { pendiente, procesoId } = vista;
 
+    const original = await this.storage.subir(vista.nombre, vista.archivo, `${procesoId ?? 'global'}/${tipo}`);
     try {
+      if (pendiente.tipo === 'malla') {
+        const resumen = await this.prisma.$transaction(
+          async (tx) => {
+            await this.validarBorrador(tx, procesoId!);
+            await aplicarCatalogo(tx, pendiente.datos, false);
+            const cursos = await tx.curso.findMany({
+              where: { codigo: { in: pendiente.datos.map((c) => c.codigo) } },
+              include: { requisitos: { orderBy: { orden: 'asc' } } },
+            });
+            await tx.procesoVotacion.update({
+              where: { id: procesoId! },
+              data: { catalogo: JSON.parse(JSON.stringify(cursos)) },
+            });
+            await this.archivar(tx, vista, coordinadorId, original);
+            return { cursos: cursos.length };
+          },
+          { timeout: 60_000 },
+        );
+        await this.audit.registrar('IMPORT_CATALOGO', coordinadorId, { procesoId, ...resumen });
+        this.gateway.notificar('importacion', procesoId!);
+        return { tipo, ...resumen };
+      }
       if (pendiente.tipo === 'catalogo') {
         const resumen = await this.prisma.$transaction(
           async (tx) => {
             const resumen = await aplicarCatalogo(tx, pendiente.datos);
-            await this.archivar(tx, vista, coordinadorId);
+            await this.archivar(tx, vista, coordinadorId, original);
             return resumen;
           },
           { timeout: 60_000 },
@@ -214,7 +241,7 @@ export class ImportacionService {
           async (tx) => {
             await this.validarBorrador(tx, procesoId!);
             const resumen = await aplicarCuentas(tx, procesoId!, hasheadas);
-            await this.archivar(tx, vista, coordinadorId);
+            await this.archivar(tx, vista, coordinadorId, original);
             return resumen;
           },
           {
@@ -230,7 +257,7 @@ export class ImportacionService {
         async (tx) => {
           await this.validarBorrador(tx, procesoId!);
           const resumen = await aplicarHistorial(tx, procesoId!, pendiente.datos);
-          await this.archivar(tx, vista, coordinadorId);
+          await this.archivar(tx, vista, coordinadorId, original);
           return resumen;
         },
         {
@@ -241,6 +268,11 @@ export class ImportacionService {
       this.gateway.notificar('importacion', procesoId!);
       return { tipo, ...resumen };
     } catch (e) {
+      // Si el commit ya se realizó, conservar el objeto aunque falle la auditoría.
+      const registrado = await this.prisma.archivoCarga.count({
+        where: { bucket: original.bucket, ruta: original.ruta },
+      });
+      if (!registrado) await this.storage.eliminar(original.bucket, original.ruta).catch(() => undefined);
       if (e instanceof NotFoundException) throw e;
       // Los datos cambiaron entre la vista previa y la confirmación (p. ej. el padrón).
       throw new ConflictException(
@@ -249,7 +281,7 @@ export class ImportacionService {
     }
   }
 
-  private async archivar(tx: Prisma.TransactionClient, vista: Vista, actorId: string) {
+  private async archivar(tx: Prisma.TransactionClient, vista: Vista, actorId: string, original: OriginalGuardado) {
     await tx.archivoCarga.create({
       data: {
         nombre: vista.nombre,
@@ -257,7 +289,7 @@ export class ImportacionService {
         procesoId: vista.procesoId,
         actorId,
         filas: vista.pendiente.datos.length,
-        ...cifrarArchivo(vista.archivo),
+        ...original,
       },
     });
   }
@@ -283,7 +315,18 @@ export class ImportacionService {
   async descargarArchivo(id: string) {
     const archivo = await this.prisma.archivoCarga.findUnique({ where: { id } });
     if (!archivo) throw new NotFoundException('Archivo no encontrado');
-    return { nombre: archivo.nombre, buffer: descifrarArchivo(Buffer.from(archivo.contenido)) };
+    if (archivo.bucket && archivo.ruta)
+      return { nombre: archivo.nombre, buffer: await this.storage.descargar(archivo.bucket, archivo.ruta) };
+    // Las cargas antiguas se migran al descargarlas, sin perder el original.
+    if (!archivo.contenido) throw new NotFoundException('Original no disponible');
+    const buffer = descifrarArchivo(Buffer.from(archivo.contenido));
+    const original = await this.storage.subir(
+      archivo.nombre,
+      buffer,
+      `${archivo.procesoId ?? 'global'}/${archivo.tipo}`,
+    );
+    await this.prisma.archivoCarga.update({ where: { id }, data: { ...original, contenido: null } });
+    return { nombre: archivo.nombre, buffer };
   }
 
   private async validarBorrador(tx: Prisma.TransactionClient, procesoId: string) {

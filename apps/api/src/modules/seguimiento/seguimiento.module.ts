@@ -1,5 +1,6 @@
 import { ResultadosGateway } from '../resultados/resultados.gateway';
-import { cifrarArchivo } from '../importacion/archivos';
+import { StorageModule } from '../importacion/storage.module';
+import { StorageService } from '../importacion/storage.service';
 import {
   Module,
   Injectable,
@@ -62,6 +63,7 @@ class SeguimientoService {
     private readonly db: PrismaService,
     private readonly procesos: ProcesosService,
     private readonly audit: AuditService,
+    private readonly storage: StorageService,
     private readonly gateway: ResultadosGateway,
   ) {}
 
@@ -101,76 +103,87 @@ class SeguimientoService {
     etapa?: 'seleccion' | 'consejo' | 'dictado',
   ) {
     const proceso = await this.procesos.resolver(procesoId);
-    await this.db.$transaction(
-      async (tx) => {
-        await tx.$queryRaw`SELECT 1 FROM "ProcesoVotacion" WHERE id = ${proceso.id} FOR UPDATE`;
-        const actual = await tx.procesoVotacion.findUniqueOrThrow({ where: { id: proceso.id } });
-        if (actual.estado !== 'CERRADO')
-          throw new BadRequestException('Los estados de los cursos se modifican después del cierre');
-        for (const { codigo, decision } of filas) {
-          const curso = Array.isArray(actual.catalogo)
-            ? (actual.catalogo as unknown as { codigo: string; tipo: string }[]).find((c) => c.codigo === codigo)
-            : await tx.curso.findUnique({ where: { codigo } });
-          if (!curso || curso.tipo !== 'ELECTIVO') throw new BadRequestException(`Electivo desconocido: ${codigo}`);
-          const anterior = await tx.seguimientoCurso.findUnique({
-            where: { procesoId_cursoCodigo: { procesoId: proceso.id, cursoCodigo: codigo } },
-          });
-          if (etapa === 'consejo' && anterior?.seleccion !== 'SELECCIONADO_PARA_REVISION')
-            throw new BadRequestException(`${codigo}: no está seleccionado para revisión en esta votación`);
-          if (
-            etapa === 'dictado' &&
-            (anterior?.seleccion !== 'SELECCIONADO_PARA_REVISION' || anterior?.consejo !== 'APROBADO')
-          )
-            throw new BadRequestException(`${codigo}: no está aprobado para la etapa de dictado`);
-          const cambios = Object.fromEntries(
-            Object.entries(decision).filter(([, valor]) => valor !== undefined),
-          ) as DecisionDto;
-          if (
-            decision.seleccion !== undefined &&
-            (decision.seleccion !== anterior?.seleccion ||
-              (decision.consejo === undefined && decision.dictado === undefined))
-          ) {
-            if (decision.consejo === undefined) cambios.consejo = 'PENDIENTE';
-            if (decision.dictado === undefined) cambios.dictado = 'PENDIENTE';
+    const original =
+      csv !== undefined
+        ? await this.storage.subir('decisiones-consejo.csv', Buffer.from(csv, 'utf8'), `${proceso.id}/consejo`)
+        : null;
+    try {
+      await this.db.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`SELECT 1 FROM "ProcesoVotacion" WHERE id = ${proceso.id} FOR UPDATE`;
+          const actual = await tx.procesoVotacion.findUniqueOrThrow({ where: { id: proceso.id } });
+          if (actual.estado !== 'CERRADO')
+            throw new BadRequestException('Los estados de los cursos se modifican después del cierre');
+          for (const { codigo, decision } of filas) {
+            const curso = Array.isArray(actual.catalogo)
+              ? (actual.catalogo as unknown as { codigo: string; tipo: string }[]).find((c) => c.codigo === codigo)
+              : await tx.curso.findUnique({ where: { codigo } });
+            if (!curso || curso.tipo !== 'ELECTIVO') throw new BadRequestException(`Electivo desconocido: ${codigo}`);
+            const anterior = await tx.seguimientoCurso.findUnique({
+              where: { procesoId_cursoCodigo: { procesoId: proceso.id, cursoCodigo: codigo } },
+            });
+            if (etapa === 'consejo' && anterior?.seleccion !== 'SELECCIONADO_PARA_REVISION')
+              throw new BadRequestException(`${codigo}: no está seleccionado para revisión en esta votación`);
+            if (
+              etapa === 'dictado' &&
+              (anterior?.seleccion !== 'SELECCIONADO_PARA_REVISION' || anterior?.consejo !== 'APROBADO')
+            )
+              throw new BadRequestException(`${codigo}: no está aprobado para la etapa de dictado`);
+            const cambios = Object.fromEntries(
+              Object.entries(decision).filter(([, valor]) => valor !== undefined),
+            ) as DecisionDto;
+            if (
+              decision.seleccion !== undefined &&
+              (decision.seleccion !== anterior?.seleccion ||
+                (decision.consejo === undefined && decision.dictado === undefined))
+            ) {
+              if (decision.consejo === undefined) cambios.consejo = 'PENDIENTE';
+              if (decision.dictado === undefined) cambios.dictado = 'PENDIENTE';
+            }
+            if (
+              decision.consejo !== undefined &&
+              decision.consejo !== anterior?.consejo &&
+              decision.dictado === undefined
+            )
+              cambios.dictado = 'PENDIENTE';
+            const datos = {
+              seleccion: 'PENDIENTE',
+              consejo: 'PENDIENTE',
+              dictado: 'PENDIENTE',
+              observacion: '',
+              ...anterior,
+              ...cambios,
+            };
+            if (datos.consejo !== 'PENDIENTE' && datos.seleccion !== 'SELECCIONADO_PARA_REVISION')
+              throw new BadRequestException(
+                `${codigo}: selecciona el curso para revisión antes de registrar el consejo`,
+              );
+            if (datos.dictado !== 'PENDIENTE' && datos.consejo !== 'APROBADO')
+              throw new BadRequestException(`${codigo}: la decisión de dictado requiere aprobación previa del consejo`);
+            await tx.seguimientoCurso.upsert({
+              where: { procesoId_cursoCodigo: { procesoId: proceso.id, cursoCodigo: codigo } },
+              create: { procesoId: proceso.id, cursoCodigo: codigo, ...cambios },
+              update: cambios,
+            });
           }
-          if (
-            decision.consejo !== undefined &&
-            decision.consejo !== anterior?.consejo &&
-            decision.dictado === undefined
-          )
-            cambios.dictado = 'PENDIENTE';
-          const datos = {
-            seleccion: 'PENDIENTE',
-            consejo: 'PENDIENTE',
-            dictado: 'PENDIENTE',
-            observacion: '',
-            ...anterior,
-            ...cambios,
-          };
-          if (datos.consejo !== 'PENDIENTE' && datos.seleccion !== 'SELECCIONADO_PARA_REVISION')
-            throw new BadRequestException(`${codigo}: selecciona el curso para revisión antes de registrar el consejo`);
-          if (datos.dictado !== 'PENDIENTE' && datos.consejo !== 'APROBADO')
-            throw new BadRequestException(`${codigo}: la decisión de dictado requiere aprobación previa del consejo`);
-          await tx.seguimientoCurso.upsert({
-            where: { procesoId_cursoCodigo: { procesoId: proceso.id, cursoCodigo: codigo } },
-            create: { procesoId: proceso.id, cursoCodigo: codigo, ...cambios },
-            update: cambios,
-          });
-        }
-        if (csv !== undefined)
-          await tx.archivoCarga.create({
-            data: {
-              nombre: 'decisiones-consejo.csv',
-              tipo: 'consejo',
-              procesoId: proceso.id,
-              actorId: actor,
-              filas: filas.length,
-              ...cifrarArchivo(Buffer.from(csv, 'utf8')),
-            },
-          });
-      },
-      { timeout: 60000 },
-    );
+          if (csv !== undefined)
+            await tx.archivoCarga.create({
+              data: {
+                nombre: 'decisiones-consejo.csv',
+                tipo: 'consejo',
+                procesoId: proceso.id,
+                actorId: actor,
+                filas: filas.length,
+                ...original!,
+              },
+            });
+        },
+        { timeout: 60000 },
+      );
+    } catch (error) {
+      if (original) await this.storage.eliminar(original.bucket, original.ruta).catch(() => undefined);
+      throw error;
+    }
     await this.audit.registrar('SEGUIMIENTO_CONSEJO', actor, {
       procesoId: proceso.id,
       cursos: filas.map((f) => f.codigo),
@@ -319,7 +332,7 @@ class SeguimientoController {
 }
 
 @Module({
-  imports: [ProcesosModule],
+  imports: [ProcesosModule, StorageModule],
   providers: [SeguimientoService],
   controllers: [SeguimientoController, SeguimientoAlumnoController],
 })

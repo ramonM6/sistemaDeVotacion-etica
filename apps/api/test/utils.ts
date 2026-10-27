@@ -1,3 +1,5 @@
+import { StorageService } from '../src/modules/importacion/storage.service';
+import { StorageFalso } from './storage-falso';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -15,7 +17,10 @@ import { CursoImportado } from '../src/modules/importacion/validadores/catalogo'
 export const PASSWORD = 'Alumno#Test1';
 
 export async function crearApp(): Promise<INestApplication> {
-  const modulo = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  const modulo = await Test.createTestingModule({ imports: [AppModule] })
+    .overrideProvider(StorageService)
+    .useValue(new StorageFalso())
+    .compile();
   const app = modulo.createNestApplication<NestExpressApplication>();
   configurarApp(app);
   await app.init();

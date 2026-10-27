@@ -1,5 +1,7 @@
+import { StorageService } from '../src/modules/importacion/storage.service';
+import { StorageFalso } from './storage-falso';
 import * as ExcelJS from 'exceljs';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ServiceUnavailableException } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { crearApp, escenarioBase, Escenario, sesion, aceptarTerminos, voto, xlsx } from './utils';
 import { parsearRequisitos } from '../src/modules/elegibilidad/motor';
@@ -179,7 +181,7 @@ describe('Requisitos integrados de VotaInf', () => {
     ]);
     await coord.post('/api/coord/import/historial/preview').attach('archivo', archivo, 'historial.xlsx').expect(400);
   });
-  it('importa CSV y conserva el original cifrado con descarga restringida', async () => {
+  it('importa CSV y conserva el original en Storage con descarga restringida', async () => {
     await db.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'BORRADOR' } });
     const csv = Buffer.from('codigo_alumno,codigo_curso,nota\n20000003,1INF24,15');
     const preview = await coord
@@ -189,7 +191,9 @@ describe('Requisitos integrados de VotaInf', () => {
     expect(preview.body.resumen.conErrores).toBe(0);
     await coord.post('/api/coord/import/historial/confirmar').send({ token: preview.body.token }).expect(200);
     const archivo = await db.archivoCarga.findFirstOrThrow();
-    expect(Buffer.from(archivo.contenido).includes(csv)).toBe(false);
+    expect(archivo.contenido).toBeNull();
+    expect(archivo.bucket).toBe('pruebas');
+    expect(archivo.ruta).toBeTruthy();
     const lista = await coord.get('/api/coord/import/archivos').expect(200);
     expect(lista.body[0]).toMatchObject({ nombre: 'historial.csv', filas: 1 });
     expect(lista.body[0]).not.toHaveProperty('contenido');
@@ -568,5 +572,66 @@ describe('Requisitos integrados de VotaInf', () => {
       .post(ruta)
       .send({ votos: [voto('INF310', ['NOCHE'])] })
       .expect(403);
+  });
+  it('importa la malla del borrador con CSV o Excel y conserva su copia por votación', async () => {
+    const creado = await coord
+      .post('/api/coord/procesos')
+      .send({
+        nombre: 'Malla 2028',
+        cicloActual: '2027-2',
+        cicloObjetivo: '2028-1',
+        fechaInicio: new Date().toISOString(),
+        fechaFin: new Date(Date.now() + 86400000).toISOString(),
+      })
+      .expect(201);
+    const id = creado.body.id;
+    const original = Buffer.from('codigo,nombre,creditos,tipo,requisitos\nINF310,Grafos 2028,3,ELECTIVO,');
+    const ruta = `/api/coord/import/malla/preview?procesoId=${id}`;
+    const preview = await coord.post(ruta).attach('archivo', original, 'malla.csv').expect(200);
+    expect(preview.body.proceso.id).toBe(id);
+    const cantidad = await db.curso.count();
+    await coord.post('/api/coord/import/malla/confirmar').send({ token: preview.body.token }).expect(200);
+    const proceso = await db.procesoVotacion.findUniqueOrThrow({ where: { id } });
+    expect(proceso.catalogo as { codigo: string; nombre: string }[]).toMatchObject([
+      { codigo: 'INF310', nombre: 'Grafos 2028' },
+    ]);
+    expect(await db.curso.count()).toBe(cantidad);
+    const archivo = await db.archivoCarga.findFirstOrThrow({ where: { procesoId: id, tipo: 'malla' } });
+    expect(archivo.contenido).toBeNull();
+    expect(archivo.ruta).toBeTruthy();
+    const excel = await xlsx('cursos', [
+      ['codigo', 'nombre', 'creditos', 'tipo'],
+      ['INF310', 'Nueva malla', 3, 'ELECTIVO'],
+    ]);
+    await coord.post(ruta).attach('archivo', excel, 'malla.xlsx').expect(200);
+    await db.procesoVotacion.update({ where: { id }, data: { primeraApertura: new Date(), estado: 'CERRADO' } });
+    await coord.post(ruta).attach('archivo', original, 'malla.csv').expect(400);
+  });
+
+  it('no aplica datos si Storage falla y limpia el objeto si se rechaza la confirmación', async () => {
+    await db.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'BORRADOR' } });
+    const storage = app.get(StorageService) as unknown as StorageFalso;
+    const csv = Buffer.from('codigo_alumno,codigo_curso,nota\n20000003,1INF24,15');
+    const previa = () =>
+      coord
+        .post(`/api/coord/import/historial/preview?procesoId=${esc.procesoId}`)
+        .attach('archivo', csv, 'historial.csv');
+    const p = await previa().expect(200);
+    const antes = await db.historialItem.count();
+    const spy = jest
+      .spyOn(storage, 'subir')
+      .mockRejectedValueOnce(new ServiceUnavailableException('Storage no disponible'));
+    await coord.post('/api/coord/import/historial/confirmar').send({ token: p.body.token }).expect(503);
+    expect(await db.historialItem.count()).toBe(antes);
+    spy.mockRestore();
+    const siguiente = await previa().expect(200);
+    await db.procesoVotacion.update({
+      where: { id: esc.procesoId },
+      data: { estado: 'ABIERTO', primeraApertura: new Date() },
+    });
+    const objetos = storage.archivos.size;
+    await coord.post('/api/coord/import/historial/confirmar').send({ token: siguiente.body.token }).expect(409);
+    expect(storage.archivos.size).toBe(objetos);
+    expect(await db.archivoCarga.count()).toBe(0);
   });
 });

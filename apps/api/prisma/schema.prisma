@@ -201,6 +201,8 @@ model ArchivoCarga {
   actorId String
   sha256 String
   filas Int
-  contenido Bytes
+  contenido Bytes? // Solo transición de archivos antiguos; nuevas cargas usan Storage.
+  bucket String?
+  ruta String?
   createdAt DateTime @default(now())
 }

@@ -1,4 +1,5 @@
 import { CheckCircle2, CircleDashed, Clock, Lock, Radio } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { ETIQUETA_ESTADO, FRANJAS, etiquetaFranja } from '@/lib/formato';
 import type { Aptitud, EstadoProceso, Franja, ResultadoElegibilidad } from '@/lib/tipos';
@@ -6,22 +7,38 @@ import { cn } from '@/lib/utils';
 
 /** Texto corto para el badge de aptitud del alumno (sección 11). */
 export function textoAptitud(e: ResultadoElegibilidad): string {
-  if (e.aptitud === 'CONFIRMADO') return 'Apto';
-  if (e.aptitud === 'NO_APTO') return 'No apto';
-  const partes = [...e.cursosEnCursoNecesarios];
-  if (e.dependeDeCreditosEnCurso) partes.push('tus cursos en curso');
-  return `Apto si apruebas ${partes.join(' y ') || 'tus cursos en curso'}`;
+  return e.aptitud === 'CONFIRMADO' ? 'Apto' : 'No apto';
 }
 
 export function AptitudBadge({ elegibilidad, className }: { elegibilidad: ResultadoElegibilidad; className?: string }) {
   const variante = { CONFIRMADO: 'success', CONDICIONAL: 'warning', NO_APTO: 'muted' } as const;
   const Icono = { CONFIRMADO: CheckCircle2, CONDICIONAL: Clock, NO_APTO: Lock }[elegibilidad.aptitud];
-  return (
+  const etiqueta = (
     <Badge variant={variante[elegibilidad.aptitud]} className={className}>
       <Icono aria-hidden />
       {textoAptitud(elegibilidad)}
     </Badge>
   );
+  if (elegibilidad.aptitud === 'CONDICIONAL') {
+    const pendientes = [...elegibilidad.cursosEnCursoNecesarios];
+    if (elegibilidad.dependeDeCreditosEnCurso) pendientes.push('los créditos de tus cursos en curso');
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span tabIndex={0} className="inline-flex cursor-help">
+            {etiqueta}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          <p>
+            Debes aprobar {pendientes.join(' y ') || 'los requisitos que estás cursando'}. Puedes emitir un voto
+            condicional.
+          </p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+  return etiqueta;
 }
 
 /** Aptitud guardada como snapshot en el voto. */

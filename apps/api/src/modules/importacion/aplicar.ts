@@ -22,7 +22,7 @@ export interface ResumenCatalogo {
  * descripción editada en el sistema. Los cursos que ya no vienen en el archivo se eliminan,
  * salvo los que tienen votos (se conservan para no perder resultados).
  */
-export async function aplicarCatalogo(db: Db, cursos: CursoImportado[]): Promise<ResumenCatalogo> {
+export async function aplicarCatalogo(db: Db, cursos: CursoImportado[], reemplazar = true): Promise<ResumenCatalogo> {
   const existentes = await db.curso.findMany({ select: { codigo: true, _count: { select: { votos: true } } } });
   const procesos = await db.procesoVotacion.findMany({
     where: { catalogo: { not: Prisma.DbNull } },
@@ -64,7 +64,7 @@ export async function aplicarCatalogo(db: Db, cursos: CursoImportado[]): Promise
   );
   if (requisitos.length) await db.requisito.createMany({ data: requisitos });
 
-  const sobrantes = existentes.filter((c) => !codigosArchivo.has(c.codigo));
+  const sobrantes = reemplazar ? existentes.filter((c) => !codigosArchivo.has(c.codigo)) : [];
   const conservados = sobrantes.filter((c) => c._count.votos > 0 || congelados.has(c.codigo)).map((c) => c.codigo);
   if (conservados.length)
     await db.curso.updateMany({ where: { codigo: { in: conservados } }, data: { activo: false } });

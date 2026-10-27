@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, Loader2, Upload, XCircle } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Cargando, ErrorCarga, Titulo } from '@/components/Estados';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -17,9 +17,9 @@ import { useProcesoSeleccionado } from './LayoutCoord';
 
 const TARJETAS: { tipo: TipoImportacion; titulo: string; descripcion: string }[] = [
   {
-    tipo: 'catalogo',
-    titulo: 'Catálogo de cursos',
-    descripcion: 'Hoja "cursos". Global: reemplaza el catálogo y conserva las descripciones editadas.',
+    tipo: 'malla',
+    titulo: 'Malla curricular del ciclo actual',
+    descripcion: 'Hoja "cursos" o CSV. Cursos, créditos y requisitos conservados para esta votación.',
   },
   {
     tipo: 'cuentas',
@@ -28,7 +28,7 @@ const TARJETAS: { tipo: TipoImportacion; titulo: string; descripcion: string }[]
   },
   {
     tipo: 'historial',
-    titulo: 'Historial académico',
+    titulo: 'Información académica de los estudiantes',
     descripcion: 'Hoja "historial". Reemplaza el historial del proceso. Nota vacía = en curso.',
   },
 ];
@@ -115,12 +115,17 @@ function TablaPreview({ preview }: { preview: PreviewImportacion }) {
   );
 }
 
-function TarjetaImportacion({ tipo, titulo, descripcion }: (typeof TARJETAS)[number]) {
+function TarjetaImportacion({
+  tipo,
+  titulo,
+  descripcion,
+  archivoInicial,
+}: (typeof TARJETAS)[number] & { archivoInicial?: File }) {
   const queryClient = useQueryClient();
   const { procesoId } = useProcesoSeleccionado();
   const input = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<PreviewImportacion | null>(null);
-  const [archivo, setArchivo] = useState<string | null>(null);
+  const [archivo, setArchivo] = useState<string | null>(archivoInicial?.name ?? null);
 
   const subir = useMutation({
     mutationFn: (f: File) => api.previewImportacion(tipo, f, procesoId),
@@ -162,8 +167,14 @@ function TarjetaImportacion({ tipo, titulo, descripcion }: (typeof TARJETAS)[num
               <FileSpreadsheet className="h-5 w-5 text-emerald-700" aria-hidden /> {titulo}
             </CardTitle>
             <CardDescription>{descripcion}</CardDescription>
+            {archivo && <p className="text-xs text-muted-foreground">Archivo seleccionado: {archivo}</p>}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {archivoInicial && archivo && !preview && (
+              <Button size="sm" disabled={subir.isPending} onClick={() => elegir(archivoInicial)}>
+                Revisar archivo seleccionado
+              </Button>
+            )}
             <Button asChild variant="outline" size="sm">
               <a href={api.urlPlantilla(tipo)} download>
                 <Download /> Plantilla
@@ -233,6 +244,9 @@ function TarjetaImportacion({ tipo, titulo, descripcion }: (typeof TARJETAS)[num
 
 export default function CargaDatos() {
   const { procesoId, rutaProceso, proceso, enPreparacion, cargandoProceso } = useProcesoSeleccionado();
+  const ubicacion = useLocation();
+  const iniciales = (ubicacion.state as { archivosPreparacion?: Partial<Record<TipoImportacion, File>> } | null)
+    ?.archivosPreparacion;
   const [parametros, setParametros] = useSearchParams();
   const editar = enPreparacion && parametros.get('preparar') === '1';
   const archivos = useQuery({ queryKey: ['coord', 'archivos', procesoId], queryFn: () => api.archivos(procesoId) });
@@ -312,7 +326,7 @@ export default function CargaDatos() {
             apertura.
           </p>
           {TARJETAS.map((t) => (
-            <TarjetaImportacion key={`${procesoId}-${t.tipo}`} {...t} />
+            <TarjetaImportacion key={`${procesoId}-${t.tipo}`} {...t} archivoInicial={iniciales?.[t.tipo]} />
           ))}
         </>
       )}
@@ -329,10 +343,7 @@ export default function CargaDatos() {
           </div>
         ))}
         {archivos.data?.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No hay archivos originales guardados para descargar. Los datos cargados directamente en la base de datos no
-            incluyen un archivo adjunto.
-          </p>
+          <p className="text-sm text-muted-foreground">No hay archivos originales guardados para descargar.</p>
         )}
       </Card>
     </div>

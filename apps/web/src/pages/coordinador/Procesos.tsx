@@ -21,7 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api } from '@/lib/api';
 import { aInputFecha, formatearFecha } from '@/lib/formato';
-import type { Proceso } from '@/lib/tipos';
+import type { Proceso, TipoImportacion } from '@/lib/tipos';
 
 const esquema = z
   .object({
@@ -49,9 +49,10 @@ export function FormularioProceso({
   alCancelar,
 }: {
   proceso: Proceso | null;
-  alTerminar: (proceso: Proceso) => void;
+  alTerminar: (proceso: Proceso, archivos?: Partial<Record<TipoImportacion, File>>) => void;
   alCancelar: () => void;
 }) {
+  const [archivos, setArchivos] = useState<Partial<Record<TipoImportacion, File>>>({});
   const queryClient = useQueryClient();
   const ahora = new Date();
   const { register, handleSubmit, formState } = useForm<Datos>({
@@ -91,7 +92,7 @@ export function FormularioProceso({
     onSuccess: (guardado) => {
       toast.success(proceso ? 'Proceso actualizado' : 'Proceso creado en borrador');
       queryClient.invalidateQueries({ queryKey: ['coord'] });
-      alTerminar(guardado);
+      alTerminar(guardado, archivos);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -133,6 +134,40 @@ export function FormularioProceso({
           readOnly: !!proceso && proceso.estado !== 'BORRADOR',
         })}
       </div>
+      {!proceso && (
+        <fieldset className="space-y-3 rounded-lg border p-4">
+          <legend className="px-1 text-sm font-semibold">Archivos de la votación</legend>
+          <p className="text-xs text-muted-foreground">
+            CSV o Excel (.xlsx), máximo 5 MB por archivo. Al guardar podrás revisar y confirmar cada importación: malla,
+            cuentas y luego historial.
+          </p>
+          {(
+            [
+              ['malla', 'Malla curricular del ciclo actual'],
+              ['cuentas', 'Cuentas y datos de los estudiantes'],
+              ['historial', 'Información académica de los estudiantes'],
+            ] as const
+          ).map(([tipo, titulo]) => (
+            <div key={tipo} className="space-y-1">
+              <Label htmlFor={`nuevo-${tipo}`}>{titulo}</Label>
+              <Input
+                id={`nuevo-${tipo}`}
+                type="file"
+                accept=".xlsx,.csv"
+                onChange={(event) => {
+                  const archivo = event.target.files?.[0];
+                  if (archivo && (!/\.(xlsx|csv)$/i.test(archivo.name) || archivo.size > 5 * 1024 * 1024)) {
+                    event.target.value = '';
+                    toast.error('Usa un archivo CSV o Excel (.xlsx) de máximo 5 MB');
+                    return;
+                  }
+                  setArchivos((prev) => ({ ...prev, [tipo]: archivo }));
+                }}
+              />
+            </div>
+          ))}
+        </fieldset>
+      )}
       <DialogFooter>
         <Button type="button" variant="outline" onClick={alCancelar}>
           Cancelar
@@ -221,9 +256,9 @@ export default function Procesos() {
           <FormularioProceso
             proceso={null}
             alCancelar={() => setCreando(false)}
-            alTerminar={(p) => {
+            alTerminar={(p, archivos) => {
               setCreando(false);
-              navigate(`/coord/votaciones/${p.id}`);
+              navigate(`/coord/votaciones/${p.id}/carga?preparar=1`, { state: { archivosPreparacion: archivos } });
             }}
           />
         </DialogContent>
