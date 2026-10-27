@@ -1,7 +1,19 @@
 import { Link } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, CalendarDays, Loader2, Plus, Users, Vote, Upload, FileSpreadsheet, X } from 'lucide-react';
+import {
+  ArrowRight,
+  CalendarDays,
+  Loader2,
+  Plus,
+  Users,
+  Vote,
+  Upload,
+  FileSpreadsheet,
+  X,
+  History,
+  CheckCircle2,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -145,31 +157,48 @@ export function FormularioProceso({
           ).map(([tipo, titulo]) => (
             <div key={tipo} className="space-y-1">
               <Label htmlFor={`nuevo-${tipo}`}>{titulo}</Label>
-              <div className="flex flex-wrap gap-5 py-2" role="radiogroup" aria-label={`Origen de ${titulo}`}>
-                <label className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name={`origen-${tipo}`}
-                    value="nuevo"
-                    checked={fuentes[tipo] === undefined}
-                    onChange={() => setFuentes((prev) => ({ ...prev, [tipo]: undefined }))}
-                  />
-                  Archivo nuevo
-                </label>
-                <label className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name={`origen-${tipo}`}
-                    value="reutilizar"
-                    checked={fuentes[tipo] !== undefined}
-                    disabled={anteriores.isLoading}
-                    onChange={() => {
-                      setArchivos((prev) => ({ ...prev, [tipo]: undefined }));
-                      setFuentes((prev) => ({ ...prev, [tipo]: '' }));
-                    }}
-                  />
-                  Reutilizar de una votación anterior
-                </label>
+              <div className="grid gap-3 py-2 sm:grid-cols-2" role="radiogroup" aria-label={`Origen de ${titulo}`}>
+                {(['nuevo', 'reutilizar'] as const).map((origen) => {
+                  const nuevo = origen === 'nuevo';
+                  const activo = nuevo ? fuentes[tipo] === undefined : fuentes[tipo] !== undefined;
+                  const Icono = nuevo ? Upload : History;
+                  return (
+                    <label key={origen} className="relative cursor-pointer">
+                      <input
+                        type="radio"
+                        name={`origen-${tipo}`}
+                        value={origen}
+                        checked={activo}
+                        aria-label={nuevo ? 'Archivo nuevo' : 'Reutilizar de una votación anterior'}
+                        className="peer sr-only"
+                        disabled={!nuevo && anteriores.isLoading}
+                        onChange={() => {
+                          if (nuevo) setFuentes((prev) => ({ ...prev, [tipo]: undefined }));
+                          else {
+                            setArchivos((prev) => ({ ...prev, [tipo]: undefined }));
+                            setFuentes((prev) => ({ ...prev, [tipo]: '' }));
+                          }
+                        }}
+                      />
+                      <span className="flex h-full items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-blue-50/60 peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 peer-disabled:cursor-not-allowed peer-disabled:opacity-50">
+                        <span
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${activo ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}`}
+                        >
+                          <Icono aria-hidden className="h-4 w-4" />
+                        </span>
+                        <span className="flex-1">
+                          <span className="block text-sm font-semibold">
+                            {nuevo ? 'Archivo nuevo' : 'Reutilizar archivo'}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {nuevo ? 'Cargar desde tu equipo' : 'De una votación anterior'}
+                          </span>
+                        </span>
+                        {activo && <CheckCircle2 aria-hidden className="h-4 w-4 shrink-0 text-primary" />}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
               {fuentes[tipo] !== undefined ? (
                 <>
