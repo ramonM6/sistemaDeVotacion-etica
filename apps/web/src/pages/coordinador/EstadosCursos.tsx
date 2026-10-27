@@ -18,7 +18,7 @@ export const ETAPAS = ['seleccion', 'consejo', 'dictado'] as const;
 export type Etapa = (typeof ETAPAS)[number];
 const configuracion = {
   seleccion: {
-    titulo: 'Selección inicial',
+    titulo: 'Selección de cursos',
     descripcion:
       '«Seleccionado para revisión» pasa al consejo. «No seleccionado» queda fuera.',
     campo: 'seleccion',
@@ -26,17 +26,17 @@ const configuracion = {
     vacio: 'No hay electivos cargados en esta votación.',
   },
   consejo: {
-    titulo: 'Revisión del consejo',
+    titulo: 'Resultados del consejo',
     descripcion:
       '«Aprobado» pasa a decidir su dictado, sin confirmarlo aún. «No aprobado» no avanza.',
     campo: 'consejo',
     opciones: ['APROBADO', 'NO_APROBADO'],
-    vacio: 'Todavía no hay cursos seleccionados para revisión. Vuelve a la selección inicial para elegirlos.',
+    vacio: 'Todavía no hay cursos seleccionados para revisión. Vuelve a Selección de cursos para elegirlos.',
   },
   dictado: {
     titulo: 'Decisión de dictado',
     descripcion:
-      '«Confirmado» se ofrecerá en este período. «No se dictará» queda fuera de la oferta.',
+      'Según la disponibilidad de un profesor para dictarlo, se determina si el curso queda «Confirmado» o «No se dictará».',
     campo: 'dictado',
     opciones: ['CONFIRMADO', 'NO_SE_DICTARA'],
     vacio: 'Todavía no hay cursos aprobados por el consejo. Revisa la etapa anterior.',
