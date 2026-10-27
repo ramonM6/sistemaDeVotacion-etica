@@ -15,7 +15,7 @@ Las descargas pasan por los endpoints existentes de la API y requieren coordinac
 
 ## Otro bucket o actualización de recursos
 
-Los seis archivos ya están publicados en el bucket configurado. No hay copias ni publicador local en el repo. Para conservar los ejemplos puedes descargarlos desde Plantillas o desde el panel de Supabase Storage.
+Los seis archivos ya están publicados en el bucket configurado. No hay copias Excel ni publicador local en el repo. Los tres CSV de `docs/datos-prueba` se conservan para la presentación; las descargas de la API siguen usando exclusivamente Storage. Para conservar los ejemplos puedes descargarlos desde Plantillas o desde el panel de Supabase Storage.
 
 Si se usa otro proyecto/bucket:
 

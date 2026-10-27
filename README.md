@@ -69,7 +69,7 @@ La instalación nueva empieza sin votaciones, alumnos ni votos. Si no cambiaste 
 4. Abre la votación para publicarla. Las cuentas registradas ya permiten iniciar sesión; solo los alumnos incluidos en su historial verán la votación. Los demás verán «No tienes votaciones disponibles».
 5. Los códigos de prueba y sus casos están en [docs/DATOS_PRUEBA.md](docs/DATOS_PRUEBA.md). La contraseña de los 16 alumnos es `Alumno#2026`.
 
-Las plantillas Excel y los CSV se descargan desde **Plantillas** usando Supabase Storage. No se sirven archivos del disco de la API. No hay copias Excel/CSV/ZIP en el repositorio. Las pruebas generan archivos ficticios en memoria y no dependen de Supabase real. Una nota vacía en el historial significa que el curso está en progreso.
+Las plantillas Excel y los CSV se descargan desde **Plantillas** usando Supabase Storage. No se sirven archivos del disco de la API. Los tres CSV se conservan en [docs/datos-prueba](docs/datos-prueba) para usarlos durante la presentación. La API no los utiliza para las descargas. Las pruebas generan archivos ficticios en memoria y no dependen de Supabase real. Una nota vacía en el historial significa que el curso está en progreso.
 
 ## Si ya tenías la versión anterior
 

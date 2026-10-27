@@ -1,6 +1,6 @@
 # Datos ficticios para probar una votación
 
-Descarga los archivos desde la sección Plantillas del sistema. Se guardan exclusivamente en Supabase Storage; no hay copias CSV/Excel en el repositorio.
+Para la presentación, los tres CSV están disponibles en `docs/datos-prueba/`: `01_malla.csv`, `02_alumnos.csv` y `03_historial.csv`. También se pueden descargar desde Plantillas. La aplicación sigue obteniendo sus descargas desde Supabase, sin usar estas copias locales.
 
 Estos archivos conservan las 16 cuentas y los casos académicos de la demostración original, sin crear votaciones ni votos automáticamente.
 
