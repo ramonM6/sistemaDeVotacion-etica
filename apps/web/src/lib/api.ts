@@ -85,6 +85,12 @@ export const api = {
 
   seguimiento: (procesoId?: string) =>
     get<{ proceso: Proceso; cursos: SeguimientoCurso[] }>(`/coord/seguimiento${qs({ procesoId })}`),
+  decidirCursos: (procesoId: string, etapa: 'seleccion' | 'consejo' | 'dictado', estado: string, codigos: string[]) =>
+    post<{ proceso: Proceso; cursos: SeguimientoCurso[] }>(`/coord/seguimiento/lote${qs({ procesoId })}`, {
+      etapa,
+      estado,
+      codigos,
+    }),
   guardarSeguimiento: (procesoId: string, codigo: string, d: SeguimientoCurso) =>
     patch(`/coord/seguimiento/${codigo}${qs({ procesoId })}`, {
       seleccion: d.seleccion,

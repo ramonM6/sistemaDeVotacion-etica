@@ -1,5 +1,4 @@
 import AdministrarVotacion from './AdministrarVotacion';
-import EstadosCursos from './EstadosCursos';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, BarChart3, Info, Percent, Upload, UserCheck, Users, Vote } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -91,7 +90,19 @@ export default function Panel() {
         <Indicador titulo="Total de votos" valor={indicadores.totalVotos} icono={Vote} />
       </div>
 
-      <EstadosCursos key={proceso.id} proceso={proceso} ranking={consulta.data!.ranking} />
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Cursos de la votación</CardTitle>
+          <CardDescription>
+            Gestiona los cursos en tres pasos: selección inicial, revisión del consejo y decisión de dictado.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild>
+            <Link to={`${rutaProceso}/cursos/seleccion`}>Gestionar cursos por etapas</Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

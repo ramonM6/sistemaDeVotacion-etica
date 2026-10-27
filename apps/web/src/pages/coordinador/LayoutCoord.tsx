@@ -54,7 +54,8 @@ export default function LayoutCoord() {
             )}
             <nav aria-label="Navegación de la votación" className="flex flex-wrap gap-x-5 gap-y-1 border-b">
               {[
-                { a: rutaProceso, texto: 'Resumen y cursos', fin: true },
+                { a: rutaProceso, texto: 'Resumen', fin: true },
+                { a: `${rutaProceso}/cursos`, texto: 'Cursos' },
                 { a: `${rutaProceso}/resultados`, texto: 'Resultados' },
                 { a: `${rutaProceso}/carga`, texto: 'Datos y archivos' },
                 { a: `${rutaProceso}/padron`, texto: 'Padrón' },

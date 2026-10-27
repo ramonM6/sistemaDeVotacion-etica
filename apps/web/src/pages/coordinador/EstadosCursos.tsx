@@ -1,16 +1,44 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Cargando, ErrorCarga } from '@/components/Estados';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 import { api } from '@/lib/api';
 import type { SeguimientoCurso } from '@/lib/api';
 import type { Proceso } from '@/lib/tipos';
+import { cn } from '@/lib/utils';
 import { useProcesoSeleccionado } from './LayoutCoord';
 
+export const ETAPAS = ['seleccion', 'consejo', 'dictado'] as const;
+export type Etapa = (typeof ETAPAS)[number];
+const configuracion = {
+  seleccion: {
+    titulo: 'Selección inicial',
+    descripcion: 'Marca los cursos y decide cuáles pasarán a revisión del consejo.',
+    campo: 'seleccion',
+    opciones: ['SELECCIONADO_PARA_REVISION', 'NO_SELECCIONADO'],
+    vacio: 'No hay electivos cargados en esta votación.',
+  },
+  consejo: {
+    titulo: 'Revisión del consejo',
+    descripcion:
+      'Aquí aparecen únicamente los cursos seleccionados en la primera etapa. Registra cuáles fueron aprobados.',
+    campo: 'consejo',
+    opciones: ['APROBADO', 'NO_APROBADO'],
+    vacio: 'Todavía no hay cursos seleccionados para revisión. Vuelve a la selección inicial para elegirlos.',
+  },
+  dictado: {
+    titulo: 'Decisión de dictado',
+    descripcion: 'Aquí aparecen únicamente los cursos aprobados por el consejo. Confirma cuáles se dictarán.',
+    campo: 'dictado',
+    opciones: ['CONFIRMADO', 'NO_SE_DICTARA'],
+    vacio: 'Todavía no hay cursos aprobados por el consejo. Revisa la etapa anterior.',
+  },
+} as const;
 const etiquetas: Record<string, string> = {
   PENDIENTE: 'Pendiente',
   SELECCIONADO_PARA_REVISION: 'Seleccionado para revisión',
@@ -20,228 +48,237 @@ const etiquetas: Record<string, string> = {
   CONFIRMADO: 'Confirmado',
   NO_SE_DICTARA: 'No se dictará',
 };
-function Fila({
-  curso,
-  procesoId,
-  cerrado,
-  votos,
-}: {
-  curso: SeguimientoCurso;
-  procesoId: string;
-  cerrado: boolean;
-  votos: number;
-}) {
-  const cliente = useQueryClient();
-  const [estado, setEstado] = useState('');
-  const [observacion, setObservacion] = useState(curso.observacion);
-  const cambio = () => {
-    const datos = { ...curso, observacion };
-    if (['SELECCIONADO_PARA_REVISION', 'NO_SELECCIONADO'].includes(estado))
-      Object.assign(datos, { seleccion: estado, consejo: 'PENDIENTE', dictado: 'PENDIENTE' });
-    else if (['APROBADO', 'NO_APROBADO'].includes(estado))
-      Object.assign(datos, { consejo: estado, dictado: 'PENDIENTE' });
-    else if (estado) datos.dictado = estado;
-    return api.guardarSeguimiento(procesoId, curso.codigo, datos);
-  };
-  const guardar = useMutation({
-    mutationFn: cambio,
-    onSuccess: () => {
-      cliente.invalidateQueries({ queryKey: ['coord'] });
-      setEstado('');
-      toast.success('Estado del curso actualizado');
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const opciones = [
-    'SELECCIONADO_PARA_REVISION',
-    'NO_SELECCIONADO',
-    ...(curso.seleccion === 'SELECCIONADO_PARA_REVISION' ? ['APROBADO', 'NO_APROBADO'] : []),
-    ...(curso.consejo === 'APROBADO' ? ['CONFIRMADO', 'NO_SE_DICTARA'] : []),
-  ];
-  const actual =
-    curso.dictado !== 'PENDIENTE' ? curso.dictado : curso.consejo !== 'PENDIENTE' ? curso.consejo : curso.seleccion;
-  return (
-    <tr className="border-t align-top">
-      <td className="px-4 py-4">
-        <span className="font-mono text-xs font-semibold">{curso.codigo}</span>
-        <p className="mt-1 text-sm">{curso.nombre}</p>
-      </td>
-      <td className="px-4 py-4 text-center font-semibold">{votos}</td>
-      <td className="px-4 py-4">
-        <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
-          {actual === 'PENDIENTE' ? 'Pendiente de selección' : etiquetas[actual]}
-        </span>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Selección: {etiquetas[curso.seleccion]}
-          <br />
-          Consejo: {etiquetas[curso.consejo]}
-        </p>
-      </td>
-      <td className="min-w-[270px] px-4 py-4">
-        {cerrado ? (
-          <div className="space-y-2">
-            <Select
-              aria-label={`Nuevo estado para ${curso.codigo}`}
-              value={estado}
-              disabled={guardar.isPending}
-              onChange={(e) => setEstado(e.target.value)}
-            >
-              <option value="">Cambiar estado…</option>
-              {opciones.map((o) => (
-                <option value={o} key={o}>
-                  {etiquetas[o]}
-                </option>
-              ))}
-            </Select>
-            <Input
-              aria-label={`Observación de ${curso.codigo}`}
-              placeholder="Observación (opcional)"
-              value={observacion}
-              maxLength={2000}
-              disabled={guardar.isPending}
-              onChange={(e) => setObservacion(e.target.value)}
-            />
-            <Button
-              size="sm"
-              disabled={guardar.isPending || (!estado && observacion === curso.observacion)}
-              onClick={() => {
-                if (
-                  !estado ||
-                  window.confirm(
-                    '¿Actualizar el estado? Cambiar la selección o la decisión del consejo limpiará los estados posteriores.',
-                  )
-                )
-                  guardar.mutate();
-              }}
-            >
-              Guardar
-            </Button>
-          </div>
-        ) : (
-          <span className="text-sm text-muted-foreground">Disponible al cerrar la votación</span>
-        )}
-      </td>
-    </tr>
+const elegibles = (cursos: SeguimientoCurso[], etapa: Etapa) =>
+  cursos.filter(
+    (c) =>
+      etapa === 'seleccion' ||
+      (c.seleccion === 'SELECCIONADO_PARA_REVISION' && (etapa === 'consejo' || c.consejo === 'APROBADO')),
   );
-}
-export default function EstadosCursos({
+
+function TablaEtapa({
+  cursos,
   ranking,
   proceso,
+  etapa,
 }: {
+  cursos: SeguimientoCurso[];
   ranking: { codigo: string; total: number }[];
   proceso: Proceso;
+  etapa: Etapa;
 }) {
-  const { procesoId } = useProcesoSeleccionado();
   const cliente = useQueryClient();
-  const consulta = useQuery({
-    queryKey: ['coord', 'seguimiento', procesoId],
-    queryFn: () => api.seguimiento(procesoId),
-  });
-  const [csv, setCsv] = useState('');
-  const [vista, setVista] = useState<{ procesoId: string; filas: unknown[]; csv: string } | null>(null);
-  const carga = useMutation({
-    mutationFn: (confirmar: boolean) =>
-      confirmar && vista
-        ? api.confirmarConsejo(vista.procesoId, vista.csv)
-        : api.previewConsejo(consulta.data!.proceso.id, csv),
-    onSuccess: (r, confirmar) => {
-      if (confirmar) {
-        setVista(null);
-        setCsv('');
-        cliente.invalidateQueries({ queryKey: ['coord'] });
-        toast.success('Decisiones importadas');
-      } else setVista({ ...(r as { procesoId: string; filas: unknown[] }), csv });
+  const [marcados, setMarcados] = useState<string[]>([]);
+  const [estado, setEstado] = useState('');
+  const config = configuracion[etapa];
+  const filas = elegibles(cursos, etapa).sort(
+    (a, b) =>
+      (ranking.find((r) => r.codigo === b.codigo)?.total ?? 0) -
+        (ranking.find((r) => r.codigo === a.codigo)?.total ?? 0) || a.codigo.localeCompare(b.codigo),
+  );
+  // Nunca aplica una selección que haya quedado fuera de la etapa tras una actualización.
+  const seleccionados = marcados.filter((codigo) => filas.some((c) => c.codigo === codigo));
+  const todos = filas.length > 0 && seleccionados.length === filas.length;
+  const cerrado = proceso.estado === 'CERRADO';
+  const guardar = useMutation({
+    mutationFn: () => api.decidirCursos(proceso.id, etapa, estado, seleccionados),
+    onSuccess: async () => {
+      setMarcados([]);
+      setEstado('');
+      await cliente.invalidateQueries({ queryKey: ['coord'] });
+      toast.success('Decisión aplicada a los cursos marcados');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      toast.error(e.message);
+      cliente.invalidateQueries({ queryKey: ['coord'] });
+    },
   });
-  if (consulta.isLoading) return <Cargando />;
-  if (consulta.error) return <ErrorCarga error={consulta.error} />;
-  const { cursos } = consulta.data!;
+  const bloqueado = !cerrado || guardar.isPending;
+  const aplicar = () => {
+    const reinicia =
+      etapa === 'seleccion'
+        ? seleccionados.some((codigo) =>
+            cursos.some((c) => c.codigo === codigo && (c.consejo !== 'PENDIENTE' || c.dictado !== 'PENDIENTE')),
+          )
+        : etapa === 'consejo' &&
+          seleccionados.some((codigo) => cursos.some((c) => c.codigo === codigo && c.dictado !== 'PENDIENTE'));
+    if (
+      !reinicia ||
+      window.confirm('Cambiar esta decisión borrará los estados posteriores de los cursos marcados. ¿Continuar?')
+    )
+      guardar.mutate();
+  };
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-semibold">Cursos de la votación</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {proceso.estado === 'CERRADO'
-            ? 'Decide qué cursos pasan a revisión, registra la decisión del consejo y confirma cuáles se dictarán.'
-            : 'Revisa la oferta. Podrás cambiar los estados de los cursos cuando la votación esté cerrada.'}
-        </p>
+        <h2 className="text-xl font-semibold">{config.titulo}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{config.descripcion}</p>
       </div>
+      {!cerrado && (
+        <p className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
+          Los estados se pueden modificar cuando la votación esté cerrada.
+        </p>
+      )}
+      {filas.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-4">
+          <p className="mr-auto text-sm font-medium" aria-live="polite">
+            {seleccionados.length} de {filas.length} cursos marcados
+          </p>
+          <Select
+            className="w-64"
+            aria-label="Decisión para los cursos marcados"
+            value={estado}
+            disabled={bloqueado}
+            onChange={(e) => setEstado(e.target.value)}
+          >
+            <option value="">Elegir decisión…</option>
+            {config.opciones.map((o) => (
+              <option key={o} value={o}>
+                {etiquetas[o]}
+              </option>
+            ))}
+          </Select>
+          <Button disabled={bloqueado || !seleccionados.length || !estado} onClick={aplicar}>
+            {guardar.isPending ? 'Aplicando…' : 'Aplicar a marcados'}
+          </Button>
+        </div>
+      )}
       <div className="overflow-x-auto rounded-lg border bg-card">
         <table className="w-full text-left">
           <thead className="bg-muted/50 text-sm text-muted-foreground">
             <tr>
+              <th className="w-12 px-4 py-3">
+                <Checkbox
+                  aria-label="Marcar todos los cursos de esta etapa"
+                  checked={todos ? true : seleccionados.length ? 'indeterminate' : false}
+                  disabled={bloqueado || !filas.length}
+                  onCheckedChange={(v) => setMarcados(v === true ? filas.map((c) => c.codigo) : [])}
+                />
+              </th>
               <th className="px-4 py-3">Electivo</th>
-              <th className="px-4 py-3">Votos</th>
-              <th className="px-4 py-3">Estado actual</th>
-              <th className="px-4 py-3">Decisión del coordinador</th>
+              <th className="px-4 py-3 text-center">Votos</th>
+              <th className="px-4 py-3">Estado en esta etapa</th>
             </tr>
           </thead>
           <tbody>
-            {cursos
-              .slice()
-              .sort(
-                (a, b) =>
-                  (ranking.find((r) => r.codigo === b.codigo)?.total ?? 0) -
-                    (ranking.find((r) => r.codigo === a.codigo)?.total ?? 0) || a.codigo.localeCompare(b.codigo),
-              )
-              .map((c) => (
-                <Fila
-                  key={`${proceso.id}-${c.codigo}-${c.updatedAt ?? ''}`}
-                  curso={c}
-                  procesoId={proceso.id}
-                  cerrado={proceso.estado === 'CERRADO'}
-                  votos={ranking.find((r) => r.codigo === c.codigo)?.total ?? 0}
-                />
-              ))}
+            {filas.map((c) => (
+              <tr key={c.codigo} className={cn('border-t', seleccionados.includes(c.codigo) && 'bg-blue-50/60')}>
+                <td className="px-4 py-4">
+                  <Checkbox
+                    aria-label={`Marcar ${c.codigo}`}
+                    checked={seleccionados.includes(c.codigo)}
+                    disabled={bloqueado}
+                    onCheckedChange={(v) =>
+                      setMarcados((actual) =>
+                        v === true
+                          ? [...new Set([...actual, c.codigo])]
+                          : actual.filter((codigo) => codigo !== c.codigo),
+                      )
+                    }
+                  />
+                </td>
+                <td className="px-4 py-4">
+                  <span className="font-mono text-xs font-semibold">{c.codigo}</span>
+                  <p className="mt-1 text-sm">{c.nombre}</p>
+                </td>
+                <td className="px-4 py-4 text-center font-semibold">
+                  {ranking.find((r) => r.codigo === c.codigo)?.total ?? 0}
+                </td>
+                <td className="px-4 py-4">
+                  <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+                    {c[config.campo] === 'PENDIENTE' && etapa === 'seleccion'
+                      ? 'Pendiente de selección'
+                      : etiquetas[c[config.campo]]}
+                  </span>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
-        {!cursos.length && (
-          <p className="p-6 text-sm text-muted-foreground">No hay electivos cargados en esta votación.</p>
+        {!filas.length && <p className="p-6 text-sm text-muted-foreground">{config.vacio}</p>}
+      </div>
+    </div>
+  );
+}
+
+export default function EstadosCursos({
+  ranking,
+  proceso,
+  etapa,
+}: {
+  ranking: { codigo: string; total: number }[];
+  proceso: Proceso;
+  etapa: Etapa;
+}) {
+  const { rutaProceso } = useProcesoSeleccionado();
+  const consulta = useQuery({
+    queryKey: ['coord', 'seguimiento', proceso.id],
+    queryFn: () => api.seguimiento(proceso.id),
+  });
+  if (consulta.isLoading) return <Cargando />;
+  if (consulta.error) return <ErrorCarga error={consulta.error} />;
+  const cursos = consulta.data!.cursos;
+  const indice = ETAPAS.indexOf(etapa);
+  return (
+    <div className="space-y-7">
+      <nav aria-label="Etapas de decisión de cursos">
+        <ol className="grid gap-3 sm:grid-cols-3">
+          {ETAPAS.map((paso, i) => {
+            const participantes = elegibles(cursos, paso);
+            const resueltos = participantes.filter((c) => c[configuracion[paso].campo] !== 'PENDIENTE').length;
+            const completo = participantes.length > 0 && resueltos === participantes.length;
+            return (
+              <li key={paso}>
+                <Link
+                  to={`${rutaProceso}/cursos/${paso}`}
+                  aria-current={paso === etapa ? 'step' : undefined}
+                  className={cn(
+                    'flex h-full items-center gap-3 rounded-lg border bg-card p-4 transition-colors hover:border-primary/50',
+                    paso === etapa && 'border-primary bg-blue-50/50',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 font-semibold',
+                      paso === etapa
+                        ? 'border-primary bg-primary text-white'
+                        : completo
+                          ? 'border-emerald-600 text-emerald-700'
+                          : 'text-muted-foreground',
+                    )}
+                  >
+                    {completo ? <Check className="h-5 w-5" /> : i + 1}
+                  </span>
+                  <span>
+                    <span className="block text-sm font-semibold">{configuracion[paso].titulo}</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      {resueltos} de {participantes.length} decididos
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+      <TablaEtapa key={`${proceso.id}-${etapa}`} cursos={cursos} ranking={ranking} proceso={proceso} etapa={etapa} />
+      <div className="flex flex-wrap justify-between gap-3">
+        {indice > 0 ? (
+          <Button asChild variant="outline">
+            <Link to={`${rutaProceso}/cursos/${ETAPAS[indice - 1]}`}>
+              <ArrowLeft /> Etapa anterior
+            </Link>
+          </Button>
+        ) : (
+          <span />
+        )}
+        {indice < ETAPAS.length - 1 && (
+          <Button asChild>
+            <Link to={`${rutaProceso}/cursos/${ETAPAS[indice + 1]}`}>
+              Siguiente etapa <ArrowRight />
+            </Link>
+          </Button>
         )}
       </div>
-      {proceso.estado === 'CERRADO' && (
-        <details className="rounded-lg border bg-card p-4">
-          <summary className="cursor-pointer text-sm font-medium">Importar decisiones del consejo por CSV</summary>
-          <Card className="space-y-3 p-4">
-            <p className="text-sm">
-              CSV del consejo: codigo,consejo,dictado,observacion. Selecciona primero los cursos para revisión.
-            </p>
-            <input
-              aria-label="Archivo CSV de decisiones"
-              type="file"
-              accept=".csv,text/csv"
-              disabled={proceso.estado !== 'CERRADO' || carga.isPending}
-              onChange={async (e) => {
-                const f = e.target.files?.[0];
-                setVista(null);
-                setCsv('');
-                if (f) {
-                  if (f.size > 2000000) {
-                    toast.error('Máximo 2 MB');
-                    return;
-                  }
-                  setCsv(await f.text());
-                }
-              }}
-            />
-            <Button
-              disabled={!csv || carga.isPending || proceso.estado !== 'CERRADO'}
-              onClick={() => carga.mutate(false)}
-            >
-              Validar y previsualizar
-            </Button>
-            {vista && vista.procesoId === proceso.id && (
-              <div>
-                <pre className="max-h-64 overflow-auto text-xs">{JSON.stringify(vista.filas, null, 2)}</pre>
-                <Button disabled={carga.isPending} onClick={() => carga.mutate(true)}>
-                  Confirmar {vista.filas.length} decisiones
-                </Button>
-              </div>
-            )}
-          </Card>
-        </details>
-      )}
     </div>
   );
 }

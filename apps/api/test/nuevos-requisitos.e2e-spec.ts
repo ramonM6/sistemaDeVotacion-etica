@@ -344,4 +344,108 @@ describe('Requisitos integrados de VotaInf', () => {
       'NO_SELECCIONADO',
     );
   });
+  it('aplica la selección inicial a varios cursos en una sola operación', async () => {
+    await cerrar().expect(200);
+    await coord
+      .post(`/api/coord/seguimiento/lote?procesoId=${esc.procesoId}`)
+      .send({ etapa: 'seleccion', estado: 'SELECCIONADO_PARA_REVISION', codigos: ['INF310', 'INF356'] })
+      .expect(201);
+    const filas = await db.seguimientoCurso.findMany({ where: { procesoId: esc.procesoId } });
+    expect(filas).toHaveLength(2);
+    expect(
+      filas.every(
+        (f) => f.seleccion === 'SELECCIONADO_PARA_REVISION' && f.consejo === 'PENDIENTE' && f.dictado === 'PENDIENTE',
+      ),
+    ).toBe(true);
+  });
+
+  it('no aplica parcialmente una revisión si algún curso no pasó la selección inicial', async () => {
+    await cerrar().expect(200);
+    const ruta = `/api/coord/seguimiento/lote?procesoId=${esc.procesoId}`;
+    await coord
+      .post(ruta)
+      .send({ etapa: 'seleccion', estado: 'SELECCIONADO_PARA_REVISION', codigos: ['INF310'] })
+      .expect(201);
+    await coord
+      .post(ruta)
+      .send({ etapa: 'consejo', estado: 'APROBADO', codigos: ['INF310', 'INF356'] })
+      .expect(400);
+    expect((await db.seguimientoCurso.findFirstOrThrow()).consejo).toBe('PENDIENTE');
+    expect(await db.seguimientoCurso.count()).toBe(1);
+    await coord
+      .post(ruta)
+      .send({ etapa: 'seleccion', estado: 'SELECCIONADO_PARA_REVISION', codigos: ['INF356'] })
+      .expect(201);
+    await coord
+      .post(ruta)
+      .send({ etapa: 'consejo', estado: 'APROBADO', codigos: ['INF310', 'INF356'] })
+      .expect(201);
+    expect(await db.seguimientoCurso.count({ where: { consejo: 'APROBADO' } })).toBe(2);
+  });
+
+  it('solo decide el dictado de cursos aprobados y reinicia etapas posteriores al volver atrás', async () => {
+    await cerrar().expect(200);
+    const ruta = `/api/coord/seguimiento/lote?procesoId=${esc.procesoId}`;
+    await coord
+      .post(ruta)
+      .send({ etapa: 'seleccion', estado: 'SELECCIONADO_PARA_REVISION', codigos: ['INF310', 'INF356'] })
+      .expect(201);
+    await coord
+      .post(ruta)
+      .send({ etapa: 'consejo', estado: 'APROBADO', codigos: ['INF310'] })
+      .expect(201);
+    await coord
+      .post(ruta)
+      .send({ etapa: 'dictado', estado: 'CONFIRMADO', codigos: ['INF310', 'INF356'] })
+      .expect(400);
+    expect(await db.seguimientoCurso.count({ where: { dictado: 'CONFIRMADO' } })).toBe(0);
+    await coord
+      .post(ruta)
+      .send({ etapa: 'dictado', estado: 'CONFIRMADO', codigos: ['INF310'] })
+      .expect(201);
+    await coord
+      .post(ruta)
+      .send({ etapa: 'seleccion', estado: 'NO_SELECCIONADO', codigos: ['INF310'] })
+      .expect(201);
+    expect(await db.seguimientoCurso.findFirstOrThrow({ where: { cursoCodigo: 'INF310' } })).toMatchObject({
+      seleccion: 'NO_SELECCIONADO',
+      consejo: 'PENDIENTE',
+      dictado: 'PENDIENTE',
+    });
+    await coord
+      .post(ruta)
+      .send({ etapa: 'dictado', estado: 'NO_SE_DICTARA', codigos: ['INF310'] })
+      .expect(400);
+  });
+
+  it('valida etapa, códigos, cierre y permisos antes de permitir decisiones por lote', async () => {
+    const ruta = `/api/coord/seguimiento/lote?procesoId=${esc.procesoId}`;
+    const cuerpo = { etapa: 'seleccion', estado: 'SELECCIONADO_PARA_REVISION', codigos: ['INF310'] };
+    await coord.post(ruta).send(cuerpo).expect(400);
+    await cerrar().expect(200);
+    await coord
+      .post(ruta)
+      .send({ ...cuerpo, estado: 'APROBADO' })
+      .expect(400);
+    await coord
+      .post(ruta)
+      .send({ ...cuerpo, codigos: ['INF310', 'INF310'] })
+      .expect(400);
+    await coord
+      .post(ruta)
+      .send({ ...cuerpo, codigos: [] })
+      .expect(400);
+    await coord
+      .post(ruta)
+      .send({ ...cuerpo, observacion: 'No admitida' })
+      .expect(400);
+    await coord.post('/api/coord/seguimiento/lote').send(cuerpo).expect(400);
+    await coord
+      .post(ruta)
+      .send({ ...cuerpo, codigos: ['INF310', 'ZZZ999'] })
+      .expect(400);
+    expect(await db.seguimientoCurso.count()).toBe(0);
+    const alumno = await sesion(app, '20000001');
+    await alumno.post(ruta).send(cuerpo).expect(403);
+  });
 });

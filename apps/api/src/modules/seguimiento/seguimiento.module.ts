@@ -10,8 +10,19 @@ import {
   Param,
   Query,
   BadRequestException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
+  IsIn,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Roles, UsuarioActual, UsuarioSesion } from '../../common/auth.decorators';
 import { AuditService } from '../audit/audit.service';
@@ -26,6 +37,19 @@ class DecisionDto {
   @IsOptional() @IsIn(['PENDIENTE', 'CONFIRMADO', 'NO_SE_DICTARA']) dictado?: string;
   @IsOptional() @IsString() @MaxLength(2000) observacion?: string;
 }
+class DecisionLoteDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(500)
+  @ArrayUnique()
+  @IsString({ each: true })
+  @Matches(/^[A-Z0-9]{6}$/, { each: true })
+  codigos: string[];
+  @IsIn(['seleccion', 'consejo', 'dictado']) etapa: 'seleccion' | 'consejo' | 'dictado';
+  @IsIn(['SELECCIONADO_PARA_REVISION', 'NO_SELECCIONADO', 'APROBADO', 'NO_APROBADO', 'CONFIRMADO', 'NO_SE_DICTARA'])
+  estado: string;
+}
+
 class CsvDto {
   @IsString() @MaxLength(2000000) csv: string;
 }
@@ -71,6 +95,7 @@ class SeguimientoService {
     filas: { codigo: string; decision: DecisionDto }[],
     actor: string,
     csv?: string,
+    etapa?: 'seleccion' | 'consejo' | 'dictado',
   ) {
     const proceso = await this.procesos.resolver(procesoId);
     await this.db.$transaction(
@@ -87,6 +112,13 @@ class SeguimientoService {
           const anterior = await tx.seguimientoCurso.findUnique({
             where: { procesoId_cursoCodigo: { procesoId: proceso.id, cursoCodigo: codigo } },
           });
+          if (etapa === 'consejo' && anterior?.seleccion !== 'SELECCIONADO_PARA_REVISION')
+            throw new BadRequestException(`${codigo}: no está seleccionado para revisión en esta votación`);
+          if (
+            etapa === 'dictado' &&
+            (anterior?.seleccion !== 'SELECCIONADO_PARA_REVISION' || anterior?.consejo !== 'APROBADO')
+          )
+            throw new BadRequestException(`${codigo}: no está aprobado para la etapa de dictado`);
           const cambios = Object.fromEntries(
             Object.entries(decision).filter(([, valor]) => valor !== undefined),
           ) as DecisionDto;
@@ -141,6 +173,29 @@ class SeguimientoService {
       cursos: filas.map((f) => f.codigo),
     });
     return this.listar(proceso.id);
+  }
+
+  async lote(procesoId: string, dto: DecisionLoteDto, actor: string) {
+    const opciones = {
+      seleccion: ['SELECCIONADO_PARA_REVISION', 'NO_SELECCIONADO'],
+      consejo: ['APROBADO', 'NO_APROBADO'],
+      dictado: ['CONFIRMADO', 'NO_SE_DICTARA'],
+    };
+    if (!opciones[dto.etapa].includes(dto.estado))
+      throw new BadRequestException('El estado no corresponde a esta etapa');
+    const decision: DecisionDto =
+      dto.etapa === 'seleccion'
+        ? { seleccion: dto.estado, consejo: 'PENDIENTE', dictado: 'PENDIENTE' }
+        : dto.etapa === 'consejo'
+          ? { consejo: dto.estado, dictado: 'PENDIENTE' }
+          : { dictado: dto.estado };
+    return this.guardar(
+      procesoId,
+      dto.codigos.map((codigo) => ({ codigo, decision })),
+      actor,
+      undefined,
+      dto.etapa,
+    );
   }
 
   async csv(procesoId: string | undefined, csv: string, actor: string, confirmar: boolean) {
@@ -204,6 +259,10 @@ class SeguimientoController {
   constructor(private readonly servicio: SeguimientoService) {}
   @Get() listar(@Query('procesoId') id?: string) {
     return this.servicio.listar(id);
+  }
+  @Post('lote')
+  lote(@Body() dto: DecisionLoteDto, @UsuarioActual() u: UsuarioSesion, @Query('procesoId', ParseUUIDPipe) id: string) {
+    return this.servicio.lote(id, dto, u.id);
   }
   @Patch(':codigo') guardar(
     @Param('codigo') codigo: string,

@@ -1,3 +1,4 @@
+import GestionCursos from '@/pages/coordinador/GestionCursos';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Cargando } from '@/components/Estados';
 import { RequiereRol, inicioPorRol } from '@/components/RequiereRol';
@@ -47,6 +48,8 @@ export default function App() {
           <Route path="catalogo" element={<Cursos />} />
           <Route path="votaciones/:procesoId">
             <Route index element={<Panel />} />
+            <Route path="cursos" element={<Navigate to="seleccion" replace />} />
+            <Route path="cursos/:etapa" element={<GestionCursos />} />
             <Route path="resultados" element={<CoordResultados />} />
             <Route path="resultados/:codigo" element={<DetalleCurso />} />
             <Route path="carga" element={<CargaDatos />} />
