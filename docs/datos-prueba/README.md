@@ -6,7 +6,7 @@ Crea una votación nueva en borrador. Puedes indicar ciclo actual `2026-2` y obj
 
 1. `01_malla.csv`: 148 cursos, incluidos 54 electivos y sus requisitos.
 2. `02_alumnos.csv`: las 16 cuentas indicadas en la tabla siguiente.
-3. `03_historial.csv`: 743 registros académicos; una nota vacía indica un curso en progreso. El alumno 20231414 no tiene historial intencionalmente.
+3. `03_historial.csv`: 742 registros académicos; una nota vacía indica un curso en progreso. El alumno 20231414 no tiene historial intencionalmente.
 
 El sistema valida y guarda cada archivo automáticamente. Si encuentra errores, los muestra sin guardar el archivo. Usa una votación de prueba: las cuentas y el historial reemplazan los datos del borrador elegido.
 
@@ -26,7 +26,7 @@ Después de cargar los archivos, abre la votación para iniciar sesión como alu
 | 20190606 | Llega a 140 créditos solo con los cursos en curso → DER349 CONDICIONAL |
 | 20180707 | Último ciclo: apta para casi todo (1INF41 jalado y en curso) |
 | 20190808 | Ciclo 9: ya aprobó INF310 y lleva INF356 (etiquetas informativas) |
-| 20210909 | Ciclo 6 con un curso de otra facultad (TEL618: 0 créditos) y un electivo libre |
+| 20210909 | Ciclo 6 con un electivo libre del plan de Ingeniería Informática |
 | 20201010 | Ciclo 8, línea de seguridad: 1INF39 y 1INF41 en curso |
 | 20221111 | Ciclo 3: ningún electivo apto |
 | 20201212 | INF238 desaprobado (10) y no lo lleva → [INF238] NO_APTO |
