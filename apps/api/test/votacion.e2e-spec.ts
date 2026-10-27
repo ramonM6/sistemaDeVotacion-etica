@@ -26,21 +26,16 @@ describe('Votación (e2e)', () => {
   });
 
   describe('autenticación', () => {
-    it('un alumno que no está en el Excel de cuentas (padrón) no puede iniciar sesión', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/auth/login')
-        .send({ codigo: '20000009', password: PASSWORD });
-      expect(res.status).toBe(401);
-      expect(res.body.message).toBe('Código o contraseña incorrectos');
+    it('un alumno registrado sin historial puede iniciar sesión y ve una lista vacía', async () => {
+      const alumno = await sesion(app, '20000009');
+      expect((await alumno.get('/api/alumno/procesos').expect(200)).body).toEqual([]);
+      await alumno.get(`/api/alumno/estado?procesoId=${esc.procesoId}`).expect(403);
     });
-
-    it('un padrón de borrador no habilita el login de un estudiante', async () => {
+    it('el login funciona aunque solo existan borradores', async () => {
       await prisma.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'BORRADOR' } });
-      await request(app.getHttpServer())
-        .post('/api/auth/login')
-        .send({ codigo: '20000001', password: PASSWORD })
-        .expect(401);
-      await sesion(app, process.env.COORD_USER!, process.env.COORD_PASSWORD!);
+      const alumno = await sesion(app, '20000001');
+      expect((await alumno.get('/api/alumno/procesos').expect(200)).body).toEqual([]);
+      await alumno.get('/api/auth/me').expect(200);
     });
 
     it('permite entrar por una votación cerrada aunque la activa pertenezca a otros alumnos', async () => {

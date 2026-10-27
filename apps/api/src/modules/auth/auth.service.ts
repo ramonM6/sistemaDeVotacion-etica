@@ -3,7 +3,6 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { ProcesosService } from '../procesos/procesos.service';
 
 const ERROR_GENERICO = 'Código o contraseña incorrectos';
 
@@ -17,7 +16,6 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly audit: AuditService,
-    private readonly procesos: ProcesosService,
   ) {}
 
   async login(codigoIngresado: string, password: string, ip?: string) {
@@ -25,11 +23,7 @@ export class AuthService {
     const usuario = await this.prisma.usuario.findUnique({ where: { codigo } });
     const passwordOk = await bcrypt.compare(password, usuario?.passwordHash ?? HASH_FICTICIO);
 
-    // Basta pertenecer a una votación publicada, abierta o cerrada; los borradores no habilitan acceso.
-    let habilitado = !!usuario && passwordOk;
-    if (habilitado && usuario!.rol === 'ALUMNO') {
-      habilitado = (await this.procesos.listarDelAlumno(usuario!.id)).length > 0;
-    }
+    const habilitado = !!usuario && passwordOk;
 
     if (!habilitado) {
       await this.audit.registrar('LOGIN_FAIL', usuario?.id ?? null, { codigo, ip: ip ?? null });
@@ -43,8 +37,7 @@ export class AuthService {
 
   async me(usuarioId: string) {
     const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
-    if (!usuario || (usuario.rol === 'ALUMNO' && !(await this.procesos.listarDelAlumno(usuario.id)).length))
-      throw new UnauthorizedException('Sesión inválida');
+    if (!usuario) throw new UnauthorizedException('Sesión inválida');
     return this.aPublico(usuario);
   }
 

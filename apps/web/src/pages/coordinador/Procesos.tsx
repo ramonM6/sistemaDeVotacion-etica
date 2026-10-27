@@ -46,7 +46,7 @@ export function FormularioProceso({
   alCancelar: () => void;
 }) {
   const [archivos, setArchivos] = useState<Partial<Record<TipoImportacion, File>>>({});
-  const [fuentes, setFuentes] = useState<{ malla?: string; cuentas?: string; historial?: string }>({});
+  const [fuentes, setFuentes] = useState<{ malla?: string; historial?: string }>({});
   const anteriores = useQuery({ queryKey: ['coord', 'procesos'], queryFn: api.procesos, enabled: !proceso });
   const queryClient = useQueryClient();
   const ahora = new Date();
@@ -135,12 +135,11 @@ export function FormularioProceso({
           <legend className="px-1 text-sm font-semibold">Archivos de la votación</legend>
           <p className="text-xs text-muted-foreground">
             Sube un CSV o Excel (.xlsx), máximo 5 MB, o reutiliza los datos y el archivo disponible de una votación
-            anterior. Al guardar se validan y cargan los archivos en este orden: malla, cuentas y luego historial.
+            anterior. Al guardar se validan y cargan los archivos en este orden: malla y luego historial.
           </p>
           {(
             [
               ['malla', 'Malla curricular del ciclo actual'],
-              ['cuentas', 'Cuentas y datos de los estudiantes'],
               ['historial', 'Información académica de los estudiantes'],
             ] as const
           ).map(([tipo, titulo]) => (
@@ -165,7 +164,7 @@ export function FormularioProceso({
                     setFuentes((prev) => ({ ...prev, [tipo]: '' }));
                   }}
                 >
-                  Reutilizar {tipo === 'malla' ? 'malla' : tipo === 'cuentas' ? 'cuentas' : 'historial'}
+                  Reutilizar {tipo === 'malla' ? 'malla' : 'historial'}
                 </Button>
               </div>
               {fuentes[tipo] !== undefined ? (
@@ -178,13 +177,7 @@ export function FormularioProceso({
                   >
                     <option value="">Selecciona una votación anterior</option>
                     {anteriores.data
-                      ?.filter((p) =>
-                        tipo === 'malla'
-                          ? !!p.catalogo?.length
-                          : tipo === 'cuentas'
-                            ? (p._count?.padron ?? 0) > 0
-                            : (p._count?.historial ?? 0) > 0,
-                      )
+                      ?.filter((p) => (tipo === 'malla' ? !!p.catalogo?.length : (p._count?.historial ?? 0) > 0))
                       .map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.nombre} · {p.cicloObjetivo}
@@ -196,8 +189,8 @@ export function FormularioProceso({
                   )}
                   {tipo === 'historial' && (
                     <p className="text-xs text-muted-foreground">
-                      El historial necesita las cuentas de todos sus alumnos. Reutiliza un padrón compatible; si subirás
-                      cuentas nuevas, importa el historial después.
+                      El historial determina quién participa en esta votación. Sus alumnos deben tener una cuenta creada
+                      previamente desde la sección Alumnos.
                     </p>
                   )}
                 </>

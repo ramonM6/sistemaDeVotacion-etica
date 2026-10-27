@@ -16,21 +16,16 @@ import type { PreviewImportacion, TipoImportacion } from '@/lib/tipos';
 import { cn } from '@/lib/utils';
 import { useProcesoSeleccionado } from './LayoutCoord';
 
-const TARJETAS: { tipo: 'malla' | 'cuentas' | 'historial'; titulo: string; descripcion: string }[] = [
+const TARJETAS: { tipo: 'malla' | 'historial'; titulo: string; descripcion: string }[] = [
   {
     tipo: 'malla',
     titulo: 'Malla curricular del ciclo actual',
     descripcion: 'Hoja "cursos" o CSV. Cursos, créditos y requisitos conservados para esta votación.',
   },
   {
-    tipo: 'cuentas',
-    titulo: 'Cuentas de alumnos',
-    descripcion: 'Hoja "alumnos". Reemplaza el padrón del proceso: solo estos alumnos podrán entrar.',
-  },
-  {
     tipo: 'historial',
     titulo: 'Información académica de los estudiantes',
-    descripcion: 'Hoja "historial". Reemplaza el historial del proceso. Nota vacía = en curso.',
+    descripcion: 'Hoja "historial". Define los alumnos habilitados para esta votación. Nota vacía = en curso.',
   },
 ];
 
@@ -41,7 +36,7 @@ function valorCelda(v: unknown) {
   return String(v);
 }
 
-function TablaPreview({ preview }: { preview: PreviewImportacion }) {
+export function TablaPreview({ preview }: { preview: PreviewImportacion }) {
   const [soloProblemas, setSoloProblemas] = useState(preview.resumen.conErrores + preview.resumen.conAdvertencias > 0);
   const filas = soloProblemas ? preview.filas.filter((f) => f.errores.length || f.advertencias.length) : preview.filas;
   // Las claves de `datos` vienen normalizadas por el backend (p. ej. codigoAlumno).
@@ -222,10 +217,7 @@ function DatosVotacion() {
       setEstados((prev) => ({ ...prev, [tipo]: undefined }));
       return;
     }
-    const mensaje =
-      tipo === 'cuentas'
-        ? '¿Eliminar las cuentas y el historial académico de esta votación? Luego podrás subir nuevos archivos.'
-        : '¿Eliminar este archivo y sus datos de la votación para subir otro?';
+    const mensaje = '¿Eliminar este archivo y sus datos de la votación para subir otro?';
     if (!(await confirmar(mensaje))) return;
     operando.current = true;
     setOcupado(tipo);
@@ -286,8 +278,8 @@ function DatosVotacion() {
       </div>
       {enPreparacion && (
         <p className="text-sm text-muted-foreground">
-          CSV UTF-8 o Excel .xlsx, hasta 5 MB. Carga primero la malla, luego las cuentas y finalmente el historial. Se
-          comprueban encabezados, tipos de datos y referencias de alumnos.
+          CSV UTF-8 o Excel .xlsx, hasta 5 MB. Carga primero la malla y luego el historial. Las cuentas se crean en
+          Alumnos. Se comprueban encabezados, tipos de datos y referencias de alumnos.
         </p>
       )}
       {archivos.isLoading ? (
@@ -297,12 +289,7 @@ function DatosVotacion() {
       ) : (
         TARJETAS.map((t) => {
           const archivo = archivos.data?.find((a) => a.tipo === t.tipo);
-          const datos =
-            t.tipo === 'malla'
-              ? (proceso.catalogo?.length ?? 0) > 0
-              : t.tipo === 'cuentas'
-                ? (proceso._count?.padron ?? 0) > 0
-                : (proceso._count?.historial ?? 0) > 0;
+          const datos = t.tipo === 'malla' ? (proceso.catalogo?.length ?? 0) > 0 : (proceso._count?.historial ?? 0) > 0;
           const presente = !!archivo || datos;
           const estado = estados[t.tipo];
           return (

@@ -17,7 +17,6 @@ import {
 
 export class ReutilizarArchivosDto {
   @IsOptional() @IsUUID() malla?: string;
-  @IsOptional() @IsUUID() cuentas?: string;
   @IsOptional() @IsUUID() historial?: string;
 }
 

@@ -81,6 +81,8 @@ export const api = {
   // Alumno: todas las operaciones conservan la votación seleccionada.
   votarLote: (procesoId: string, votos: { cursoCodigo: string; franjas: Franja[] }[]) =>
     post<MiVoto[]>(`/alumno/votos/lote${qs({ procesoId })}`, { votos }),
+  alumnos: () =>
+    get<{ codigo: string; nombres: string; apellidos: string; correo: string | null }[]>('/coord/import/alumnos'),
   procesosAlumno: () => get<Proceso[]>('/alumno/procesos'),
   estadoAlumno: (procesoId?: string) => get<EstadoAlumno>(`/alumno/estado${qs({ procesoId })}`),
   electivos: (procesoId?: string) =>
@@ -126,10 +128,18 @@ export const api = {
   cambiarEstado: (id: string, estado: Proceso['estado']) => patch<Proceso>(`/coord/procesos/${id}/estado`, { estado }),
 
   archivos: (procesoId?: string) =>
-    get<{ id: string; nombre: string; tipo: string; filas: number; sha256: string; createdAt: string }[]>(
-      `/coord/import/archivos${qs({ procesoId })}`,
-    ),
-  eliminarImportacion: (tipo: 'malla' | 'cuentas' | 'historial', procesoId: string) =>
+    get<
+      {
+        id: string;
+        nombre: string;
+        tipo: string;
+        procesoId: string | null;
+        filas: number;
+        sha256: string;
+        createdAt: string;
+      }[]
+    >(`/coord/import/archivos${qs({ procesoId })}`),
+  eliminarImportacion: (tipo: 'malla' | 'historial', procesoId: string) =>
     solicitar<{ tipos: string[]; advertencias: string[] }>(`/coord/import/${tipo}${qs({ procesoId })}`, {
       method: 'DELETE',
     }),
@@ -178,7 +188,7 @@ export interface ProcesoForm {
   fechaFin: string;
   maxCursos: number;
   maxFranjas: number;
-  reutilizar?: { malla?: string; cuentas?: string; historial?: string };
+  reutilizar?: { malla?: string; historial?: string };
 }
 
 export interface SeguimientoCurso {

@@ -20,6 +20,7 @@ const ProcesoContext = createContext<{
 export const useProcesoSeleccionado = () => useContext(ProcesoContext);
 const ENLACES = [
   { a: '/coord', texto: 'Votaciones', fin: true },
+  { a: '/coord/alumnos', texto: 'Alumnos' },
   { a: '/coord/plantillas', texto: 'Plantillas' },
 ];
 

@@ -117,31 +117,20 @@ describe('Importación y exportación (e2e)', () => {
   });
 
   describe('cuentas', () => {
-    it('crea cuentas con contraseña hasheada, reemplaza el padrón y nunca devuelve contraseñas', async () => {
+    it('crea cuentas globales sin reemplazar padrones y sin devolver contraseñas', async () => {
       const res = await subir('cuentas', readFileSync(resolve(PLANTILLAS, 'plantilla_cuentas_alumnos.xlsx')));
       expect(res.body.resumen).toMatchObject({ total: 2, validas: 2, conErrores: 0 });
       expect(JSON.stringify(res.body)).not.toContain('Temporal#2026');
       await coord.post('/api/coord/import/cuentas/confirmar').send({ token: res.body.token }).expect(200);
-
-      const maria = await prisma.usuario.findUniqueOrThrow({ where: { codigo: '20201234' } });
-      expect(maria.passwordHash).toMatch(/^\$2[aby]\$10\$/);
-      expect(await prisma.padronAlumno.count({ where: { procesoId: esc.procesoId } })).toBe(2);
-
-      // La importación en borrador no habilita acceso hasta publicar la votación.
-      await request(app.getHttpServer())
-        .post('/api/auth/login')
-        .send({ codigo: '20201234', password: 'Temporal#2026' })
-        .expect(401);
-      await prisma.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'ABIERTO' } });
-      // La cuenta importada puede entrar; un alumno que quedó fuera del padrón ya no.
-      await request(app.getHttpServer())
-        .post('/api/auth/login')
-        .send({ codigo: '20201234', password: 'Temporal#2026' })
-        .expect(200);
-      await request(app.getHttpServer())
-        .post('/api/auth/login')
-        .send({ codigo: '20000001', password: PASSWORD })
-        .expect(401);
+      expect((await prisma.usuario.findUniqueOrThrow({ where: { codigo: '20201234' } })).passwordHash).toMatch(
+        /^\$2[aby]\$10\$/,
+      );
+      expect(await prisma.padronAlumno.count({ where: { procesoId: esc.procesoId } })).toBe(4);
+      const alumno = await sesion(app, '20201234', 'Temporal#2026');
+      expect((await alumno.get('/api/alumno/procesos')).body).toEqual([]);
+      await sesion(app, '20000001');
+      const listado = await coord.get('/api/coord/import/alumnos').expect(200);
+      expect(JSON.stringify(listado.body)).not.toMatch(/password|Temporal#2026/);
     });
 
     it('valida código de 8 dígitos, duplicados, campos obligatorios y contraseña mínima', async () => {
@@ -169,7 +158,7 @@ describe('Importación y exportación (e2e)', () => {
         ['20000003', '1INF24', 15],
         ['20000003', '1INF41', null],
         ['20000003', 'TEL618', 16],
-        ['20000009', '1INF24', 14],
+        ['20000099', '1INF24', 14],
         ['20000003', 'BLOQUE', 21],
         ['20000003', 'BLOQUE', 12.5],
       ]);
@@ -178,7 +167,7 @@ describe('Importación y exportación (e2e)', () => {
       const f = res.body.filas;
       expect(f[2].datos.nota).toBeNull();
       expect(f[3].advertencias[0]).toMatch(/0 créditos/);
-      expect(f[4].errores[0]).toMatch(/no está en las cuentas/);
+      expect(f[4].errores[0]).toMatch(/cuenta registrada/);
       expect(f[5].errores[0]).toMatch(/Nota/);
       expect(f[6].errores[0]).toMatch(/Nota/);
     });

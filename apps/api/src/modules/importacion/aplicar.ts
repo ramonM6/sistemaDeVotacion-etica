@@ -89,12 +89,10 @@ export async function hashearCuentas(cuentas: CuentaImportada[], cost = 10) {
 }
 
 /**
- * Crea o actualiza las cuentas de alumno y reemplaza el padrón del proceso:
- * solo los alumnos del archivo quedan habilitados para entrar y votar.
+ * Crea o actualiza cuentas globales sin cambiar los padrones de las votaciones.
  */
 export async function aplicarCuentas(
   db: Db,
-  procesoId: string,
   cuentas: Awaited<ReturnType<typeof hashearCuentas>>,
 ): Promise<{ creadas: number; actualizadas: number; habilitados: number }> {
   const existentes = await db.usuario.findMany({
@@ -105,33 +103,28 @@ export async function aplicarCuentas(
   if (coordinadores.length) throw new Error(`Códigos reservados para coordinación: ${coordinadores.join(', ')}`);
   const yaExisten = new Set(existentes.map((u) => u.codigo));
 
-  const ids: string[] = [];
   for (const c of cuentas) {
-    const datos = { nombres: c.nombres, apellidos: c.apellidos, correo: c.correo, passwordHash: c.passwordHash };
-    const u = await db.usuario.upsert({
+    const datos = {
+      nombres: c.nombres,
+      apellidos: c.apellidos,
+      correo: c.correo,
+      passwordHash: c.passwordHash,
+      ingreso: c.ingreso,
+      craest: c.craest,
+      matriculado: c.matriculado,
+    };
+    await db.usuario.upsert({
       where: { codigo: c.codigo },
       create: { codigo: c.codigo, rol: 'ALUMNO', ...datos },
       update: datos,
       select: { id: true },
     });
-    ids.push(u.id);
   }
-
-  await db.padronAlumno.deleteMany({ where: { procesoId } });
-  await db.padronAlumno.createMany({
-    data: ids.map((usuarioId, i) => ({
-      procesoId,
-      usuarioId,
-      ingreso: cuentas[i].ingreso,
-      craest: cuentas[i].craest,
-      matriculado: cuentas[i].matriculado,
-    })),
-  });
 
   return {
     creadas: cuentas.filter((c) => !yaExisten.has(c.codigo)).length,
     actualizadas: cuentas.filter((c) => yaExisten.has(c.codigo)).length,
-    habilitados: ids.length,
+    habilitados: cuentas.length,
   };
 }
 
@@ -143,13 +136,17 @@ export async function aplicarHistorial(
 ): Promise<{ filas: number; alumnos: number }> {
   const codigos = [...new Set(items.map((i) => i.codigoAlumno))];
   const usuarios = await db.usuario.findMany({
-    where: { codigo: { in: codigos }, padron: { some: { procesoId } } },
-    select: { id: true, codigo: true },
+    where: { codigo: { in: codigos }, rol: 'ALUMNO' },
+    select: { id: true, codigo: true, ingreso: true, craest: true, matriculado: true },
   });
   const idPorCodigo = new Map(usuarios.map((u) => [u.codigo, u.id]));
   const faltantes = codigos.filter((c) => !idPorCodigo.has(c));
-  if (faltantes.length) throw new Error(`Alumnos fuera del padrón: ${faltantes.join(', ')}`);
+  if (faltantes.length) throw new Error(`Alumnos sin cuenta registrada: ${faltantes.join(', ')}`);
 
+  await db.padronAlumno.deleteMany({ where: { procesoId } });
+  await db.padronAlumno.createMany({
+    data: usuarios.map(({ id, codigo: _, ...perfil }) => ({ procesoId, usuarioId: id, ...perfil })),
+  });
   await db.historialItem.deleteMany({ where: { procesoId } });
   await db.historialItem.createMany({
     data: items.map((i) => ({

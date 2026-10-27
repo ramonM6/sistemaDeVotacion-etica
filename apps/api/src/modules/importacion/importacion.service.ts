@@ -108,7 +108,9 @@ export class ImportacionService {
     nombre = 'archivo.xlsx',
   ) {
     this.limpiarVencidas();
-    const proceso = tipo === 'catalogo' ? null : await this.procesos.resolver(procesoId);
+    if (tipo === 'cuentas' && procesoId)
+      throw new BadRequestException('Las cuentas se cargan en Alumnos, fuera de las votaciones');
+    const proceso = tipo === 'catalogo' || tipo === 'cuentas' ? null : await this.procesos.resolver(procesoId);
 
     if (proceso?.primeraApertura)
       throw new BadRequestException('Los datos académicos y el padrón están bloqueados desde la primera apertura');
@@ -150,17 +152,10 @@ export class ImportacionService {
     } else {
       const hoja = await leerHoja(archivo, 'historial', COLUMNAS_HISTORIAL, COLUMNAS_HISTORIAL_OPCIONALES, formato);
       const [padron, cursos] = await Promise.all([
-        this.prisma.padronAlumno.findMany({
-          where: { procesoId: proceso!.id },
-          select: { usuario: { select: { codigo: true } } },
-        }),
+        this.prisma.usuario.findMany({ where: { rol: 'ALUMNO' }, select: { codigo: true } }),
         this.prisma.curso.findMany({ select: { codigo: true } }),
       ]);
-      const r = validarHistorial(
-        hoja,
-        new Set(padron.map((p) => p.usuario.codigo)),
-        new Set(cursos.map((c) => c.codigo)),
-      );
+      const r = validarHistorial(hoja, new Set(padron.map((p) => p.codigo)), new Set(cursos.map((c) => c.codigo)));
       resultado = r;
       pendiente = { tipo, datos: r.filas.map((f) => f.datos) };
       columnas = ['codigo_alumno', 'codigo_curso', 'nota'];
@@ -250,12 +245,10 @@ export class ImportacionService {
         return { tipo, ...resumen };
       }
       if (pendiente.tipo === 'cuentas') {
-        await this.procesos.obtener(procesoId!);
         const hasheadas = await hashearCuentas(pendiente.datos, config.bcryptCost);
         const resumen = await this.prisma.$transaction(
           async (tx) => {
-            await this.validarBorrador(tx, procesoId!);
-            const resumen = await aplicarCuentas(tx, procesoId!, hasheadas);
+            const resumen = await aplicarCuentas(tx, hasheadas);
             await this.archivar(tx, vista, coordinadorId, original);
             return resumen;
           },
@@ -310,14 +303,14 @@ export class ImportacionService {
   }
 
   async eliminar(tipo: string, procesoId: string, actorId: string) {
-    if (!['malla', 'cuentas', 'historial'].includes(tipo)) throw new BadRequestException('Tipo de archivo inválido');
-    const tipos = tipo === 'cuentas' ? ['cuentas', 'historial'] : [tipo];
+    if (!['malla', 'historial'].includes(tipo)) throw new BadRequestException('Tipo de archivo inválido');
+    const tipos = [tipo];
     const originales = await this.prisma.$transaction(async (tx) => {
       await this.validarBorrador(tx, procesoId);
       const archivos = await tx.archivoCarga.findMany({ where: { procesoId, tipo: { in: tipos } } });
       if (tipo === 'malla') await tx.procesoVotacion.update({ where: { id: procesoId }, data: { catalogo: [] } });
-      if (tipo === 'historial' || tipo === 'cuentas') await tx.historialItem.deleteMany({ where: { procesoId } });
-      if (tipo === 'cuentas') await tx.padronAlumno.deleteMany({ where: { procesoId } });
+      if (tipo === 'historial') await tx.historialItem.deleteMany({ where: { procesoId } });
+      if (tipo === 'historial') await tx.padronAlumno.deleteMany({ where: { procesoId } });
       await tx.archivoCarga.deleteMany({ where: { procesoId, tipo: { in: tipos } } });
       return archivos;
     });
@@ -337,9 +330,17 @@ export class ImportacionService {
     return { tipos, advertencias };
   }
 
+  listarAlumnos() {
+    return this.prisma.usuario.findMany({
+      where: { rol: 'ALUMNO' },
+      select: { codigo: true, nombres: true, apellidos: true, correo: true },
+      orderBy: [{ apellidos: 'asc' }, { codigo: 'asc' }],
+    });
+  }
+
   listarArchivos(procesoId?: string) {
     return this.prisma.archivoCarga.findMany({
-      where: procesoId ? { procesoId } : {},
+      where: procesoId ? { procesoId } : { procesoId: null },
       select: {
         id: true,
         nombre: true,

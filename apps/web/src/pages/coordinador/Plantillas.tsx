@@ -16,7 +16,7 @@ const FORMATOS: {
 }[] = [
   {
     tipo: 'malla',
-    titulo: '1. Malla curricular',
+    titulo: 'Malla curricular',
     hoja: 'cursos',
     obligatorias: 'codigo, nombre, creditos, tipo',
     opcionales: 'ciclo, grupo, requisitos, descripcion',
@@ -26,22 +26,22 @@ const FORMATOS: {
   },
   {
     tipo: 'cuentas',
-    titulo: '2. Cuentas de alumnos',
+    titulo: 'Cuentas de alumnos',
     hoja: 'alumnos',
     obligatorias: 'codigo, nombres, apellidos, password',
     opcionales: 'correo, ingreso, craest, matriculado',
     ejemplo:
       'codigo,nombres,apellidos,password\n20220101,Ana Lucía,Torres Medina,Alumno#2026\n20210202,Bruno,Castillo Ramos,Alumno#2026',
-    nota: 'Código de 8 dígitos y contraseña de al menos 8 caracteres. Los ejemplos contienen cuentas ficticias.',
+    nota: 'Código de 8 dígitos y contraseña de al menos 8 caracteres. Las cuentas se importan en la sección Alumnos, fuera de las votaciones.',
   },
   {
     tipo: 'historial',
-    titulo: '3. Historial académico',
+    titulo: 'Historial académico',
     hoja: 'historial',
     obligatorias: 'codigo_alumno, codigo_curso',
     opcionales: 'nota',
     ejemplo: 'codigo_alumno,codigo_curso,nota\n20220101,1MAT04,16\n20200303,1INF24,',
-    nota: 'Nota entera de 0 a 20. Deja la nota vacía si el curso está en progreso. El alumno debe estar en las cuentas importadas.',
+    nota: 'Nota entera de 0 a 20. Deja la nota vacía si el curso está en progreso. El alumno debe tener una cuenta registrada en Alumnos. El historial define el padrón de la votación.',
   },
 ];
 export default function Plantillas() {
@@ -52,8 +52,8 @@ export default function Plantillas() {
         descripcion="Descarga el formato de cada archivo o un CSV con datos ficticios para probar las importaciones."
       />
       <p className="text-sm text-muted-foreground">
-        Usa CSV UTF-8 o Excel .xlsx, hasta 5 MB. Carga malla, cuentas e historial en ese orden. Los tres ejemplos
-        descargables son compatibles entre sí.
+        Usa CSV UTF-8 o Excel .xlsx, hasta 5 MB. Crea las cuentas en Alumnos. En cada votación carga malla e historial.
+        Los tres ejemplos descargables son compatibles entre sí.
       </p>
       {FORMATOS.map((f) => (
         <Card key={f.tipo} className="space-y-4 p-4 sm:p-5">

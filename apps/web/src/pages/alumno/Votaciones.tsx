@@ -16,7 +16,7 @@ export default function Votaciones() {
         descripcion="Elige una votación para consultar sus cursos, tus votos y su seguimiento."
       />
       {!consulta.data?.length ? (
-        <Vacio>No tienes votaciones disponibles en tu padrón.</Vacio>
+        <Vacio>No tienes votaciones disponibles.</Vacio>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {consulta.data.map((p) => (

@@ -55,6 +55,9 @@ model Usuario {
   apellidos    String
   correo       String?
   passwordHash String
+  ingreso      String?
+  craest       Float?
+  matriculado  Boolean?
   rol          Rol
   createdAt    DateTime             @default(now())
   padron       PadronAlumno[]

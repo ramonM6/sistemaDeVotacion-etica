@@ -42,7 +42,7 @@ export class ProcesosRepository {
 
   listarDelAlumno(usuarioId: string) {
     return this.prisma.procesoVotacion.findMany({
-      where: { estado: { not: 'BORRADOR' }, padron: { some: { usuarioId } } },
+      where: { estado: { not: 'BORRADOR' }, historial: { some: { usuarioId } }, padron: { some: { usuarioId } } },
       orderBy: [{ fechaInicio: 'desc' }, { createdAt: 'desc' }],
     });
   }
@@ -68,7 +68,7 @@ export class ProcesosRepository {
 
   crear(
     data: Prisma.ProcesoVotacionCreateInput,
-    fuentes: { malla?: string; cuentas?: string; historial?: string } = {},
+    fuentes: { malla?: string; historial?: string } = {},
     actorId: string,
   ) {
     return this.prisma.$transaction(
@@ -88,25 +88,18 @@ export class ProcesosRepository {
             throw new BadRequestException('La votación elegida no tiene malla');
           await tx.procesoVotacion.update({ where: { id: destino.id }, data: { catalogo: malla } });
         }
-        if (fuentes.cuentas) {
-          const filas = await tx.padronAlumno.findMany({ where: { procesoId: fuentes.cuentas } });
-          if (!filas.length) throw new BadRequestException('La votación elegida no tiene cuentas de alumnos');
-          await tx.padronAlumno.createMany({
-            data: filas.map(({ procesoId: _, ...f }) => ({ ...f, procesoId: destino.id })),
-          });
-        }
         if (fuentes.historial) {
           const filas = await tx.historialItem.findMany({ where: { procesoId: fuentes.historial } });
           if (!filas.length) throw new BadRequestException('La votación elegida no tiene historial académico');
-          const padron = await tx.padronAlumno.findMany({
-            where: { procesoId: destino.id },
-            select: { usuarioId: true },
+          const usuarios = await tx.usuario.findMany({
+            where: { id: { in: [...new Set(filas.map((f) => f.usuarioId))] }, rol: 'ALUMNO' },
+            select: { id: true, ingreso: true, craest: true, matriculado: true },
           });
-          const habilitados = new Set(padron.map((p) => p.usuarioId));
-          if (filas.some((f) => !habilitados.has(f.usuarioId)))
-            throw new BadRequestException(
-              'El historial reutilizado requiere un padrón que incluya a todos sus alumnos. Reutiliza primero las cuentas de la misma votación o sube el historial después.',
-            );
+          if (usuarios.length !== new Set(filas.map((f) => f.usuarioId)).size)
+            throw new BadRequestException('El historial incluye alumnos sin cuenta registrada');
+          await tx.padronAlumno.createMany({
+            data: usuarios.map(({ id, ...perfil }) => ({ procesoId: destino.id, usuarioId: id, ...perfil })),
+          });
           await tx.historialItem.createMany({
             data: filas.map(({ id: _, procesoId: __, ...f }) => ({ ...f, procesoId: destino.id })),
           });
@@ -162,8 +155,9 @@ export class ProcesosRepository {
   }
 
   async estaEnPadron(procesoId: string, usuarioId: string) {
-    const fila = await this.prisma.padronAlumno.findUnique({
-      where: { procesoId_usuarioId: { procesoId, usuarioId } },
+    const fila = await this.prisma.padronAlumno.findFirst({
+      where: { procesoId, usuarioId, usuario: { historial: { some: { procesoId } } } },
+      select: { usuarioId: true },
     });
     return !!fila;
   }

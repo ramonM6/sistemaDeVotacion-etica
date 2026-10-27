@@ -13,6 +13,7 @@ import MisVotos from '@/pages/alumno/MisVotos';
 import AlumnoResultados from '@/pages/alumno/Resultados';
 import CargaDatos from '@/pages/coordinador/CargaDatos';
 import DetalleAlumno from '@/pages/coordinador/DetalleAlumno';
+import Alumnos from '@/pages/coordinador/Alumnos';
 import DetalleCurso from '@/pages/coordinador/DetalleCurso';
 import LayoutCoord from '@/pages/coordinador/LayoutCoord';
 import Padron from '@/pages/coordinador/Padron';
@@ -56,6 +57,7 @@ export default function App() {
           <Route index element={<Procesos />} />
           <Route path="nueva-votacion" element={<NuevaVotacion />} />
           <Route path="plantillas" element={<Plantillas />} />
+          <Route path="alumnos" element={<Alumnos />} />
           <Route path="votaciones/:procesoId">
             <Route index element={<Navigate to="cursos/seleccion" replace />} />
             <Route path="cursos" element={<Navigate to="seleccion" replace />} />

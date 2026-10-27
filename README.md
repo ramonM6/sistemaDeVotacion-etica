@@ -61,10 +61,10 @@ Después de configurar `.env`, puedes usar `iniciar.bat`. Comprueba dependencias
 
 ## Preparar una votación de prueba
 
-1. Entra como coordinador y pulsa **Nueva votación**.
-2. Crea el borrador y carga, en este orden, los archivos de [docs/datos-prueba](docs/datos-prueba): `01_malla.csv`, `02_alumnos.csv` y `03_historial.csv`. También se descargan desde **Plantillas**.
+1. Entra como coordinador, abre **Alumnos** e importa `docs/datos-prueba/02_alumnos.csv` para crear las 16 cuentas globales.
+2. Pulsa **Nueva votación**. En el borrador carga `01_malla.csv` y luego `03_historial.csv`, disponibles en [docs/datos-prueba](docs/datos-prueba) y **Plantillas**.
 3. Comprueba que aparecen 54 electivos, 16 alumnos y 751 registros académicos. La malla completa contiene 148 cursos, incluidos los obligatorios usados para evaluar requisitos.
-4. Abre la votación para publicarla. Los alumnos solo podrán iniciar sesión cuando estén en el padrón de alguna votación publicada.
+4. Abre la votación para publicarla. Las cuentas registradas ya permiten iniciar sesión; solo los alumnos incluidos en su historial verán la votación. Los demás verán «No tienes votaciones disponibles».
 5. Los códigos de prueba y sus casos están en [docs/datos-prueba/README.md](docs/datos-prueba/README.md). La contraseña de los 16 alumnos es `Alumno#2026`.
 
 Las plantillas vacías/de ejemplo Excel están en `docs/plantillas`. Los CSV de prueba son un conjunto compatible entre sí: usa los tres de esta versión. Una nota vacía en el historial significa que el curso está en progreso.

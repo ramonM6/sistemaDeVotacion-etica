@@ -76,7 +76,7 @@ export interface Escenario {
  * Crea coordinador, catálogo, un proceso ABIERTO y alumnos:
  * - 20000001: 1INF24 aprobado, BLOQUE aprobado → casi todo CONFIRMADO
  * - 20000002: 1INF24 en curso → 1INF02 CONDICIONAL
- * - 20000003: sin historial → solo electivos sin requisitos
+ * - 20000003: sin créditos aprobados → solo electivos sin requisitos
  * - 20000004: igual que el 1 (para pruebas de concurrencia)
  * - 20000009: tiene cuenta pero NO está en el padrón
  */
@@ -115,6 +115,7 @@ export async function escenarioBase(prisma: PrismaClient): Promise<Escenario> {
     ['20000001', '1INF41', 13],
     ['20000001', 'BLOQUE', 14],
     ['20000002', '1INF24', null],
+    ['20000003', 'BLOQUE', 0],
     ['20000004', '1INF24', 12],
     ['20000004', 'BLOQUE', 12],
   ];

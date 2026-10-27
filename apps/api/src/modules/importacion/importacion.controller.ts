@@ -42,6 +42,11 @@ function validarTipo(tipo: string): TipoImportacion {
 export class ImportacionController {
   constructor(private readonly importacion: ImportacionService) {}
 
+  @Get('alumnos')
+  alumnos() {
+    return this.importacion.listarAlumnos();
+  }
+
   @Get('archivos')
   archivos(@Query('procesoId', new ParseUUIDPipe({ optional: true })) id?: string) {
     return this.importacion.listarArchivos(id);

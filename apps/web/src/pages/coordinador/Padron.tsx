@@ -44,7 +44,7 @@ export default function Padron() {
         />
       </div>
       {padron.data!.alumnos.length === 0 ? (
-        <Vacio>No se han cargado cuentas de alumnos para este proceso.</Vacio>
+        <Vacio>No hay alumnos habilitados. Carga el historial académico de esta votación.</Vacio>
       ) : (
         <Card>
           <Table>

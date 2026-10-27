@@ -220,7 +220,7 @@ describe('Requisitos integrados de VotaInf', () => {
     expect(archivo.contenido).toBeNull();
     expect(archivo.bucket).toBe('pruebas');
     expect(archivo.ruta).toBeTruthy();
-    const lista = await coord.get('/api/coord/import/archivos').expect(200);
+    const lista = await coord.get(`/api/coord/import/archivos?procesoId=${esc.procesoId}`).expect(200);
     expect(lista.body[0]).toMatchObject({ nombre: 'historial.csv', filas: 1 });
     expect(lista.body[0]).not.toHaveProperty('contenido');
     const original = await coord
@@ -497,6 +497,9 @@ describe('Requisitos integrados de VotaInf', () => {
       },
     });
     await db.padronAlumno.create({ data: { procesoId: otro.id, usuarioId: esc.alumnos['20000001'] } });
+    await db.historialItem.create({
+      data: { procesoId: otro.id, usuarioId: esc.alumnos['20000001'], cursoCodigo: '1INF24', nota: 15 },
+    });
     const borrador = await db.procesoVotacion.create({
       data: {
         nombre: 'En preparación',
@@ -667,13 +670,13 @@ describe('Requisitos integrados de VotaInf', () => {
     expect(storage.archivos.size).toBe(objetos);
     expect(await db.archivoCarga.count()).toBe(0);
   });
-  it('reutiliza malla, cuentas, historial y referencias de Storage sin copiar votos ni decisiones', async () => {
+  it('reutiliza malla, historial y referencias de Storage sin copiar votos ni decisiones', async () => {
     await cerrar().expect(200);
     await coord.patch(`/api/coord/procesos/${esc.procesoId}/estado`).send({ estado: 'ABIERTO' }).expect(200);
     await cerrar().expect(200);
     const usuario = await db.usuario.findUniqueOrThrow({ where: { id: esc.alumnos['20000001'] } });
     const storage = app.get(StorageService) as unknown as StorageFalso;
-    for (const tipo of ['malla', 'cuentas', 'historial']) {
+    for (const tipo of ['malla', 'historial']) {
       const original = await storage.subir(`${tipo}.csv`, Buffer.from('datos de prueba'), tipo);
       await db.archivoCarga.create({
         data: { nombre: `${tipo}.csv`, tipo, procesoId: esc.procesoId, actorId: usuario.id, filas: 1, ...original },
@@ -688,7 +691,7 @@ describe('Requisitos integrados de VotaInf', () => {
         cicloObjetivo: '2028-1',
         fechaInicio: new Date().toISOString(),
         fechaFin: new Date(Date.now() + 86400000).toISOString(),
-        reutilizar: { malla: esc.procesoId, cuentas: esc.procesoId, historial: esc.procesoId },
+        reutilizar: { malla: esc.procesoId, historial: esc.procesoId },
       })
       .expect(201);
     expect(await db.padronAlumno.count({ where: { procesoId: r.body.id } })).toBe(sourcePadron);
@@ -696,7 +699,7 @@ describe('Requisitos integrados de VotaInf', () => {
     expect(await db.voto.count({ where: { procesoId: r.body.id } })).toBe(0);
     expect(await db.seguimientoCurso.count({ where: { procesoId: r.body.id } })).toBe(0);
     const archivos = await db.archivoCarga.findMany({ where: { procesoId: r.body.id } });
-    expect(archivos).toHaveLength(3);
+    expect(archivos).toHaveLength(2);
     expect(archivos.every((a) => a.contenido === null && storage.archivos.has(a.ruta!))).toBe(true);
     expect((await db.usuario.findUniqueOrThrow({ where: { id: usuario.id } })).passwordHash).toBe(usuario.passwordHash);
     await coord.patch(`/api/coord/procesos/${r.body.id}/estado`).send({ estado: 'ABIERTO' }).expect(200);
@@ -716,7 +719,7 @@ describe('Requisitos integrados de VotaInf', () => {
     const antes = await db.procesoVotacion.count();
     await coord
       .post('/api/coord/procesos')
-      .send({ ...datos, reutilizar: { historial: esc.procesoId } })
+      .send({ ...datos, reutilizar: { historial: '00000000-0000-4000-8000-000000000000' } })
       .expect(400);
     await coord
       .post('/api/coord/procesos')
@@ -766,14 +769,14 @@ describe('Requisitos integrados de VotaInf', () => {
     await alumno.delete(`/api/coord/import/malla?procesoId=${id}`).expect(403);
   });
 
-  it('eliminar cuentas limpia su historial y conserva los originales reutilizados en otra votación', async () => {
+  it('eliminar historial limpia el padrón y conserva los originales reutilizados en otra votación', async () => {
     const storage = app.get(StorageService) as unknown as StorageFalso;
-    const original = await storage.subir('cuentas.csv', Buffer.from('datos ficticios'), 'cuentas');
+    const original = await storage.subir('historial.csv', Buffer.from('datos ficticios'), 'historial');
     await db.archivoCarga.create({
       data: {
         procesoId: esc.procesoId,
-        nombre: 'cuentas.csv',
-        tipo: 'cuentas',
+        nombre: 'historial.csv',
+        tipo: 'historial',
         actorId: esc.alumnos['20000001'],
         filas: 5,
         ...original,
@@ -786,16 +789,16 @@ describe('Requisitos integrados de VotaInf', () => {
         cicloObjetivo: '2028-1',
         fechaInicio: new Date().toISOString(),
         fechaFin: new Date(Date.now() + 86400000).toISOString(),
-        reutilizar: { cuentas: esc.procesoId, historial: esc.procesoId },
+        reutilizar: { historial: esc.procesoId },
       })
       .expect(201);
     await db.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'BORRADOR' } });
-    await coord.delete(`/api/coord/import/cuentas?procesoId=${esc.procesoId}`).expect(200);
+    await coord.delete(`/api/coord/import/historial?procesoId=${esc.procesoId}`).expect(200);
     expect(await db.padronAlumno.count({ where: { procesoId: esc.procesoId } })).toBe(0);
     expect(await db.historialItem.count({ where: { procesoId: esc.procesoId } })).toBe(0);
     expect(await db.padronAlumno.count({ where: { procesoId: copia.body.id } })).toBe(4);
     expect(storage.archivos.has(original.ruta)).toBe(true);
-    await coord.delete(`/api/coord/import/cuentas?procesoId=${copia.body.id}`).expect(200);
+    await coord.delete(`/api/coord/import/historial?procesoId=${copia.body.id}`).expect(200);
     expect(storage.archivos.has(original.ruta)).toBe(false);
     expect(await db.usuario.count({ where: { rol: 'ALUMNO' } })).toBe(5);
   });

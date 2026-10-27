@@ -2,15 +2,15 @@
 
 ## Cuentas y votaciones
 
-El login usa código y contraseña. El coordinador crea votaciones por período, prepara archivos y publica abriendo la votación. Los alumnos solo pueden iniciar sesión si pertenecen al padrón de alguna votación publicada, abierta o cerrada; solo ven esas votaciones. Las credenciales de los alumnos se mantienen entre períodos. No hay aceptación de términos ni favoritos/interesados.
+El login usa código y contraseña. El coordinador crea votaciones por período, prepara archivos y publica abriendo la votación. El coordinador importa las cuentas globales en Alumnos. Toda cuenta registrada puede iniciar sesión, incluso sin votaciones. Solo se muestran votaciones publicadas en cuyo historial académico aparece el alumno; el padrón se genera automáticamente a partir de ese historial. Las credenciales de los alumnos se mantienen entre períodos. No hay aceptación de términos ni favoritos/interesados.
 
 Una votación pasa de borrador a abierta y luego a cerrada. El cierre también ocurre al llegar la fecha final. Puede reabrirse extendiendo el plazo si no existen decisiones posteriores del consejo. Cada votación conserva su malla; no se ofrece un catálogo global en la interfaz.
 
 ## Archivos por votación
 
-Malla curricular, cuentas e historial se cargan en CSV UTF-8 o Excel `.xlsx`, hasta 5 MB por archivo. Se validan encabezados, tipos de datos y referencias. Cada sección permite subir o arrastrar el archivo, descargar el original y, en preparación, eliminarlo para reemplazarlo. Eliminar las cuentas retira también el historial de esa votación.
+Las cuentas globales, la malla curricular y el historial se cargan en CSV UTF-8 o Excel `.xlsx`, hasta 5 MB por archivo. Se validan encabezados, tipos de datos y referencias. Alumnos permite importar cuentas nuevas o actualizar las del mismo código sin eliminar las omitidas ni cambiar padrones. En cada votación solo se cargan malla e historial; al reemplazar o eliminar el historial se regenera o vacía su padrón. El historial rechaza códigos sin cuenta registrada. Las cuentas pueden importarse aunque haya votaciones abiertas.
 
-Se pueden reutilizar datos y archivos de una votación anterior al crear otra. No se copian votos ni decisiones. Supabase Storage guarda los originales en un bucket privado; PostgreSQL conserva los registros procesados y las referencias. Las descargas requieren coordinación. Desde la primera apertura se bloquean los cambios de datos académicos y malla.
+Se pueden reutilizar malla e historial de una votación anterior al crear otra, sin volver a cargar cuentas. No se copian votos ni decisiones. Supabase Storage guarda los originales en un bucket privado; PostgreSQL conserva los registros procesados y las referencias. Las descargas requieren coordinación. Desde la primera apertura se bloquean los cambios de datos académicos y malla.
 
 ## Requisitos y voto
 

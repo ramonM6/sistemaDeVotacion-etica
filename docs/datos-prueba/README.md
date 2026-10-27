@@ -2,17 +2,16 @@
 
 Estos archivos conservan las 16 cuentas y los casos académicos de la demostración original, sin crear votaciones ni votos automáticamente.
 
-Crea una votación nueva en borrador. Puedes indicar ciclo actual `2026-2` y objetivo `2027-1`. Sube los archivos en este orden:
+1. En el navbar del coordinador, abre **Alumnos** y sube `02_alumnos.csv`: crea las 16 cuentas globales. Ya pueden iniciar sesión; todavía no tendrán votaciones disponibles.
+2. Crea una votación en borrador (por ejemplo, ciclo actual `2026-2` y objetivo `2027-1`). Sube `01_malla.csv`: 148 cursos, incluidos 54 electivos.
+3. En esa votación sube `03_historial.csv`: 751 registros académicos. El historial habilita a los 16 alumnos para esta votación. Una nota vacía indica un curso en progreso.
+4. Abre la votación: los alumnos de ese historial podrán verla y votar.
 
-1. `01_malla.csv`: 148 cursos, incluidos 54 electivos y sus requisitos.
-2. `02_alumnos.csv`: las 16 cuentas indicadas en la tabla siguiente.
-3. `03_historial.csv`: 751 registros académicos; una nota vacía indica un curso en progreso. Las 16 cuentas tienen historial académico.
-
-El sistema valida y guarda cada archivo automáticamente. Si encuentra errores, los muestra sin guardar el archivo. Usa una votación de prueba: las cuentas y el historial reemplazan los datos del borrador elegido.
+El sistema valida y guarda cada archivo automáticamente. Las cuentas globales se crean o actualizan por código, sin borrar alumnos omitidos. La malla y el historial reemplazan solo los datos del borrador elegido; no se importan cuentas dentro de una votación.
 
 La contraseña de los 16 alumnos es `Alumno#2026`. El coordinador usa `coordinador` y su contraseña configurada mediante `COORD_PASSWORD` (por defecto `Coordinador#2026`); no se incluye en el CSV de alumnos.
 
-Después de cargar los archivos, abre la votación para iniciar sesión como alumno. Los archivos no contienen votos: todos los cursos comienzan «No votado». Los casos condicionales se muestran en amarillo como «Condicional», con explicación de los requisitos y créditos pendientes al pasar el mouse, y siguen permitiendo el voto condicional.
+Las cuentas permiten iniciar sesión desde su creación; para ver y votar en un período, el alumno debe figurar en su historial y la votación debe estar publicada. Los archivos no contienen votos: todos los cursos comienzan «No votado». Los casos condicionales se muestran en amarillo como «Condicional», con explicación de los requisitos y créditos pendientes al pasar el mouse, y siguen permitiendo el voto condicional.
 
 | Código | Caso de prueba |
 | --- | --- |

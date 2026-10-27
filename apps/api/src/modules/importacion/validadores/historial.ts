@@ -20,7 +20,7 @@ export function validarHistorial(
   const filas: FilaPreview<HistorialImportado>[] = [];
   const advertenciasGenerales = [...hoja.advertenciasGenerales];
   if (!alumnosPadron.size) {
-    advertenciasGenerales.push('El proceso no tiene cuentas de alumnos: importe primero el Excel de cuentas');
+    advertenciasGenerales.push('No hay cuentas de alumnos registradas: impórtalas primero desde Alumnos');
   }
 
   for (const { fila, valores } of hoja.filas) {
@@ -30,7 +30,8 @@ export function validarHistorial(
     const codigoAlumno = texto(valores.codigo_alumno) ?? '';
     if (!codigoAlumno) errores.push('Falta el código de alumno');
     else if (!RE_CODIGO_ALUMNO.test(codigoAlumno)) errores.push(`Código de alumno "${codigoAlumno}" inválido`);
-    else if (!alumnosPadron.has(codigoAlumno)) errores.push(`El alumno ${codigoAlumno} no está en las cuentas del proceso`);
+    else if (!alumnosPadron.has(codigoAlumno))
+      errores.push(`El alumno ${codigoAlumno} no tiene una cuenta registrada. Impórtalo primero desde Alumnos`);
 
     const codigoCurso = (texto(valores.codigo_curso) ?? '').toUpperCase();
     if (!codigoCurso) errores.push('Falta el código de curso');
