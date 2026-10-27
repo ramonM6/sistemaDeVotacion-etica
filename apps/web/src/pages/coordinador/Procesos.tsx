@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, CalendarDays, Loader2, Plus, Users, Vote } from 'lucide-react';
@@ -9,14 +9,6 @@ import { z } from 'zod';
 import { Cargando, ErrorCarga, Titulo, Vacio } from '@/components/Estados';
 import { EstadoProcesoBadge } from '@/components/Insignias';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api } from '@/lib/api';
@@ -168,7 +160,7 @@ export function FormularioProceso({
           ))}
         </fieldset>
       )}
-      <DialogFooter>
+      <div className="flex flex-wrap justify-end gap-2">
         <Button type="button" variant="outline" onClick={alCancelar}>
           Cancelar
         </Button>
@@ -176,15 +168,13 @@ export function FormularioProceso({
           {guardar.isPending && <Loader2 className="animate-spin" />}
           Guardar
         </Button>
-      </DialogFooter>
+      </div>
     </form>
   );
 }
 
 export default function Procesos() {
-  const navigate = useNavigate();
   const procesos = useQuery({ queryKey: ['coord', 'procesos'], queryFn: api.procesos, refetchInterval: 30_000 });
-  const [creando, setCreando] = useState(false);
   if (procesos.isLoading) return <Cargando />;
   if (procesos.error) return <ErrorCarga error={procesos.error} />;
   return (
@@ -193,8 +183,10 @@ export default function Procesos() {
         titulo="Votaciones"
         descripcion="Elige una votación para revisar sus resultados, administrar sus datos y decidir los estados de sus cursos."
         acciones={
-          <Button onClick={() => setCreando(true)}>
-            <Plus /> Nueva votación
+          <Button asChild>
+            <Link to="/coord/nueva-votacion">
+              <Plus /> Nueva votación
+            </Link>
           </Button>
         }
       />
@@ -247,22 +239,6 @@ export default function Procesos() {
           ))}
         </div>
       )}
-      <Dialog open={creando} onOpenChange={setCreando}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nueva votación</DialogTitle>
-            <DialogDescription>Se creará en borrador para preparar sus datos antes de abrirla.</DialogDescription>
-          </DialogHeader>
-          <FormularioProceso
-            proceso={null}
-            alCancelar={() => setCreando(false)}
-            alTerminar={(p, archivos) => {
-              setCreando(false);
-              navigate(`/coord/votaciones/${p.id}/carga?preparar=1`, { state: { archivosPreparacion: archivos } });
-            }}
-          />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

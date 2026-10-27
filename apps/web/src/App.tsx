@@ -18,6 +18,7 @@ import DetalleCurso from '@/pages/coordinador/DetalleCurso';
 import LayoutCoord from '@/pages/coordinador/LayoutCoord';
 import Padron from '@/pages/coordinador/Padron';
 import Procesos from '@/pages/coordinador/Procesos';
+import NuevaVotacion from '@/pages/coordinador/NuevaVotacion';
 import CoordResultados from '@/pages/coordinador/Resultados';
 
 function Inicio() {
@@ -51,6 +52,7 @@ export default function App() {
       <Route element={<RequiereRol rol="COORDINADOR" />}>
         <Route path="/coord" element={<LayoutCoord />}>
           <Route index element={<Procesos />} />
+          <Route path="nueva-votacion" element={<NuevaVotacion />} />
           <Route path="catalogo" element={<Cursos />} />
           <Route path="votaciones/:procesoId">
             <Route index element={<Navigate to="cursos/seleccion" replace />} />
