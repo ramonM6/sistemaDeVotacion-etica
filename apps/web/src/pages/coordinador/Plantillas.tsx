@@ -21,7 +21,7 @@ const FORMATOS: {
     obligatorias: 'codigo, nombre, creditos, tipo',
     opcionales: 'ciclo, grupo, requisitos, descripcion',
     ejemplo:
-      'codigo,nombre,creditos,tipo,requisitos\nINF101,Programación Básica,4,OBLIGATORIO,\nINF202,Desarrollo de Aplicaciones,3,ELECTIVO,INF101',
+      'codigo,nombre,creditos,tipo,requisitos\n1INF24,Inteligencia Artificial,3.5,OBLIGATORIO,\n1INF02,Aprendizaje de Máquina,3.5,ELECTIVO,1INF24',
     nota: 'Tipos: OBLIGATORIO, ELECTIVO, ELECTIVO_GENERALES o ELECTIVO_LIBRE. Solo ELECTIVO participa en la votación.',
   },
   {
@@ -31,7 +31,7 @@ const FORMATOS: {
     obligatorias: 'codigo, nombres, apellidos, password',
     opcionales: 'correo, ingreso, craest, matriculado',
     ejemplo:
-      'codigo,nombres,apellidos,password\n20990001,Ana,Prueba Uno,Prueba#2026\n20990002,Bruno,Prueba Dos,Prueba#2026',
+      'codigo,nombres,apellidos,password\n20220101,Ana Lucía,Torres Medina,Alumno#2026\n20210202,Bruno,Castillo Ramos,Alumno#2026',
     nota: 'Código de 8 dígitos y contraseña de al menos 8 caracteres. Los ejemplos contienen cuentas ficticias.',
   },
   {
@@ -40,7 +40,7 @@ const FORMATOS: {
     hoja: 'historial',
     obligatorias: 'codigo_alumno, codigo_curso',
     opcionales: 'nota',
-    ejemplo: 'codigo_alumno,codigo_curso,nota\n20990001,INF101,16\n20990002,INF101,',
+    ejemplo: 'codigo_alumno,codigo_curso,nota\n20220101,1MAT04,16\n20200303,1INF24,',
     nota: 'Nota entera de 0 a 20. Deja la nota vacía si el curso está en progreso. El alumno debe estar en las cuentas importadas.',
   },
 ];
@@ -95,8 +95,8 @@ export default function Plantillas() {
         </Card>
       ))}
       <p className="text-sm text-muted-foreground">
-        Cuentas de los CSV de prueba: 20990001 a 20990004, contraseña Prueba#2026. Úsalas en una votación de prueba:
-        importar cuentas o historial reemplaza los datos de ese borrador.
+        Los CSV de prueba conservan las 16 cuentas de demostración originales, con contraseña Alumno#2026. Úsalas en una
+        votación de prueba: importar cuentas o historial reemplaza los datos de ese borrador.
       </p>
     </div>
   );

@@ -1,5 +1,17 @@
 ﻿codigo,nombres,apellidos,password,correo,ingreso,craest,matriculado
-20990001,Ana,Prueba Uno,Prueba#2026,ana.prueba@example.com,2026.1,75,si
-20990002,Bruno,Prueba Dos,Prueba#2026,bruno.prueba@example.com,2026.1,65,si
-20990003,Carla,Prueba Tres,Prueba#2026,carla.prueba@example.com,2026.2,55,si
-20990004,Diego,Prueba Cuatro,Prueba#2026,diego.prueba@example.com,2026.2,50,si
+20220101,Ana Lucía,Torres Medina,Alumno#2026,a20220101@pucp.edu.pe,,,
+20210202,Bruno,Castillo Ramos,Alumno#2026,a20210202@pucp.edu.pe,,,
+20200303,Carla,Huamán Flores,Alumno#2026,a20200303@pucp.edu.pe,,,
+20201234,María Fernanda,Quispe Rojas,Alumno#2026,a20201234@pucp.edu.pe,,,
+20195678,Luis Alberto,Gonzales Paredes,Alumno#2026,a20195678@pucp.edu.pe,,,
+20200404,Diego,Salazar Vega,Alumno#2026,a20200404@pucp.edu.pe,,,
+20190505,Elena,Ríos Paredes,Alumno#2026,a20190505@pucp.edu.pe,,,
+20190606,Fernando,Quispe Mamani,Alumno#2026,a20190606@pucp.edu.pe,,,
+20180707,Gabriela,Mendoza Chávez,Alumno#2026,a20180707@pucp.edu.pe,,,
+20190808,Hugo,Paredes Lazo,Alumno#2026,a20190808@pucp.edu.pe,,,
+20210909,Isabel,Cárdenas Soto,Alumno#2026,a20210909@pucp.edu.pe,,,
+20201010,Jorge,Villanueva Rojas,Alumno#2026,a20201010@pucp.edu.pe,,,
+20221111,Karen,Espinoza Díaz,Alumno#2026,a20221111@pucp.edu.pe,,,
+20201212,Luis,Gutiérrez Núñez,Alumno#2026,a20201212@pucp.edu.pe,,,
+20181515,Olga,Ramírez León,Alumno#2026,a20181515@pucp.edu.pe,,,
+20231414,Nicolás,Herrera Campos,Alumno#2026,a20231414@pucp.edu.pe,,,

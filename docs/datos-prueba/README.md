@@ -1,30 +1,41 @@
 # Datos ficticios para probar una votación
 
-Crea una votación nueva en borrador. Puedes indicar ciclo actual `2026-2` y objetivo `2027-1`.
-Sube los archivos en este orden:
+Estos archivos conservan las 16 cuentas y los casos académicos de la demostración original, sin crear votaciones ni votos automáticamente.
 
-1. `01_malla.csv`: 3 cursos obligatorios y 6 electivos con distintos requisitos.
-2. `02_alumnos.csv`: 4 cuentas ficticias con datos de ingreso, CRAEst y matrícula.
-3. `03_historial.csv`: 12 registros; una nota vacía indica un curso en progreso.
+Crea una votación nueva en borrador. Puedes indicar ciclo actual `2026-2` y objetivo `2027-1`. Sube los archivos en este orden:
 
-El sistema valida y guarda automáticamente cada archivo antes de continuar con el siguiente. Si hay errores, los muestra en la misma vista sin guardar el archivo. Utiliza estos archivos en una votación de prueba: las cuentas y el historial reemplazan los datos del borrador elegido.
+1. `01_malla.csv`: 148 cursos, incluidos 54 electivos y sus requisitos.
+2. `02_alumnos.csv`: las 16 cuentas indicadas en la tabla siguiente.
+3. `03_historial.csv`: 743 registros académicos; una nota vacía indica un curso en progreso. El alumno 20231414 no tiene historial intencionalmente.
 
-Después de que se guarden los tres archivos, abre la votación. Si hay otra abierta, ciérrala primero. Inicia sesión con cualquiera de los códigos `20990001`, `20990002`, `20990003` o `20990004`. La contraseña de las cuatro cuentas es `Prueba#2026`.
+El sistema valida y guarda cada archivo automáticamente. Si encuentra errores, los muestra sin guardar el archivo. Usa una votación de prueba: las cuentas y el historial reemplazan los datos del borrador elegido.
 
-## Casos para revisar
+La contraseña de los 16 alumnos es `Alumno#2026`. El coordinador usa `coordinador` y su contraseña configurada mediante `COORD_PASSWORD` (por defecto `Coordinador#2026`); no se incluye en el CSV de alumnos.
 
-| Alumno | Caso esperado |
+Después de cargar los archivos, abre la votación para iniciar sesión como alumno. Los archivos no contienen votos: todos los cursos comienzan «No votado». Los casos condicionales se muestran en amarillo como «No apto», con explicación al pasar el mouse, y siguen permitiendo el voto condicional.
+
+| Código | Caso de prueba |
 | --- | --- |
-| 20990001 | Requisitos base aprobados; puede votar por los 6 electivos, respetando el máximo de 5. |
-| 20990002 | INF102 en curso; INF202 se muestra amarillo como «No apto», con explicación y voto condicional. |
-| 20990003 | INF102 con nota 8; INF202 no cumple, pero INF206 cumple el requisito de nota mínima 8. |
-| 20990004 | Los tres cursos base están en progreso; permite probar aptitud condicional. |
-
-INF201 no tiene requisitos. INF205 incluye INF202 como dependencia simultánea; ambos cuentan dentro del límite de 5 votos. Los archivos no contienen votos: los cursos aparecen «No votado» hasta registrar una elección. Tras cerrar la votación, prueba las decisiones por etapas del coordinador y el seguimiento de lectura del alumno.
+| 20220101 | Ciclo 5: casi ningún electivo apto |
+| 20210202 | Ciclo 6 |
+| 20200303 | Ciclo 8 con IA (1INF24) en curso → CONDICIONAL en los electivos de IA |
+| 20201234 | Plantilla: 1INF29 con 8 (cumple (1INF29)), 1INF24 y 1INF39 en curso |
+| 20195678 | Plantilla: 1INF24 jalado (9) y luego aprobado (15) |
+| 20200404 | 1INF29 con 8 y 1INF35 en curso → 1INF51 CONDICIONAL |
+| 20190505 | Curso jalado (1INF24: 7) y luego aprobado (14) |
+| 20190606 | Llega a 140 créditos solo con los cursos en curso → DER349 CONDICIONAL |
+| 20180707 | Último ciclo: apta para casi todo (1INF41 jalado y en curso) |
+| 20190808 | Ciclo 9: ya aprobó INF310 y lleva INF356 (etiquetas informativas) |
+| 20210909 | Ciclo 6 con un curso de otra facultad (TEL618: 0 créditos) y un electivo libre |
+| 20201010 | Ciclo 8, línea de seguridad: 1INF39 y 1INF41 en curso |
+| 20221111 | Ciclo 3: ningún electivo apto |
+| 20201212 | INF238 desaprobado (10) y no lo lleva → [INF238] NO_APTO |
+| 20181515 | Ciclo 10 con 15 créditos de libre disponibilidad (cuentan solo 12) |
+| 20231414 | Sin historial cargado (aparece como aviso en el panel) |
 
 ## Supabase
 
-Las credenciales se configuran en `apps/api/.env` (no en el frontend):
+Configura las credenciales únicamente en `apps/api/.env`:
 
 ```dotenv
 SUPABASE_URL="https://TU_PROYECTO.supabase.co"
@@ -32,4 +43,4 @@ SUPABASE_SERVICE_ROLE_KEY="TU_CLAVE_DE_SERVICIO"
 SUPABASE_STORAGE_BUCKET="votainf-importaciones"
 ```
 
-El bucket debe existir y ser privado. Reinicia la API después de cambiar estas variables. `apps/api/.env.example` contiene el ejemplo sin credenciales. El `.env` local está ignorado por Git.
+El bucket debe existir y ser privado. Reinicia la API si cambias estas variables. Los originales se almacenan en Storage; PostgreSQL conserva metadatos y los datos procesados.

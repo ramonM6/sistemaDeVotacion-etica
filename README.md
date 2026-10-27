@@ -57,7 +57,7 @@ npm run dev            # migra, siembra datos la primera vez y levanta API + web
 | Coordinador | `coordinador` | `Coordinador#2026` (variables `COORD_USER` / `COORD_PASSWORD`) |
 | Alumnos | ver tabla | `Alumno#2026` |
 
-El seed crea la malla de ejemplo (148 cursos, desde `docs/plantillas/plantilla_catalogo_cursos.xlsx`), un proceso **ABIERTO** "Electivos 2027-1", 16 alumnos sintéticos y 21 votos de ejemplo:
+El seed solo crea el coordinador cuando no existe; no agrega cursos globales, votaciones, alumnos ni votos automáticamente. Los CSV de `docs/datos-prueba` conservan la malla de 148 cursos, las 16 cuentas siguientes y 743 registros académicos. Cárgalos desde «Plantillas» al crear una votación:
 
 | Código | Caso que cubre |
 |---|---|
@@ -78,7 +78,7 @@ El seed crea la malla de ejemplo (148 cursos, desde `docs/plantillas/plantilla_c
 | 20181515 | 15 créditos de libre disponibilidad (solo cuentan 12) |
 | 20231414 | Sin historial (aparece como aviso en el panel) |
 
-Para volver al estado inicial: `npm run db:reset` (borra **todos** los datos de la base de desarrollo y vuelve a sembrar).
+Para reiniciar desde cero: `npm run db:reset` borra **todos** los datos de desarrollo y crea únicamente el coordinador. Luego crea una votación y carga los archivos CSV/Excel.
 
 ## Tests
 
