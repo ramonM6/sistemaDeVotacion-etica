@@ -2,7 +2,7 @@
 
 Proyecto con API NestJS, PostgreSQL y una web React/Vite. Cada votación tiene su propia malla, padrón e historial académico. Los originales CSV/Excel se guardan en un bucket privado de Supabase Storage; PostgreSQL guarda los datos procesados y las referencias a esos archivos.
 
-Esta es la versión vigente. Las reglas están en [docs/SISTEMA.md](docs/SISTEMA.md). Para actualizar una instalación existente, consulta [docs/ACTUALIZACION.md](docs/ACTUALIZACION.md).
+Esta es la versión vigente. Las reglas están en [docs/SISTEMA.md](docs/SISTEMA.md). Si tienes una BD de la versión anterior, empieza desde cero siguiendo [docs/REINICIO_BD.md](docs/REINICIO_BD.md).
 
 ## Instalación en otra computadora
 
@@ -69,11 +69,20 @@ Después de configurar `.env`, puedes usar `iniciar.bat`. Comprueba dependencias
 
 Las plantillas vacías/de ejemplo Excel están en `docs/plantillas`. Los CSV de prueba son un conjunto compatible entre sí: usa los tres de esta versión. Una nota vacía en el historial significa que el curso está en progreso.
 
-## Actualizar sin perder los datos existentes
+## Si ya tenías la versión anterior
 
-Sigue [docs/ACTUALIZACION.md](docs/ACTUALIZACION.md). El arranque aplica las migraciones, incluida la eliminación de intereses y de la aceptación de términos. Las votaciones, usuarios y votos se conservan; **no ejecutes `db:reset` para actualizar**. El seed tampoco reemplaza la contraseña de un coordinador existente.
+Esta entrega se prepara con una **BD limpia**: no se reutilizan votaciones ni archivos de los períodos antiguos. Detén API y web, configura `.env` y ejecuta una sola vez:
 
-La BD de cada computadora es independiente. Compartir el código o usar el mismo bucket de Supabase no copia tus votaciones ni tus votos. Para trasladar una instalación completa hay que restaurar un respaldo de PostgreSQL y mantener el acceso a sus objetos de Storage.
+```sh
+npm ci
+docker compose up -d
+npm run db:reset
+npm run dev
+```
+
+`db:reset` elimina los registros anteriores y reconstruye la estructura actual; después crea únicamente el coordinador. Los CSV de prueba permanecen en el repositorio para cargarlos manualmente en una votación nueva. Consulta [docs/REINICIO_BD.md](docs/REINICIO_BD.md) para respaldar antes y conocer el alcance.
+
+En una instalación nueva no hace falta `db:reset`: sigue la instalación normal. Para los siguientes arranques usa solo `npm run dev`; no reinicies la BD cada vez. El push comparte código, no tus registros de PostgreSQL.
 
 ## Comandos de desarrollo
 
@@ -93,7 +102,7 @@ Para detener API y web: `Ctrl+C`. Para detener PostgreSQL conservando sus datos:
 
 - `apps/api`: API, esquema Prisma, migraciones, seed mínimo y pruebas.
 - `apps/web`: interfaz y configuración de Vite.
-- `docs`: reglas vigentes, actualización de BD, referencia del plan y archivos de prueba.
+- `docs`: reglas vigentes, reinicio de BD, referencia del plan y archivos de prueba.
 - `docker-compose.yml`, `iniciar.bat`, `scripts/iniciar.mjs`: arranque local.
 - `package.json` y `package-lock.json`: dependencias y comandos reproducibles con `npm ci`.
 
