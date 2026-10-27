@@ -140,7 +140,10 @@ describe('Importación y exportación (e2e)', () => {
       expect(await prisma.padronAlumno.count({ where: { procesoId: esc.procesoId } })).toBe(4);
       const alumno = await sesion(app, '20201234', 'Temporal#2026');
       expect((await alumno.get('/api/alumno/procesos')).body).toEqual([]);
-      await sesion(app, '20000001');
+      await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ codigo: '20000001', password: PASSWORD })
+        .expect(401);
       const listado = await coord.get('/api/coord/import/alumnos').expect(200);
       expect(JSON.stringify(listado.body)).not.toMatch(/password|Temporal#2026/);
     });

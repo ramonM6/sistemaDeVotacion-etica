@@ -130,7 +130,7 @@ Estos valores vienen de `COORD_USER` y `COORD_PASSWORD` en `.env`. El seed crea 
 | `20181515` | Olga Ramírez León | `Alumno#2026` |
 | `20231414` | Nicolás Herrera Campos | `Alumno#2026` |
 
-No se crean al clonar ni al arrancar. Una vez importadas pueden iniciar sesión; el historial y la publicación de cada votación determinan a cuáles tienen acceso.
+No se crean al clonar ni al arrancar. El último CSV/Excel de Alumnos reemplaza la lista habilitada: incluye todas las cuentas que deban conservar acceso. Las omitidas se deshabilitan, incluso si tenían sesión abierta, conservando votos e historial. Reimportar su código reactiva la misma cuenta. El historial y la publicación de cada votación determinan a cuáles tienen acceso.
 
 ## 7. Volver a arrancar y detener
 

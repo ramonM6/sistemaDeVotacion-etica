@@ -69,11 +69,40 @@ describe('Cuentas globales y acceso por historial', () => {
       .post(`/api/alumno/votos?procesoId=${id}`)
       .send(voto('INF201', ['NOCHE']))
       .expect(403);
-    // Importar cuentas después de publicar no modifica el padrón ni borra cuentas omitidas.
+    // Las cuentas omitidas se deshabilitan sin borrar sus datos de votación.
     await importar('cuentas', 'codigo,nombres,apellidos,password\n20990003,Carla,Prueba,Alumno#2026');
-    await sesion(app, '20990001', 'Alumno#2026');
+    await ana.get('/api/auth/me').expect(401);
+    await ana.get(`/api/alumno/votos?procesoId=${id}`).expect(401);
+    expect(await db.voto.count({ where: { procesoId: id } })).toBe(1);
+    expect(await db.historialItem.count({ where: { procesoId: id } })).toBe(1);
+    expect((await coord.get('/api/coord/import/alumnos')).body.map((a: { codigo: string }) => a.codigo)).toEqual([
+      '20990003',
+    ]);
     expect(await db.padronAlumno.count({ where: { procesoId: id } })).toBe(1);
   });
+  it('el último archivo sustituye la lista activa y permite reactivar sin duplicar cuentas', async () => {
+    const usuarioId = esc.alumnos['20000001'];
+    const alumno = await sesion(app, '20000001');
+    const antes = await db.historialItem.count({ where: { usuarioId } });
+    const csv = 'codigo,nombres,apellidos,password\n20000002,Ana,Test,Alumno#Test1';
+    const p = await coord
+      .post('/api/coord/import/cuentas/preview')
+      .attach('archivo', Buffer.from(csv), 'alumnos.csv')
+      .expect(200);
+    expect(p.body.cuentasADeshabilitar).toBe(4);
+    await coord.post('/api/coord/import/cuentas/confirmar').send({ token: p.body.token }).expect(200);
+    expect((await coord.get('/api/coord/import/alumnos')).body.map((a: { codigo: string }) => a.codigo)).toEqual([
+      '20000002',
+    ]);
+    await alumno.get('/api/auth/me').expect(401);
+    await alumno.post('/api/auth/login').send({ codigo: '20000001', password: 'Alumno#Test1' }).expect(401);
+    expect(await db.historialItem.count({ where: { usuarioId } })).toBe(antes);
+    await importar('cuentas', csv + '\n20000001,Bruno,Test,Alumno#Test1');
+    expect((await db.usuario.findUniqueOrThrow({ where: { codigo: '20000001' } })).id).toBe(usuarioId);
+    await sesion(app, '20000001');
+    expect(await db.usuario.count({ where: { rol: 'ALUMNO', activo: true } })).toBe(2);
+  });
+
   it('rechaza historial de alumnos sin cuenta y reemplaza el padrón al reemplazar historial', async () => {
     await db.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'BORRADOR' } });
     const invalido = await coord

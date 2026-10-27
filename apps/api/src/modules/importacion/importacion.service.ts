@@ -86,6 +86,7 @@ export class ImportacionService {
     let resultado: ResultadoValidacion<unknown>;
     let pendiente: Pendiente;
     let columnas: string[];
+    let cuentasADeshabilitar = 0;
 
     if (tipo === 'catalogo' || tipo === 'malla') {
       const hoja = await leerHoja(archivo, 'cursos', COLUMNAS_CATALOGO, COLUMNAS_CATALOGO_OPCIONALES, formato);
@@ -113,6 +114,9 @@ export class ImportacionService {
         select: { codigo: true },
       });
       const r = validarCuentas(hoja, new Set(coordinadores.map((c) => c.codigo)));
+      cuentasADeshabilitar = await this.prisma.usuario.count({
+        where: { rol: 'ALUMNO', activo: true, codigo: { notIn: r.filas.map((f) => f.datos.codigo) } },
+      });
       pendiente = { tipo, datos: r.filas.map((f) => f.datos) };
       // La vista previa nunca devuelve contraseñas.
       resultado = { ...r, filas: r.filas.map((f) => ({ ...f, datos: { ...f.datos, password: '••••••••' } })) };
@@ -120,7 +124,7 @@ export class ImportacionService {
     } else {
       const hoja = await leerHoja(archivo, 'historial', COLUMNAS_HISTORIAL, COLUMNAS_HISTORIAL_OPCIONALES, formato);
       const [padron, cursos] = await Promise.all([
-        this.prisma.usuario.findMany({ where: { rol: 'ALUMNO' }, select: { codigo: true } }),
+        this.prisma.usuario.findMany({ where: { rol: 'ALUMNO', activo: true }, select: { codigo: true } }),
         this.prisma.curso.findMany({ select: { codigo: true } }),
       ]);
       const r = validarHistorial(hoja, new Set(padron.map((p) => p.codigo)), new Set(cursos.map((c) => c.codigo)));
@@ -157,6 +161,7 @@ export class ImportacionService {
         conErrores: filasConError,
         conAdvertencias: filasConAdvertencia,
       },
+      cuentasADeshabilitar,
       erroresGenerales: resultado.erroresGenerales,
       advertenciasGenerales: resultado.advertenciasGenerales,
       filas: resultado.filas.map((f) => ({
@@ -300,7 +305,7 @@ export class ImportacionService {
 
   listarAlumnos() {
     return this.prisma.usuario.findMany({
-      where: { rol: 'ALUMNO' },
+      where: { rol: 'ALUMNO', activo: true },
       select: { codigo: true, nombres: true, apellidos: true, correo: true },
       orderBy: [{ apellidos: 'asc' }, { codigo: 'asc' }],
     });

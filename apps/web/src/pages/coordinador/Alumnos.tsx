@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { api } from '@/lib/api';
 import type { PreviewImportacion } from '@/lib/tipos';
 import { cn } from '@/lib/utils';
+import { confirmar } from '@/components/Confirmacion';
 import { TablaPreview } from './CargaDatos';
 
 export default function Alumnos() {
@@ -44,6 +45,13 @@ export default function Alumnos() {
         setError('El archivo tiene errores. Corrígelo y vuelve a subirlo; no se guardó.');
         return;
       }
+      if (
+        p.cuentasADeshabilitar &&
+        !(await confirmar(
+          `El archivo dejará ${p.resumen.total} alumnos habilitados y deshabilitará ${p.cuentasADeshabilitar} cuentas que no aparecen en él. Sus votos e historial se conservarán. ¿Continuar?`,
+        ))
+      )
+        return;
       await api.confirmarImportacion('cuentas', p.token);
       setAdvertencias([...p.advertenciasGenerales, ...new Set(p.filas.flatMap((f) => f.advertencias))]);
       await cliente.invalidateQueries({ queryKey: ['coord'] });
@@ -85,8 +93,9 @@ export default function Alumnos() {
       >
         <p className="font-semibold">Importar cuentas de alumnos</p>
         <p className="text-sm text-muted-foreground">
-          CSV o Excel .xlsx, hasta 5 MB. Crea cuentas nuevas y actualiza las del mismo código; los alumnos que no estén
-          en el archivo conservan su cuenta. Esto no modifica las votaciones.
+          CSV o Excel .xlsx, hasta 5 MB. El último archivo reemplaza la lista de alumnos habilitados. Los que no
+          aparezcan dejarán de tener acceso; sus votos e historial anteriores se conservan. Incluye todas las cuentas
+          que deban seguir activas.
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <label

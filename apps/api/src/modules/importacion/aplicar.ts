@@ -89,12 +89,13 @@ export async function hashearCuentas(cuentas: CuentaImportada[], cost = 10) {
 }
 
 /**
- * Crea o actualiza cuentas globales sin cambiar los padrones de las votaciones.
+ * El último archivo define las cuentas activas; los omitidos conservan sus datos históricos.
  */
 export async function aplicarCuentas(
   db: Db,
   cuentas: Awaited<ReturnType<typeof hashearCuentas>>,
 ): Promise<{ creadas: number; actualizadas: number; habilitados: number }> {
+  await db.$executeRaw`SELECT pg_advisory_xact_lock(6152702)`;
   const existentes = await db.usuario.findMany({
     where: { codigo: { in: cuentas.map((c) => c.codigo) } },
     select: { codigo: true, rol: true },
@@ -103,8 +104,13 @@ export async function aplicarCuentas(
   if (coordinadores.length) throw new Error(`Códigos reservados para coordinación: ${coordinadores.join(', ')}`);
   const yaExisten = new Set(existentes.map((u) => u.codigo));
 
+  await db.usuario.updateMany({
+    where: { rol: 'ALUMNO', codigo: { notIn: cuentas.map((c) => c.codigo) } },
+    data: { activo: false },
+  });
   for (const c of cuentas) {
     const datos = {
+      activo: true,
       nombres: c.nombres,
       apellidos: c.apellidos,
       correo: c.correo,
@@ -136,12 +142,12 @@ export async function aplicarHistorial(
 ): Promise<{ filas: number; alumnos: number }> {
   const codigos = [...new Set(items.map((i) => i.codigoAlumno))];
   const usuarios = await db.usuario.findMany({
-    where: { codigo: { in: codigos }, rol: 'ALUMNO' },
+    where: { codigo: { in: codigos }, rol: 'ALUMNO', activo: true },
     select: { id: true, codigo: true, ingreso: true, craest: true, matriculado: true },
   });
   const idPorCodigo = new Map(usuarios.map((u) => [u.codigo, u.id]));
   const faltantes = codigos.filter((c) => !idPorCodigo.has(c));
-  if (faltantes.length) throw new Error(`Alumnos sin cuenta registrada: ${faltantes.join(', ')}`);
+  if (faltantes.length) throw new Error(`Alumnos sin cuenta activa: ${faltantes.join(', ')}`);
 
   await db.padronAlumno.deleteMany({ where: { procesoId } });
   await db.padronAlumno.createMany({

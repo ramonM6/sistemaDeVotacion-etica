@@ -23,7 +23,7 @@ export class AuthService {
     const usuario = await this.prisma.usuario.findUnique({ where: { codigo } });
     const passwordOk = await bcrypt.compare(password, usuario?.passwordHash ?? HASH_FICTICIO);
 
-    const habilitado = !!usuario && passwordOk;
+    const habilitado = !!usuario && usuario.activo && passwordOk;
 
     if (!habilitado) {
       await this.audit.registrar('LOGIN_FAIL', usuario?.id ?? null, { codigo, ip: ip ?? null });
@@ -37,7 +37,7 @@ export class AuthService {
 
   async me(usuarioId: string) {
     const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
-    if (!usuario) throw new UnauthorizedException('Sesión inválida');
+    if (!usuario || !usuario.activo) throw new UnauthorizedException('Sesión inválida');
     return this.aPublico(usuario);
   }
 

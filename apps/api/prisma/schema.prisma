@@ -55,6 +55,7 @@ model Usuario {
   apellidos    String
   correo       String?
   passwordHash String
+  activo       Boolean @default(true)
   ingreso      String?
   craest       Float?
   matriculado  Boolean?

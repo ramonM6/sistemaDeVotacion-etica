@@ -9,7 +9,7 @@ Estos archivos conservan las 16 cuentas y los casos académicos de la demostraci
 3. En esa votación sube `03_historial.csv`: 751 registros académicos. El historial habilita a los 16 alumnos para esta votación. Una nota vacía indica un curso en progreso.
 4. Abre la votación: los alumnos de ese historial podrán verla y votar.
 
-El sistema valida y guarda cada archivo automáticamente. Las cuentas globales se crean o actualizan por código, sin borrar alumnos omitidos. La malla y el historial reemplazan solo los datos del borrador elegido; no se importan cuentas dentro de una votación.
+El sistema valida y guarda cada archivo automáticamente. El último archivo de cuentas define la lista habilitada: los alumnos omitidos pierden acceso sin borrar sus votos ni historial. Incluye en el CSV todas las cuentas que deban seguir activas. La malla y el historial reemplazan solo los datos del borrador elegido; no se importan cuentas dentro de una votación.
 
 La contraseña de los 16 alumnos es `Alumno#2026`. El coordinador usa `coordinador` y su contraseña configurada mediante `COORD_PASSWORD` (por defecto `Coordinador#2026`); no se incluye en el CSV de alumnos.
 

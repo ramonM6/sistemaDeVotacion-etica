@@ -192,6 +192,7 @@ export interface DetalleAlumno {
 export type TipoImportacion = 'catalogo' | 'malla' | 'cuentas' | 'historial';
 
 export interface PreviewImportacion {
+  cuentasADeshabilitar?: number;
   tipo: TipoImportacion;
   token: string | null;
   proceso: { id: string; nombre: string } | null;
