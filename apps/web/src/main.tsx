@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import App from './App';
+import { Confirmacion } from './components/Confirmacion';
 import { TooltipProvider } from './components/ui/tooltip';
 import { ApiError } from './lib/api';
 import { AuthProvider } from './lib/auth';
@@ -35,6 +36,7 @@ createRoot(document.getElementById('root')!).render(
         <AuthProvider>
           <TooltipProvider delayDuration={150}>
             <App />
+            <Confirmacion />
             <Toaster richColors position="top-right" />
           </TooltipProvider>
         </AuthProvider>

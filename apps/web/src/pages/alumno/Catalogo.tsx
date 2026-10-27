@@ -1,3 +1,4 @@
+import { confirmar } from '@/components/Confirmacion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MoreVertical, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -347,9 +348,9 @@ export default function Catalogo() {
                           ocupado={retirar.isPending || votar.isPending}
                           alRetirar={
                             c.voto && e.abierto
-                              ? () => {
+                              ? async () => {
                                   if (
-                                    window.confirm(
+                                    await confirmar(
                                       `¿Retirar tu voto de ${c.nombre}? También se retirarán los electivos que dependan de este para llevarlos en simultáneo.`,
                                     )
                                   )

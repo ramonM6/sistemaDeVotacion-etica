@@ -1,3 +1,4 @@
+import { confirmar } from '@/components/Confirmacion';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreVertical } from 'lucide-react';
@@ -158,11 +159,11 @@ function EditarVoto({ voto, maxFranjas }: { voto: MiVoto; maxFranjas: number }) 
               <button
                 role="menuitem"
                 className="w-full rounded px-3 py-2 text-left text-sm text-destructive hover:bg-accent focus:bg-accent focus:outline-none"
-                onClick={() => {
+                onClick={async () => {
                   setMenu(null);
                   boton.current?.focus();
                   if (
-                    window.confirm(
+                    await confirmar(
                       `¿Retirar tu elección de ${voto.cursoNombre}? También se retirarán los electivos que dependan de este para llevarlos en simultáneo.`,
                     )
                   )

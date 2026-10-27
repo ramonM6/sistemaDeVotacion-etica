@@ -1,3 +1,4 @@
+import { confirmar } from '@/components/Confirmacion';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Lock, Pencil, Play, RotateCcw } from 'lucide-react';
@@ -36,8 +37,8 @@ export default function AdministrarVotacion({ proceso }: { proceso: Proceso }) {
         <Button
           variant="destructive"
           disabled={cambiar.isPending}
-          onClick={() => {
-            if (window.confirm('¿Cerrar esta votación? Los alumnos ya no podrán modificar sus elecciones.'))
+          onClick={async () => {
+            if (await confirmar('¿Cerrar esta votación? Los alumnos ya no podrán modificar sus elecciones.'))
               cambiar.mutate('CERRADO');
           }}
         >

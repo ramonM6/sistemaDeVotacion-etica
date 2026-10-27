@@ -1,3 +1,4 @@
+import { confirmar } from '@/components/Confirmacion';
 import { ETAPAS, configuracion, elegibles, type Etapa } from '@/lib/etapasCursos';
 export { ETAPAS, type Etapa } from '@/lib/etapasCursos';
 import { EstadoCursoBadge } from '@/components/EstadoCursoBadge';
@@ -64,7 +65,7 @@ function TablaEtapa({
     },
   });
   const bloqueado = !cerrado || guardar.isPending;
-  const aplicar = () => {
+  const aplicar = async () => {
     const reinicia =
       etapa === 'seleccion'
         ? seleccionados.some((codigo) =>
@@ -74,7 +75,7 @@ function TablaEtapa({
           seleccionados.some((codigo) => cursos.some((c) => c.codigo === codigo && c.dictado !== 'PENDIENTE'));
     if (
       !reinicia ||
-      window.confirm('Cambiar esta decisión borrará los estados posteriores de los cursos marcados. ¿Continuar?')
+      (await confirmar('Cambiar esta decisión borrará los estados posteriores de los cursos marcados. ¿Continuar?'))
     )
       guardar.mutate();
   };
@@ -132,7 +133,11 @@ function TablaEtapa({
           </thead>
           <tbody>
             {filas.map((c) => (
-              <tr key={c.codigo} className={cn('border-t', seleccionados.includes(c.codigo) && 'bg-blue-50/60')}>
+              <tr
+                key={c.codigo}
+                aria-selected={seleccionados.includes(c.codigo)}
+                className={cn('border-t', seleccionados.includes(c.codigo) && 'bg-blue-50/60')}
+              >
                 <td className="px-4 py-4">
                   <Checkbox
                     aria-label={`Marcar ${c.codigo}`}

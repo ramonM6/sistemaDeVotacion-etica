@@ -1,3 +1,4 @@
+import { confirmar } from '@/components/Confirmacion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Download, FileSpreadsheet, Loader2, Upload, XCircle, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -225,7 +226,7 @@ function DatosVotacion() {
       tipo === 'cuentas'
         ? '¿Eliminar las cuentas y el historial académico de esta votación? Luego podrás subir nuevos archivos.'
         : '¿Eliminar este archivo y sus datos de la votación para subir otro?';
-    if (!window.confirm(mensaje)) return;
+    if (!(await confirmar(mensaje))) return;
     operando.current = true;
     setOcupado(tipo);
     try {
