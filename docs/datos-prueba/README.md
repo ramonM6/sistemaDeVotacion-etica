@@ -6,7 +6,7 @@ Crea una votación nueva en borrador. Puedes indicar ciclo actual `2026-2` y obj
 
 1. `01_malla.csv`: 148 cursos, incluidos 54 electivos y sus requisitos.
 2. `02_alumnos.csv`: las 16 cuentas indicadas en la tabla siguiente.
-3. `03_historial.csv`: 742 registros académicos; una nota vacía indica un curso en progreso. El alumno 20231414 no tiene historial intencionalmente.
+3. `03_historial.csv`: 751 registros académicos; una nota vacía indica un curso en progreso. Las 16 cuentas tienen historial académico.
 
 El sistema valida y guarda cada archivo automáticamente. Si encuentra errores, los muestra sin guardar el archivo. Usa una votación de prueba: las cuentas y el historial reemplazan los datos del borrador elegido.
 
@@ -31,7 +31,7 @@ Después de cargar los archivos, abre la votación para iniciar sesión como alu
 | 20221111 | Ciclo 3: ningún electivo apto |
 | 20201212 | INF238 desaprobado (10) y no lo lleva → [INF238] NO_APTO |
 | 20181515 | Ciclo 10 con 15 créditos de libre disponibilidad (cuentan solo 12) |
-| 20231414 | Sin historial cargado (aparece como aviso en el panel) |
+| 20231414 | Primer ciclo aprobado y cursos del segundo ciclo en progreso |
 
 ## Supabase
 
