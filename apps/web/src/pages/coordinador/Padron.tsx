@@ -3,7 +3,6 @@ import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Cargando, ErrorCarga, Titulo, Vacio } from '@/components/Estados';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -56,7 +55,6 @@ export default function Padron() {
                 <TableHead className="text-right">Créditos aprobados</TableHead>
                 <TableHead className="text-right">Créditos en curso</TableHead>
                 <TableHead className="text-right">Votos</TableHead>
-                <TableHead>Estado</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -79,14 +77,6 @@ export default function Padron() {
                   <TableCell className="text-right tabular-nums">{formatearCreditos(a.creditosEnCurso)}</TableCell>
                   <TableCell className="text-right tabular-nums">
                     {a.votos} / {proceso.maxCursos}
-                  </TableCell>
-                  <TableCell className="space-x-1">
-                    {!a.tieneHistorial && <Badge variant="warning">Sin historial</Badge>}
-                    {a.terminosAceptados ? (
-                      <Badge variant="success">Términos aceptados</Badge>
-                    ) : (
-                      <Badge variant="muted">Sin aceptar términos</Badge>
-                    )}
                   </TableCell>
                 </TableRow>
               ))}

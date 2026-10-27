@@ -9,7 +9,6 @@ import * as ExcelJS from 'exceljs';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { configurarApp } from '../src/bootstrap';
-import { TERMINOS_VERSION } from '../src/common/terminos';
 import { parsearRequisitos } from '../src/modules/elegibilidad/motor';
 import { aplicarCatalogo } from '../src/modules/importacion/aplicar';
 import { CursoImportado } from '../src/modules/importacion/validadores/catalogo';
@@ -30,7 +29,7 @@ export async function crearApp(): Promise<INestApplication> {
 /** Vacía todas las tablas. */
 export async function limpiar(prisma: PrismaClient) {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE "ArchivoCarga","VotoFranja","Voto","AceptacionTerminos","HistorialItem","PadronAlumno","ProcesoVotacion","Requisito","Curso","AuditLog","Usuario" CASCADE',
+    'TRUNCATE "ArchivoCarga","VotoFranja","Voto","HistorialItem","PadronAlumno","ProcesoVotacion","Requisito","Curso","AuditLog","Usuario" CASCADE',
   );
 }
 
@@ -128,10 +127,6 @@ export async function escenarioBase(prisma: PrismaClient): Promise<Escenario> {
     })),
   });
   return { procesoId: proceso.id, alumnos };
-}
-
-export async function aceptarTerminos(prisma: PrismaClient, procesoId: string, usuarioId: string) {
-  await prisma.aceptacionTerminos.create({ data: { procesoId, usuarioId, version: TERMINOS_VERSION } });
 }
 
 /** Inicia sesión y devuelve un agente de Supertest con la cookie. */

@@ -22,14 +22,6 @@ export class AlumnoController {
     return this.votos.estado(u.id, procesoId);
   }
 
-  @Post('terminos')
-  aceptarTerminos(
-    @UsuarioActual() u: UsuarioSesion,
-    @Query('procesoId', new ParseUUIDPipe({ optional: true })) procesoId?: string,
-  ) {
-    return this.votos.aceptarTerminos(u.id, procesoId);
-  }
-
   @Get('electivos')
   electivos(
     @UsuarioActual() u: UsuarioSesion,

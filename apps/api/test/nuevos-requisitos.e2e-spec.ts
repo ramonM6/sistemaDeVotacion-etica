@@ -3,7 +3,7 @@ import { StorageFalso } from './storage-falso';
 import * as ExcelJS from 'exceljs';
 import { INestApplication, ServiceUnavailableException } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
-import { crearApp, escenarioBase, Escenario, sesion, aceptarTerminos, voto, xlsx } from './utils';
+import { crearApp, escenarioBase, Escenario, sesion, voto, xlsx } from './utils';
 import { parsearRequisitos } from '../src/modules/elegibilidad/motor';
 
 describe('Requisitos integrados de VotaInf', () => {
@@ -29,7 +29,6 @@ describe('Requisitos integrados de VotaInf', () => {
   });
 
   it('oculta resultados al reabrir y conserva los votos', async () => {
-    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000001']);
     const alumno = await sesion(app, '20000001');
     await alumno
       .post('/api/alumno/votos')
@@ -51,7 +50,7 @@ describe('Requisitos integrados de VotaInf', () => {
         cursoRequerido: t.cursoRequerido,
       })),
     });
-    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000003']);
+
     const alumno = await sesion(app, '20000003');
     const detalle = await alumno.get('/api/alumno/electivos/INF310');
     expect(detalle.body.dependencias).toEqual(['INF356']);
@@ -69,7 +68,7 @@ describe('Requisitos integrados de VotaInf', () => {
     await db.requisito.create({
       data: { cursoCodigo: 'INF310', texto: '[INF356]', tipo: 'APROBADO_O_SIMULTANEO', cursoRequerido: 'INF356' },
     });
-    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000003']);
+
     const alumno = await sesion(app, '20000003');
     await alumno
       .post('/api/alumno/votos')
@@ -107,8 +106,6 @@ describe('Requisitos integrados de VotaInf', () => {
   });
 
   it('filtra ranking e indicadores solo por aptitud y elimina las agrupaciones', async () => {
-    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000001']);
-    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000002']);
     const a = await sesion(app, '20000001');
     const b = await sesion(app, '20000002');
     await a
@@ -140,8 +137,6 @@ describe('Requisitos integrados de VotaInf', () => {
   });
 
   it('la exportación de datos respeta el filtro de aptitud y exige rol coordinador', async () => {
-    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000001']);
-    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000002']);
     const a = await sesion(app, '20000001');
     const b = await sesion(app, '20000002');
     await a
@@ -233,7 +228,6 @@ describe('Requisitos integrados de VotaInf', () => {
   });
 
   it('mantiene el límite por cantidad de electivos sin imponer 28 créditos', async () => {
-    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000003']);
     const alumno = await sesion(app, '20000003');
     for (let i = 0; i < 5; i++) {
       const codigo = `INF90${i}`;
@@ -256,7 +250,7 @@ describe('Requisitos integrados de VotaInf', () => {
     await db.historialItem.create({
       data: { procesoId: esc.procesoId, usuarioId: esc.alumnos['20000003'], cursoCodigo: 'INF310', nota: 15 },
     });
-    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000003']);
+
     const alumno = await sesion(app, '20000003');
     await alumno
       .post('/api/alumno/votos')
@@ -457,7 +451,7 @@ describe('Requisitos integrados de VotaInf', () => {
   });
   it('permite elegir votaciones propias, aísla los votos y publica el seguimiento del periodo elegido', async () => {
     const alumno = await sesion(app, '20000001');
-    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000001']);
+
     await alumno
       .post(`/api/alumno/votos?procesoId=${esc.procesoId}`)
       .send(voto('INF310', ['NOCHE']))
@@ -522,7 +516,7 @@ describe('Requisitos integrados de VotaInf', () => {
     await db.requisito.create({
       data: { cursoCodigo: 'INF310', texto: '[INF356]', tipo: 'APROBADO_O_SIMULTANEO', cursoRequerido: 'INF356' },
     });
-    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000003']);
+
     const alumno = await sesion(app, '20000003');
     const ruta = `/api/alumno/votos/lote?procesoId=${esc.procesoId}`;
     const respuesta = await alumno
@@ -544,7 +538,6 @@ describe('Requisitos integrados de VotaInf', () => {
   });
 
   it('rechaza un lote completo si excede el límite o un curso es inválido', async () => {
-    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000003']);
     const alumno = await sesion(app, '20000003');
     const ruta = `/api/alumno/votos/lote?procesoId=${esc.procesoId}`;
     await db.procesoVotacion.update({ where: { id: esc.procesoId }, data: { maxCursos: 1 } });
@@ -577,7 +570,6 @@ describe('Requisitos integrados de VotaInf', () => {
       .expect(403);
   });
   it('importa la malla del borrador con CSV o Excel y conserva su copia por votación', async () => {
-    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000001']);
     const alumnoMalla = await sesion(app, '20000001');
     await alumnoMalla
       .post('/api/alumno/votos')
@@ -673,7 +665,6 @@ describe('Requisitos integrados de VotaInf', () => {
     expect(await db.historialItem.count({ where: { procesoId: r.body.id } })).toBe(sourceHistorial);
     expect(await db.voto.count({ where: { procesoId: r.body.id } })).toBe(0);
     expect(await db.seguimientoCurso.count({ where: { procesoId: r.body.id } })).toBe(0);
-    expect(await db.aceptacionTerminos.count({ where: { procesoId: r.body.id } })).toBe(0);
     const archivos = await db.archivoCarga.findMany({ where: { procesoId: r.body.id } });
     expect(archivos).toHaveLength(3);
     expect(archivos.every((a) => a.contenido === null && storage.archivos.has(a.ruta!))).toBe(true);

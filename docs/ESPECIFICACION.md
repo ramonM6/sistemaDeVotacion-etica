@@ -19,7 +19,7 @@ El sistema es un **sondeo de demanda**, no una matrícula:
 
 ## 2. Alcance del MVP
 
-**Incluye:** dos roles (Coordinador y Alumno), carga de datos por Excel, motor de requisitos, votación de curso + franja, términos, resultados en vivo para ambos roles, dashboard con mapa de calor, exportación a Excel.
+**Incluye:** dos roles (Coordinador y Alumno), carga de datos por Excel, motor de requisitos, votación de curso + franja, resultados en vivo para ambos roles, dashboard con mapa de calor, exportación a Excel.
 
 **No incluye (fuera de alcance):** login PUCP/SSO, notificaciones por correo, despliegue, concentraciones, registro de la decisión final del coordinador, laboratorios/prácticas/exámenes, electivos de libre disponibilidad o de otras facultades, múltiples coordinadores.
 
@@ -142,12 +142,12 @@ Cubrir al menos estos casos:
 ## 7. Reglas de votación
 
 1. Solo existe **un proceso de votación abierto** a la vez. Estados: `BORRADOR → ABIERTO → CERRADO`. El coordinador lo abre y lo cierra manualmente, y además se cierra solo al pasar `fechaFin`. Desde `CERRADO` puede volver a `ABIERTO` (para extender el plazo).
-2. Antes de votar por primera vez en un proceso, el alumno debe **aceptar los términos** (sección 8). Se registra la fecha y hora y la versión del texto.
+2. El alumno del padrón puede votar directamente mientras la votación esté abierta.
 3. Un alumno puede votar por **hasta 5 electivos distintos** (`maxCursos`, configurable por proceso, por defecto 5). No está obligado a usar los 5.
 4. Cada voto exige **al menos 1 y como máximo 2 franjas** distintas (`maxFranjas`, por defecto 2). Curso y franja se envían en **una sola operación atómica**: no existe un voto sin franja.
 5. **Los votos son definitivos:** no se editan ni se retiran. Antes de confirmar se muestra un modal de advertencia.
 6. Solo se puede votar por electivos con aptitud `CONFIRMADO` o `CONDICIONAL`.
-7. El backend revalida todo en una transacción: proceso abierto, términos aceptados, aptitud, menos de 5 votos, franjas válidas y no duplicadas. Hay un índice único en `(procesoId, alumnoId, cursoCodigo)` para evitar condiciones de carrera.
+7. El backend revalida todo en una transacción: proceso abierto, aptitud, menos de 5 votos, franjas válidas y no duplicadas. Hay un índice único en `(procesoId, alumnoId, cursoCodigo)` para evitar condiciones de carrera.
 8. Tras cada voto se emite un evento Socket.IO `resultados:actualizados` para refrescar los dashboards.
 
 ### Franjas horarias (enum fijo)
@@ -161,14 +161,6 @@ Cubrir al menos estos casos:
 | NOCHE | Noche | 19:00 – 22:00 |
 
 La franja aplica a todas las sesiones semanales del curso. El conteo por franja suma 1 por cada franja marcada, así que un voto con 2 franjas aporta 1 a cada una.
-
-## 8. Términos de participación (texto inicial, versión 1)
-
-> Al participar en esta votación declaro que:
-> 1. Mis votos reflejan un interés real en llevar los cursos seleccionados el próximo ciclo.
-> 2. Si algún curso que estoy llevando es requisito de un electivo por el que voto, asumo el compromiso de aprobarlo para poder matricularme.
-> 3. Entiendo que esta votación es referencial: los resultados orientan a la coordinación, pero no garantizan la apertura de ningún curso ni de ningún horario.
-> 4. Entiendo que mis votos son definitivos y quedan registrados con mi código de alumno, y que solo la coordinación puede ver quién votó por cada curso.
 
 ## 9. Modelo de datos (Prisma, orientativo)
 
@@ -238,13 +230,6 @@ model HistorialItem {
   @@index([procesoId, usuarioId])
 }
 
-model AceptacionTerminos {
-  procesoId String
-  usuarioId String
-  version   Int
-  aceptadoEn DateTime @default(now())
-  @@id([procesoId, usuarioId])
-}
 
 model Voto {
   id          String      @id @default(uuid())
@@ -283,8 +268,7 @@ El catálogo es **global**: las descripciones persisten entre procesos. El padr�
 | POST | /auth/logout | autenticado | |
 | GET | /auth/me | autenticado | usuario y rol |
 | GET | /procesos/activo | autenticado | proceso abierto (o el último) |
-| GET | /alumno/estado | ALUMNO | términos aceptados, votos usados y máximo |
-| POST | /alumno/terminos | ALUMNO | acepta los términos |
+| GET | /alumno/estado | ALUMNO | votos usados y máximo |
 | GET | /alumno/electivos | ALUMNO | todos los electivos con su `ResultadoElegibilidad` y si ya votó |
 | GET | /alumno/electivos/:codigo | ALUMNO | detalle |
 | POST | /alumno/votos | ALUMNO | `{cursoCodigo, franjas: Franja[]}` |
@@ -307,7 +291,6 @@ WebSocket: namespace `/resultados`, evento `resultados:actualizados` (sin datos 
 
 1. **Login:** código y contraseña. Mensaje de error genérico.
 2. **Inicio:** estado del proceso (abierto/cerrado, cuenta regresiva al cierre), contador "Votos usados: 2 de 5", accesos a Catálogo, Mis votos y Resultados. Si no hay proceso abierto, solo lectura.
-3. **Modal de términos:** bloqueante en la primera entrada a un proceso abierto, con checkbox y botón "Acepto".
 4. **Catálogo de electivos:** todos los electivos en tarjetas con código, nombre, créditos, descripción corta y badge de aptitud:
    - CONFIRMADO: verde, "Apto".
    - CONDICIONAL: ámbar, "Apto si apruebas 1INF24".
@@ -367,7 +350,7 @@ WebSocket: namespace `/resultados`, evento `resultados:actualizados` (sin datos 
 - [ ] El coordinador importa las tres plantillas; los errores se muestran por fila y no se guarda nada hasta confirmar.
 - [ ] Un alumno que no está en el Excel de cuentas no puede iniciar sesión.
 - [ ] El alumno ve **todos** los electivos y los no aptos aparecen en gris con el motivo.
-- [ ] No puede votar sin aceptar los términos, sin elegir franja, con más de 2 franjas, por más de 5 cursos ni dos veces por el mismo curso, aunque la petición se haga directamente a la API.
+- [ ] No puede votar sin elegir franja, con más de 2 franjas, por más de 5 cursos ni dos veces por el mismo curso, aunque la petición se haga directamente a la API.
 - [ ] Los votos no se pueden editar ni eliminar.
 - [ ] El dashboard del coordinador y la pantalla de resultados del alumno se actualizan sin recargar al llegar un voto.
 - [ ] El mapa de calor curso × franja coincide con los conteos de la exportación a Excel.

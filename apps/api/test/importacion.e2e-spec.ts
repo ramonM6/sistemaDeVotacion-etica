@@ -4,7 +4,7 @@ import * as ExcelJS from 'exceljs';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import request from 'supertest';
-import { Escenario, PASSWORD, aceptarTerminos, crearApp, escenarioBase, sesion, voto, xlsx } from './utils';
+import { Escenario, PASSWORD, crearApp, escenarioBase, sesion, voto, xlsx } from './utils';
 
 const PLANTILLAS = resolve(__dirname, '../../../docs/plantillas');
 type Agente = Awaited<ReturnType<typeof sesion>>;
@@ -99,7 +99,7 @@ describe('Importación y exportación (e2e)', () => {
 
     it('conserva (con advertencia) los cursos con votos que no vienen en el archivo', async () => {
       await prisma.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'ABIERTO' } });
-      await aceptarTerminos(prisma, esc.procesoId, esc.alumnos['20000001']);
+
       const alumno = await sesion(app, '20000001');
       await alumno
         .post('/api/alumno/votos')
@@ -275,7 +275,6 @@ describe('Importación y exportación (e2e)', () => {
       ['20000004', [['1INF02', ['MEDIA_MANANA']]]],
     ];
     for (const [codigo, lista] of votos) {
-      await aceptarTerminos(prisma, esc.procesoId, esc.alumnos[codigo]);
       const alumno = await sesion(app, codigo);
       for (const [c, f] of lista) await alumno.post('/api/alumno/votos').send(voto(c, f)).expect(201);
     }

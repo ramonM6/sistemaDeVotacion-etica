@@ -14,7 +14,6 @@ export type AccionAudit =
   | 'EDITAR_PROCESO'
   | 'CAMBIO_ESTADO_PROCESO'
   | 'EDITAR_CURSO'
-  | 'ACEPTAR_TERMINOS'
   | 'VOTO'
   | 'EDITAR_VOTO'
   | 'RETIRAR_VOTO'

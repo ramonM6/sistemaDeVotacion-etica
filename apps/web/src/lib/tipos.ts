@@ -68,7 +68,6 @@ export interface ElectivoAlumno {
 export interface EstadoAlumno {
   proceso: Proceso;
   abierto: boolean;
-  terminos: { version: number; texto: string; aceptados: boolean; aceptadoEn: string | null };
   votosUsados: number;
   maxCursos: number;
   maxFranjas: number;
@@ -167,7 +166,6 @@ export interface AlumnoPadron {
   creditosEnCurso: number;
   votos: number;
   tieneHistorial: boolean;
-  terminosAceptados: boolean;
 }
 
 export interface DetalleAlumno {

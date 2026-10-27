@@ -23,18 +23,6 @@ export class VotosRepository {
     return filas.length > 0;
   }
 
-  aceptacion(procesoId: string, usuarioId: string, db: Tx | PrismaService = this.prisma) {
-    return db.aceptacionTerminos.findUnique({ where: { procesoId_usuarioId: { procesoId, usuarioId } } });
-  }
-
-  guardarAceptacion(procesoId: string, usuarioId: string, version: number) {
-    return this.prisma.aceptacionTerminos.upsert({
-      where: { procesoId_usuarioId: { procesoId, usuarioId } },
-      create: { procesoId, usuarioId, version },
-      update: { version, aceptadoEn: new Date() },
-    });
-  }
-
   contarVotos(procesoId: string, usuarioId: string, db: Tx | PrismaService = this.prisma) {
     return db.voto.count({ where: { procesoId, usuarioId } });
   }

@@ -59,7 +59,6 @@ model Usuario {
   createdAt    DateTime             @default(now())
   padron       PadronAlumno[]
   historial    HistorialItem[]
-  aceptaciones AceptacionTerminos[]
   votos        Voto[]
 }
 
@@ -107,7 +106,6 @@ model ProcesoVotacion {
   seguimiento SeguimientoCurso[]
   padron        PadronAlumno[]
   historial     HistorialItem[]
-  aceptaciones  AceptacionTerminos[]
   votos         Voto[]
 }
 
@@ -134,17 +132,6 @@ model HistorialItem {
   usuario     Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
   @@index([procesoId, usuarioId])
-}
-
-model AceptacionTerminos {
-  procesoId  String
-  usuarioId  String
-  version    Int
-  aceptadoEn DateTime        @default(now())
-  proceso    ProcesoVotacion @relation(fields: [procesoId], references: [id], onDelete: Cascade)
-  usuario    Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-
-  @@id([procesoId, usuarioId])
 }
 
 model Voto {

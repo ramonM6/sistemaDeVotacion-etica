@@ -70,7 +70,6 @@ export default function DetalleElectivo() {
   let motivo: string | null = null;
   if (el.voto) motivo = null;
   else if (!e?.abierto) motivo = 'La votación no está abierta.';
-  else if (!e.terminos.aceptados) motivo = 'Debes aceptar los términos de participación.';
   else if (sinVotos) motivo = `Ya usaste tus ${e.maxCursos} votos.`;
   else if (noApto) motivo = 'No cumples los requisitos de este electivo.';
 

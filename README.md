@@ -87,7 +87,7 @@ npm test            # unitarios: motor de requisitos (sin base de datos)
 npm run test:e2e    # e2e con Supertest contra PostgreSQL
 ```
 
-Los e2e usan una base aparte, `<base>_test` (por defecto `votacion_test`, en el mismo PostgreSQL de Docker): la crean si no existe, le aplican las migraciones y vacían sus tablas en cada suite. No tocan la base de desarrollo. Cubren los criterios de aceptación: login solo para alumnos del padrón, rate limit, términos obligatorios, 1–2 franjas, máximo 5 cursos, sin duplicados (también con peticiones simultáneas), edición y retiro de votos solo durante la apertura, proceso cerrado, resultados públicos sin datos personales, evento Socket.IO, importaciones con vista previa y que el mapa de calor coincida con el Excel exportado.
+Los e2e usan una base aparte, `<base>_test` (por defecto `votacion_test`, en el mismo PostgreSQL de Docker): la crean si no existe, le aplican las migraciones y vacían sus tablas en cada suite. No tocan la base de desarrollo. Cubren los criterios de aceptación: login solo para alumnos del padrón, rate limit, 1–2 franjas, máximo 5 cursos, sin duplicados (también con peticiones simultáneas), edición y retiro de votos solo durante la apertura, proceso cerrado, resultados públicos sin datos personales, evento Socket.IO, importaciones con vista previa y que el mapa de calor coincida con el Excel exportado.
 
 ## Estructura
 
@@ -156,4 +156,4 @@ El migrador sube cada original y solo entonces vacía su contenido antiguo. Cons
 Referencias: [buckets privados](https://supabase.com/docs/guides/storage/buckets/fundamentals), [descargas autenticadas](https://supabase.com/docs/guides/storage/serving/downloads).
 
 
-Al crear una votación, cada sección ofrece **Subir archivo nuevo** o **Reutilizar malla/cuentas/historial**. Elige una votación anterior con datos cargados para cada tipo. Se copian sus datos al borrador; si existe un original en Supabase se reutiliza su referencia privada sin duplicar el archivo. Las cuentas mantienen sus credenciales. No se copian votos, aceptaciones de términos ni decisiones. Para reutilizar historial se necesita un padrón compatible: reutiliza sus cuentas al crear, o sube primero las cuentas nuevas y después el historial. Las votaciones de ejemplo pueden tener datos pero carecer del archivo original.
+Al crear una votación, cada sección ofrece **Subir archivo nuevo** o **Reutilizar malla/cuentas/historial**. Elige una votación anterior con datos cargados para cada tipo. Se copian sus datos al borrador; si existe un original en Supabase se reutiliza su referencia privada sin duplicar el archivo. Las cuentas mantienen sus credenciales. No se copian votos ni decisiones. Para reutilizar historial se necesita un padrón compatible: reutiliza sus cuentas al crear, o sube primero las cuentas nuevas y después el historial. Las votaciones de ejemplo pueden tener datos pero carecer del archivo original.

@@ -4,7 +4,7 @@ import { AddressInfo } from 'net';
 import { io } from 'socket.io-client';
 import request from 'supertest';
 import { EVENTO_RESULTADOS } from '../src/modules/resultados/resultados.gateway';
-import { Escenario, PASSWORD, aceptarTerminos, crearApp, escenarioBase, sesion, voto } from './utils';
+import { Escenario, PASSWORD, crearApp, escenarioBase, sesion, voto } from './utils';
 
 describe('Votación (e2e)', () => {
   let app: INestApplication;
@@ -121,25 +121,15 @@ describe('Votación (e2e)', () => {
   });
 
   describe('reglas de votación (aunque la petición vaya directo a la API)', () => {
-    it('no se puede votar sin aceptar los términos', async () => {
+    it('permite votar sin aceptación de términos y no expone esa información', async () => {
       const alumno = await sesion(app, '20000001');
-      const res = await alumno.post('/api/alumno/votos').send(voto('INF310', ['NOCHE']));
-      expect(res.status).toBe(403);
-      expect(res.body.message).toMatch(/términos/);
-      expect(await prisma.voto.count()).toBe(0);
-    });
-
-    it('aceptar los términos registra versión y fecha', async () => {
-      const alumno = await sesion(app, '20000001');
-      expect((await alumno.get('/api/alumno/estado')).body.terminos.aceptados).toBe(false);
-      expect((await alumno.post('/api/alumno/terminos')).status).toBe(201);
-      const fila = await prisma.aceptacionTerminos.findFirstOrThrow({ where: { usuarioId: esc.alumnos['20000001'] } });
-      expect(fila.version).toBe(2);
-      expect(fila.aceptadoEn).toBeInstanceOf(Date);
-      expect((await alumno.get('/api/alumno/estado')).body).toMatchObject({
-        terminos: { aceptados: true },
-        puedeVotar: true,
-      });
+      const estado = await alumno.get('/api/alumno/estado').expect(200);
+      expect(estado.body).not.toHaveProperty('terminos');
+      expect(estado.body.puedeVotar).toBe(true);
+      await alumno
+        .post('/api/alumno/votos')
+        .send(voto('INF310', ['NOCHE']))
+        .expect(201);
     });
 
     it.each([
@@ -150,7 +140,6 @@ describe('Votación (e2e)', () => {
       ['con una franja inexistente', { cursoCodigo: 'INF310', franjas: ['MADRUGADA'] }],
       ['con campos no permitidos', { cursoCodigo: 'INF310', franjas: ['NOCHE'], aptitud: 'CONFIRMADO' }],
     ])('rechaza un voto %s', async (_, cuerpo) => {
-      await aceptarTerminos(prisma, esc.procesoId, esc.alumnos['20000001']);
       const alumno = await sesion(app, '20000001');
       const res = await alumno.post('/api/alumno/votos').send(cuerpo);
       expect(res.status).toBe(400);
@@ -158,7 +147,6 @@ describe('Votación (e2e)', () => {
     });
 
     it('acepta 1 o 2 franjas y guarda la aptitud como snapshot', async () => {
-      await aceptarTerminos(prisma, esc.procesoId, esc.alumnos['20000002']);
       const alumno = await sesion(app, '20000002');
       const a = await alumno.post('/api/alumno/votos').send(voto('1INF02', ['TARDE', 'MANANA']));
       expect(a.status).toBe(201);
@@ -169,7 +157,6 @@ describe('Votación (e2e)', () => {
     });
 
     it('no permite votar por un electivo NO_APTO ni por un curso que no es electivo', async () => {
-      await aceptarTerminos(prisma, esc.procesoId, esc.alumnos['20000003']);
       const alumno = await sesion(app, '20000003');
       expect((await alumno.post('/api/alumno/votos').send(voto('1INF02', ['NOCHE']))).status).toBe(403);
       expect((await alumno.post('/api/alumno/votos').send(voto('1INF24', ['NOCHE']))).status).toBe(404);
@@ -177,7 +164,6 @@ describe('Votación (e2e)', () => {
     });
 
     it('no permite votar dos veces por el mismo curso', async () => {
-      await aceptarTerminos(prisma, esc.procesoId, esc.alumnos['20000001']);
       const alumno = await sesion(app, '20000001');
       expect((await alumno.post('/api/alumno/votos').send(voto('INF310', ['NOCHE']))).status).toBe(201);
       const res = await alumno.post('/api/alumno/votos').send(voto('INF310', ['TARDE']));
@@ -186,7 +172,6 @@ describe('Votación (e2e)', () => {
     });
 
     it('no permite votar por más de 5 cursos', async () => {
-      await aceptarTerminos(prisma, esc.procesoId, esc.alumnos['20000001']);
       const alumno = await sesion(app, '20000001');
       for (const c of ['1INF02', '1INF64', 'DER349', 'INF310', 'INF356']) {
         expect((await alumno.post('/api/alumno/votos').send(voto(c, ['NOCHE']))).status).toBe(201);
@@ -199,7 +184,7 @@ describe('Votación (e2e)', () => {
 
     it('respeta maxCursos y maxFranjas configurados en el proceso', async () => {
       await prisma.procesoVotacion.update({ where: { id: esc.procesoId }, data: { maxCursos: 2, maxFranjas: 1 } });
-      await aceptarTerminos(prisma, esc.procesoId, esc.alumnos['20000001']);
+
       const alumno = await sesion(app, '20000001');
       expect((await alumno.post('/api/alumno/votos').send(voto('INF310', ['NOCHE', 'TARDE']))).status).toBe(400);
       expect((await alumno.post('/api/alumno/votos').send(voto('INF310', ['NOCHE']))).status).toBe(201);
@@ -208,7 +193,6 @@ describe('Votación (e2e)', () => {
     });
 
     it('con peticiones simultáneas nunca supera el máximo de 5 votos', async () => {
-      await aceptarTerminos(prisma, esc.procesoId, esc.alumnos['20000001']);
       const alumno = await sesion(app, '20000001');
       const cursos = ['1INF02', '1INF64', 'DER349', 'INF310', 'INF356', 'INF372', 'INF373'];
       const respuestas = await Promise.all(
@@ -219,7 +203,6 @@ describe('Votación (e2e)', () => {
     });
 
     it('con peticiones simultáneas por el mismo curso solo se registra un voto', async () => {
-      await aceptarTerminos(prisma, esc.procesoId, esc.alumnos['20000004']);
       const alumno = await sesion(app, '20000004');
       const respuestas = await Promise.all(
         [1, 2, 3, 4].map(() => alumno.post('/api/alumno/votos').send(voto('INF310', ['NOCHE']))),
@@ -229,7 +212,6 @@ describe('Votación (e2e)', () => {
     });
 
     it('permite editar y retirar solo las elecciones propias mientras esté abierto', async () => {
-      await aceptarTerminos(prisma, esc.procesoId, esc.alumnos['20000001']);
       const alumno = await sesion(app, '20000001');
       await alumno
         .post('/api/alumno/votos')
@@ -254,7 +236,6 @@ describe('Votación (e2e)', () => {
     });
 
     it('no se puede votar si el proceso está cerrado o si pasó la fecha de fin', async () => {
-      await aceptarTerminos(prisma, esc.procesoId, esc.alumnos['20000001']);
       const alumno = await sesion(app, '20000001');
       await prisma.procesoVotacion.update({ where: { id: esc.procesoId }, data: { estado: 'CERRADO' } });
       expect((await alumno.post('/api/alumno/votos').send(voto('INF310', ['NOCHE']))).status).toBe(400);
@@ -271,7 +252,6 @@ describe('Votación (e2e)', () => {
 
   describe('resultados', () => {
     async function votar(codigo: string, votos: [string, string[]][]) {
-      await aceptarTerminos(prisma, esc.procesoId, esc.alumnos[codigo]);
       const alumno = await sesion(app, codigo);
       for (const [c, f] of votos) expect((await alumno.post('/api/alumno/votos').send(voto(c, f))).status).toBe(201);
       return alumno;

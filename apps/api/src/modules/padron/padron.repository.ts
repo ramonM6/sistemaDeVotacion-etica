@@ -17,7 +17,6 @@ export class PadronRepository {
             apellidos: true,
             correo: true,
             _count: { select: { votos: { where: { procesoId } }, historial: { where: { procesoId } } } },
-            aceptaciones: { where: { procesoId }, select: { aceptadoEn: true, version: true } },
           },
         },
       },

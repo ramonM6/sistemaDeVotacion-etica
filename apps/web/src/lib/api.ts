@@ -83,7 +83,6 @@ export const api = {
     post<MiVoto[]>(`/alumno/votos/lote${qs({ procesoId })}`, { votos }),
   procesosAlumno: () => get<Proceso[]>('/alumno/procesos'),
   estadoAlumno: (procesoId?: string) => get<EstadoAlumno>(`/alumno/estado${qs({ procesoId })}`),
-  aceptarTerminos: (procesoId?: string) => post(`/alumno/terminos${qs({ procesoId })}`),
   electivos: (procesoId?: string) =>
     get<{ creditos: Creditos; electivos: ElectivoAlumno[] }>(`/alumno/electivos${qs({ procesoId })}`),
   electivo: (codigo: string, procesoId?: string) =>

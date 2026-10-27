@@ -181,7 +181,7 @@ export default function Catalogo() {
     votados: todos.filter((c) => c.voto).length,
     'no votados': todos.filter((c) => !c.voto).length,
   };
-  const puedeSeleccionar = e.abierto && e.terminos.aceptados && restantes > 0 && !votar.isPending;
+  const puedeSeleccionar = e.abierto && restantes > 0 && !votar.isPending;
   return (
     <div>
       <Titulo
@@ -272,13 +272,11 @@ export default function Catalogo() {
                     ? 'Ya registraste un voto por este curso.'
                     : !e.abierto
                       ? 'La votación está cerrada.'
-                      : !e.terminos.aceptados
-                        ? 'Acepta los términos para votar.'
-                        : restantes <= 0
-                          ? 'Ya usaste tus votos disponibles.'
-                          : c.elegibilidad.aptitud === 'NO_APTO'
-                            ? 'No cumples los requisitos de este curso.'
-                            : undefined;
+                      : restantes <= 0
+                        ? 'Ya usaste tus votos disponibles.'
+                        : c.elegibilidad.aptitud === 'NO_APTO'
+                          ? 'No cumples los requisitos de este curso.'
+                          : undefined;
                   return (
                     <tr
                       key={c.codigo}

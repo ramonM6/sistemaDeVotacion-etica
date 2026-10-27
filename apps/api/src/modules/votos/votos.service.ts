@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import { Franja, Prisma, ProcesoVotacion } from '@prisma/client';
 import { FRANJAS } from '../../common/franjas';
-import { TERMINOS_TEXTO, TERMINOS_VERSION } from '../../common/terminos';
 import { AuditService } from '../audit/audit.service';
 import { ElegibilidadService } from '../elegibilidad/elegibilidad.service';
 import { ProcesosService } from '../procesos/procesos.service';
@@ -46,36 +45,16 @@ export class VotosService {
 
   async estado(usuarioId: string, procesoId?: string) {
     const proceso = await this.procesoDelAlumno(usuarioId, procesoId);
-    const [aceptacion, votosUsados] = await Promise.all([
-      this.repo.aceptacion(proceso.id, usuarioId),
-      this.repo.contarVotos(proceso.id, usuarioId),
-    ]);
-    const terminosAceptados = aceptacion?.version === TERMINOS_VERSION;
+    const votosUsados = await this.repo.contarVotos(proceso.id, usuarioId);
     const abierto = estaAbierto(proceso);
     return {
       proceso,
       abierto,
-      terminos: {
-        version: TERMINOS_VERSION,
-        texto: TERMINOS_TEXTO,
-        aceptados: terminosAceptados,
-        aceptadoEn: terminosAceptados ? aceptacion!.aceptadoEn : null,
-      },
       votosUsados,
       maxCursos: Math.min(5, proceso.maxCursos),
       maxFranjas: proceso.maxFranjas,
-      puedeVotar: abierto && terminosAceptados && votosUsados < Math.min(5, proceso.maxCursos),
+      puedeVotar: abierto && votosUsados < Math.min(5, proceso.maxCursos),
     };
-  }
-
-  async aceptarTerminos(usuarioId: string, procesoId?: string) {
-    const proceso = await this.procesoDelAlumno(usuarioId, procesoId);
-    if (!estaAbierto(proceso)) throw new BadRequestException('El proceso de votación no está abierto');
-    const actual = await this.repo.aceptacion(proceso.id, usuarioId);
-    if (actual?.version === TERMINOS_VERSION) return actual;
-    const aceptacion = await this.repo.guardarAceptacion(proceso.id, usuarioId, TERMINOS_VERSION);
-    await this.audit.registrar('ACEPTAR_TERMINOS', usuarioId, { procesoId: proceso.id, version: TERMINOS_VERSION });
-    return aceptacion;
   }
 
   async electivos(usuarioId: string, procesoId?: string) {
@@ -122,7 +101,7 @@ export class VotosService {
 
   /**
    * Emite un voto (curso + franjas) en una sola operación atómica. Se revalida todo dentro de la
-   * transacción: proceso abierto, padrón, términos, límite de votos, franjas y aptitud.
+   * transacción: proceso abierto, padrón, límite de votos, franjas y aptitud.
    * Incluye las dependencias electivas simultáneas dentro del mismo límite de cursos.
    */
   async emitir(usuarioId: string, dto: EmitirVotoDto, procesoId?: string) {
@@ -138,11 +117,6 @@ export class VotosService {
         await tx.$queryRaw`SELECT 1 FROM "ProcesoVotacion" WHERE id = ${procesoActivo.id} FOR SHARE`;
         const proceso = await tx.procesoVotacion.findUniqueOrThrow({ where: { id: procesoActivo.id } });
         if (!estaAbierto(proceso)) throw new BadRequestException('El proceso de votación no está abierto');
-
-        const aceptacion = await this.repo.aceptacion(proceso.id, usuarioId, tx);
-        if (aceptacion?.version !== TERMINOS_VERSION) {
-          throw new ForbiddenException('Debes aceptar los términos de participación antes de votar');
-        }
 
         if (franjas.length < 1) throw new BadRequestException('Debes elegir al menos una franja');
         if (franjas.length > Math.min(2, proceso.maxFranjas)) {
@@ -214,8 +188,6 @@ export class VotosService {
       await tx.$queryRaw`SELECT 1 FROM "ProcesoVotacion" WHERE id = ${elegido.id} FOR SHARE`;
       const proceso = await tx.procesoVotacion.findUniqueOrThrow({ where: { id: elegido.id } });
       if (!estaAbierto(proceso)) throw new BadRequestException('La votación no está abierta');
-      if ((await this.repo.aceptacion(proceso.id, usuarioId, tx))?.version !== TERMINOS_VERSION)
-        throw new ForbiddenException('Debes aceptar los términos');
       const existentes = await tx.voto.findMany({
         where: { procesoId: proceso.id, usuarioId },
         select: { cursoCodigo: true },
@@ -282,8 +254,6 @@ export class VotosService {
         }
         return tx.voto.deleteMany({ where: { procesoId: proceso.id, usuarioId, cursoCodigo: { in: [...retirar] } } });
       }
-      const aceptacion = await this.repo.aceptacion(proceso.id, usuarioId, tx);
-      if (aceptacion?.version !== TERMINOS_VERSION) throw new ForbiddenException('Debes aceptar los términos');
       if (!dto.franjas.length || dto.franjas.length > Math.min(2, proceso.maxFranjas)) {
         throw new BadRequestException('Selecciona de 1 a 2 franjas');
       }

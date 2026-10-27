@@ -29,7 +29,6 @@ export class PadronService {
         creditosEnCurso: creditos.get(u.id)?.enCurso ?? 0,
         votos: u._count.votos,
         tieneHistorial: u._count.historial > 0,
-        terminosAceptados: u.aceptaciones.length > 0,
       })),
     };
   }

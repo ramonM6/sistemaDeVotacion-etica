@@ -7,7 +7,6 @@ import { EstadoProcesoBadge } from '@/components/Insignias';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useResultadosEnVivo } from '@/lib/socket';
-import { TerminosModal } from './TerminosModal';
 
 export function useVotacionAlumno() {
   const { procesoId } = useParams();
@@ -70,7 +69,6 @@ export default function LayoutAlumno() {
               </NavLink>
             ))}
           </nav>
-          <TerminosModal key={procesoId} estado={estado.data} />
         </section>
       )}
     </Layout>
