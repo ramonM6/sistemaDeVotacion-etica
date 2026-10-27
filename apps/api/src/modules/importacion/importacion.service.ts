@@ -33,8 +33,8 @@ export type TipoImportacion = (typeof TIPOS_IMPORTACION)[number];
 const VIGENCIA_TOKEN_MS = 30 * 60 * 1000;
 
 const PLANTILLAS: Record<TipoImportacion, string> = {
-  catalogo: 'plantilla_catalogo_cursos.xlsx',
-  malla: 'plantilla_catalogo_cursos.xlsx',
+  catalogo: 'plantilla_malla_curricular.xlsx',
+  malla: 'plantilla_malla_curricular.xlsx',
   cuentas: 'plantilla_cuentas_alumnos.xlsx',
   historial: 'plantilla_historial_academico.xlsx',
 };

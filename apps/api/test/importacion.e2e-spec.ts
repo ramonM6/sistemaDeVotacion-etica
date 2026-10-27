@@ -39,7 +39,7 @@ describe('Importación y exportación (e2e)', () => {
 
   describe('catálogo', () => {
     it('la plantilla oficial pasa sin errores: 148 cursos y 54 electivos', async () => {
-      const res = await subir('catalogo', readFileSync(resolve(PLANTILLAS, 'plantilla_catalogo_cursos.xlsx')));
+      const res = await subir('catalogo', readFileSync(resolve(PLANTILLAS, 'plantilla_malla_curricular.xlsx')));
       expect(res.status).toBe(200);
       expect(res.body.resumen).toEqual({ total: 148, validas: 148, conErrores: 0, conAdvertencias: 0 });
       expect(res.body.token).toEqual(expect.any(String));

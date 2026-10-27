@@ -1,4 +1,4 @@
-// Modelo de datos — sección 9 de docs/ESPECIFICACION.md
+// Modelo de datos — docs/SISTEMA.md
 generator client {
   provider = "prisma-client-js"
 }

@@ -17,6 +17,8 @@ if (!existsSync(env)) {
 loadEnv({ path: env });
 
 const ejecutar = (cmd) => execSync(cmd, { cwd: raiz, stdio: 'inherit' });
+// Regenera el cliente también al actualizar el esquema sin reinstalar dependencias.
+ejecutar('npx prisma generate');
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // La base puede tardar unos segundos en aceptar conexiones después de `docker compose up -d`.
