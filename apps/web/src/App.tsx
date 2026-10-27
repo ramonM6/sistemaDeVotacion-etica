@@ -16,7 +16,6 @@ import DetalleAlumno from '@/pages/coordinador/DetalleAlumno';
 import DetalleCurso from '@/pages/coordinador/DetalleCurso';
 import LayoutCoord from '@/pages/coordinador/LayoutCoord';
 import Padron from '@/pages/coordinador/Padron';
-import Panel from '@/pages/coordinador/Panel';
 import Procesos from '@/pages/coordinador/Procesos';
 import CoordResultados from '@/pages/coordinador/Resultados';
 
@@ -47,7 +46,7 @@ export default function App() {
           <Route index element={<Procesos />} />
           <Route path="catalogo" element={<Cursos />} />
           <Route path="votaciones/:procesoId">
-            <Route index element={<Panel />} />
+            <Route index element={<Navigate to="cursos/seleccion" replace />} />
             <Route path="cursos" element={<Navigate to="seleccion" replace />} />
             <Route path="cursos/:etapa" element={<GestionCursos />} />
             <Route path="resultados" element={<CoordResultados />} />

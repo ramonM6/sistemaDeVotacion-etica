@@ -8,6 +8,7 @@ import { EstadoProcesoBadge } from '@/components/Insignias';
 import { api } from '@/lib/api';
 import type { Proceso } from '@/lib/tipos';
 import { cn } from '@/lib/utils';
+import AdministrarVotacion from './AdministrarVotacion';
 
 const ProcesoContext = createContext<{
   procesoId?: string;
@@ -52,9 +53,9 @@ export default function LayoutCoord() {
                 <EstadoProcesoBadge estado={proceso.estado} />
               </div>
             )}
+            {proceso && <AdministrarVotacion key={proceso.id} proceso={proceso} />}
             <nav aria-label="Navegación de la votación" className="flex flex-wrap gap-x-5 gap-y-1 border-b">
               {[
-                { a: rutaProceso, texto: 'Resumen', fin: true },
                 { a: `${rutaProceso}/cursos`, texto: 'Cursos' },
                 { a: `${rutaProceso}/resultados`, texto: 'Resultados' },
                 { a: `${rutaProceso}/carga`, texto: 'Datos y archivos' },
@@ -63,7 +64,6 @@ export default function LayoutCoord() {
                 <NavLink
                   key={e.a}
                   to={e.a}
-                  end={e.fin}
                   className={({ isActive }) =>
                     cn(
                       'border-b-2 border-transparent px-1 py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground',

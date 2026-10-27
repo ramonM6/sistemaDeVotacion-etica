@@ -272,7 +272,7 @@ export default function CargaDatos() {
                     ? 'Se fijará al abrir'
                     : 'Oferta de la votación'}
               </p>
-              <Link to={rutaProceso} className="mt-2 inline-block text-sm text-primary underline">
+              <Link to={`${rutaProceso}/cursos/seleccion`} className="mt-2 inline-block text-sm text-primary underline">
                 Consultar cursos
               </Link>
               <p className="mt-2 text-xs text-muted-foreground">
@@ -329,7 +329,10 @@ export default function CargaDatos() {
           </div>
         ))}
         {archivos.data?.length === 0 && (
-          <p className="text-sm text-muted-foreground">No hay archivos originales registrados para descargar.</p>
+          <p className="text-sm text-muted-foreground">
+            No hay archivos originales guardados para descargar. Los datos cargados directamente en la base de datos no
+            incluyen un archivo adjunto.
+          </p>
         )}
       </Card>
     </div>
