@@ -145,6 +145,7 @@ export const api = {
   },
   confirmarImportacion: (tipo: TipoImportacion, token: string) =>
     post<Record<string, unknown>>(`/coord/import/${tipo}/confirmar`, { token }),
+  urlEjemplo: (tipo: TipoImportacion) => `/api/coord/import/${tipo}/ejemplo`,
   urlPlantilla: (tipo: TipoImportacion) => `/api/coord/import/${tipo}/plantilla`,
 
   cursos: (tipo?: TipoCurso) => get<CursoCoord[]>(`/coord/cursos${qs({ tipo })}`),

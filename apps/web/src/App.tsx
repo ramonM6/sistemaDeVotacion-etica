@@ -18,6 +18,7 @@ import LayoutCoord from '@/pages/coordinador/LayoutCoord';
 import Padron from '@/pages/coordinador/Padron';
 import Procesos from '@/pages/coordinador/Procesos';
 import NuevaVotacion from '@/pages/coordinador/NuevaVotacion';
+import Plantillas from '@/pages/coordinador/Plantillas';
 import CoordResultados from '@/pages/coordinador/Resultados';
 
 function Inicio() {
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="/coord" element={<LayoutCoord />}>
           <Route index element={<Procesos />} />
           <Route path="nueva-votacion" element={<NuevaVotacion />} />
+          <Route path="plantillas" element={<Plantillas />} />
           <Route path="votaciones/:procesoId">
             <Route index element={<Navigate to="cursos/seleccion" replace />} />
             <Route path="cursos" element={<Navigate to="seleccion" replace />} />

@@ -87,6 +87,19 @@ export class ImportacionService {
     return { ruta, nombre: tipo === 'malla' ? 'plantilla_malla_curricular.xlsx' : PLANTILLAS[tipo] };
   }
 
+  rutaEjemplo(tipo: TipoImportacion) {
+    const nombres: Partial<Record<TipoImportacion, string>> = {
+      malla: '01_malla.csv',
+      cuentas: '02_alumnos.csv',
+      historial: '03_historial.csv',
+    };
+    const nombre = nombres[tipo];
+    if (!nombre) throw new BadRequestException('No hay ejemplo para ese tipo');
+    const ruta = resolve(process.env.EJEMPLOS_DIR ?? resolve(directorioPlantillas(), '../datos-prueba'), nombre);
+    if (!existsSync(ruta)) throw new NotFoundException('Ejemplo no disponible');
+    return { ruta, nombre };
+  }
+
   async preview(
     tipo: TipoImportacion,
     archivo: Buffer,

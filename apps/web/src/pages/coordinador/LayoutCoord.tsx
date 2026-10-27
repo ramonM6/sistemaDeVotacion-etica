@@ -18,7 +18,10 @@ const ProcesoContext = createContext<{
   cargandoProceso: boolean;
 }>({ rutaProceso: '/coord', enPreparacion: false, cargandoProceso: false });
 export const useProcesoSeleccionado = () => useContext(ProcesoContext);
-const ENLACES = [{ a: '/coord', texto: 'Votaciones', fin: true }];
+const ENLACES = [
+  { a: '/coord', texto: 'Votaciones', fin: true },
+  { a: '/coord/plantillas', texto: 'Plantillas' },
+];
 
 export default function LayoutCoord() {
   const coincidencia = useMatch('/coord/votaciones/:procesoId/*');

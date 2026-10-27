@@ -106,6 +106,13 @@ export class ImportacionController {
     return this.importacion.confirmar(validarTipo(tipo), dto.token, u.id);
   }
 
+  @Get(':tipo/ejemplo')
+  ejemplo(@Param('tipo') tipo: string, @Res({ passthrough: true }) res: Response) {
+    const { ruta, nombre } = this.importacion.rutaEjemplo(validarTipo(tipo));
+    res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${nombre}"` });
+    return new StreamableFile(createReadStream(ruta));
+  }
+
   @Get(':tipo/plantilla')
   plantilla(@Param('tipo') tipo: string, @Res({ passthrough: true }) res: Response) {
     const { ruta, nombre } = this.importacion.rutaPlantilla(validarTipo(tipo));

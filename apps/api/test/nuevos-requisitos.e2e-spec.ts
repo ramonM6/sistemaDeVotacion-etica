@@ -797,4 +797,21 @@ describe('Requisitos integrados de VotaInf', () => {
     expect(await db.archivoCarga.count({ where: { procesoId: id } })).toBe(0);
     await coord.delete(`/api/coord/import/catalogo?procesoId=${id}`).expect(400);
   });
+  it('ofrece ejemplos CSV descargables por tipo solo al coordinador', async () => {
+    for (const [tipo, nombre, columna] of [
+      ['malla', '01_malla.csv', 'codigo,nombre,creditos,tipo'],
+      ['cuentas', '02_alumnos.csv', 'codigo,nombres,apellidos,password'],
+      ['historial', '03_historial.csv', 'codigo_alumno,codigo_curso,nota'],
+    ]) {
+      const respuesta = await coord
+        .get(`/api/coord/import/${tipo}/ejemplo`)
+        .expect(200)
+        .expect('Content-Type', /text\/csv/);
+      expect(respuesta.headers['content-disposition']).toContain(nombre);
+      expect(respuesta.text).toContain(columna);
+    }
+    const alumno = await sesion(app, '20000001');
+    await alumno.get('/api/coord/import/malla/ejemplo').expect(403);
+    await coord.get('/api/coord/import/desconocido/ejemplo').expect(400);
+  });
 });

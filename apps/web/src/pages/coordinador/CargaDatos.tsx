@@ -305,14 +305,14 @@ function DatosVotacion() {
           const estado = estados[t.tipo];
           return (
             <Card key={t.tipo}>
-              <CardHeader>
+              <CardHeader className="px-4 pb-1 pt-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="space-y-1.5">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <FileSpreadsheet className="h-5 w-5 text-emerald-700" aria-hidden />
+                  <div className="space-y-1">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <FileSpreadsheet className="h-4 w-4 text-emerald-700" aria-hidden />
                       {t.titulo}
                     </CardTitle>
-                    <CardDescription>{t.descripcion}</CardDescription>
+                    {!presente && <CardDescription className="text-xs">{t.descripcion}</CardDescription>}
                   </div>
                   {enPreparacion && !presente && (
                     <Button asChild variant="outline" size="sm">
@@ -323,9 +323,9 @@ function DatosVotacion() {
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 p-3">
-                  <div className="min-w-0 text-sm">
+              <CardContent className="space-y-2 px-4 pb-3 pt-0">
+                <div className="flex items-center justify-between gap-3 py-1">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                     {archivo ? (
                       <>
                         <a
@@ -335,7 +335,7 @@ function DatosVotacion() {
                         >
                           {archivo.nombre}
                         </a>
-                        <p className="mt-1 text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           {archivo.filas} filas ·{' '}
                           {new Date(archivo.createdAt).toLocaleString('es-PE', { timeZone: 'America/Lima' })}
                         </p>
