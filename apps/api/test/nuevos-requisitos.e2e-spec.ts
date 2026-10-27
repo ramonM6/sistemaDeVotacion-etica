@@ -510,30 +510,63 @@ describe('Requisitos integrados de VotaInf', () => {
     await alumno.get(`/api/resultados/publicos?procesoId=${otro.id}`).expect(403);
     await alumno.get(`/api/alumno/estado?procesoId=${borrador.id}`).expect(403);
   });
-  it('guarda intereses personales sin emitir votos, también después del cierre', async () => {
-    const alumno = await sesion(app, '20000001');
-    const otro = await sesion(app, '20000002');
-    const ruta = `/api/alumno/intereses?procesoId=${esc.procesoId}`;
-    const marcar = `/api/alumno/intereses/INF310?procesoId=${esc.procesoId}`;
-    expect((await alumno.get(ruta).expect(200)).body).toEqual([]);
-    await alumno.patch(marcar).send({ interesado: true }).expect(200);
-    await alumno.patch(marcar).send({ interesado: true }).expect(200);
-    expect((await alumno.get(ruta).expect(200)).body).toEqual(['INF310']);
-    expect((await otro.get(ruta).expect(200)).body).toEqual([]);
-    expect(await db.voto.count()).toBe(0);
-    await cerrar().expect(200);
-    await alumno.patch(marcar).send({ interesado: false }).expect(200);
-    expect((await alumno.get(ruta).expect(200)).body).toEqual([]);
-    await alumno.patch(marcar).send({ interesado: true }).expect(200);
-    await alumno.patch(marcar).send({ interesado: 'sí' }).expect(400);
-    await alumno
-      .patch(`/api/alumno/intereses/ZZZ999?procesoId=${esc.procesoId}`)
-      .send({ interesado: true })
-      .expect(404);
-    await db.padronAlumno.delete({
-      where: { procesoId_usuarioId: { procesoId: esc.procesoId, usuarioId: esc.alumnos['20000001'] } },
+
+  it('registra varios votos con franjas propias sin duplicar dependencias seleccionadas', async () => {
+    await db.requisito.create({
+      data: { cursoCodigo: 'INF310', texto: '[INF356]', tipo: 'APROBADO_O_SIMULTANEO', cursoRequerido: 'INF356' },
     });
-    await alumno.get(ruta).expect(403);
-    await alumno.patch(marcar).send({ interesado: true }).expect(403);
+    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000003']);
+    const alumno = await sesion(app, '20000003');
+    const ruta = `/api/alumno/votos/lote?procesoId=${esc.procesoId}`;
+    const respuesta = await alumno
+      .post(ruta)
+      .send({ votos: [voto('INF310', ['NOCHE']), voto('INF356', ['TARDE'])] })
+      .expect(201);
+    expect(respuesta.body).toHaveLength(2);
+    expect(respuesta.body.find((v: { cursoCodigo: string }) => v.cursoCodigo === 'INF356').franjas).toEqual(['TARDE']);
+    await alumno
+      .post(ruta)
+      .send({ votos: [voto('INF310', ['NOCHE'])] })
+      .expect(409);
+    expect(await db.voto.count()).toBe(2);
+    await cerrar().expect(200);
+    await alumno
+      .post(ruta)
+      .send({ votos: [voto('INF310', ['NOCHE'])] })
+      .expect(400);
+  });
+
+  it('rechaza un lote completo si excede el límite o un curso es inválido', async () => {
+    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000003']);
+    const alumno = await sesion(app, '20000003');
+    const ruta = `/api/alumno/votos/lote?procesoId=${esc.procesoId}`;
+    await db.procesoVotacion.update({ where: { id: esc.procesoId }, data: { maxCursos: 1 } });
+    await alumno
+      .post(ruta)
+      .send({ votos: [voto('INF310', ['NOCHE']), voto('INF356', ['TARDE'])] })
+      .expect(400);
+    expect(await db.voto.count()).toBe(0);
+    await db.procesoVotacion.update({ where: { id: esc.procesoId }, data: { maxCursos: 5 } });
+    await alumno
+      .post(ruta)
+      .send({ votos: [voto('INF310', ['NOCHE']), voto('ZZZ999', ['TARDE'])] })
+      .expect(404);
+    expect(await db.voto.count()).toBe(0);
+    await alumno
+      .post(ruta)
+      .send({ votos: [voto('INF310', ['NOCHE']), voto('INF310', ['TARDE'])] })
+      .expect(400);
+    await alumno
+      .post(ruta)
+      .send({ votos: [voto('INF310', [])] })
+      .expect(400);
+    await alumno.post(ruta).send({ votos: [] }).expect(400);
+    await db.padronAlumno.delete({
+      where: { procesoId_usuarioId: { procesoId: esc.procesoId, usuarioId: esc.alumnos['20000003'] } },
+    });
+    await alumno
+      .post(ruta)
+      .send({ votos: [voto('INF310', ['NOCHE'])] })
+      .expect(403);
   });
 });

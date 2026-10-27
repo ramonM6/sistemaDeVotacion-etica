@@ -1,91 +1,187 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Info, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { MoreVertical, Search } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Cargando, ErrorCarga, Titulo, Vacio } from '@/components/Estados';
 import { AptitudBadge, FranjasTexto } from '@/components/Insignias';
-import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { api } from '@/lib/api';
-import { formatearCreditos, textoCreditos } from '@/lib/formato';
-import type { ElectivoAlumno } from '@/lib/tipos';
+import { FRANJAS, formatearCreditos, textoCreditos } from '@/lib/formato';
+import type { ElectivoAlumno, Franja } from '@/lib/tipos';
 import { cn } from '@/lib/utils';
 import { useEstadoAlumno, useVotacionAlumno } from './LayoutAlumno';
 
-type Filtro = 'todos' | 'aptos' | 'votados' | 'interesados';
-
+type Filtro = 'todos' | 'aptos' | 'votados' | 'no votados';
 export function EtiquetaPropia({ estado }: { estado: ElectivoAlumno['estadoPropio'] }) {
   if (estado === 'APROBADO') return <Badge variant="info">Ya aprobaste este curso</Badge>;
   if (estado === 'EN_CURSO') return <Badge variant="info">Lo estás llevando</Badge>;
   return null;
 }
 
-/** Lista de lo que falta para un electivo NO_APTO (tooltip). */
-const faltantes = (e: ElectivoAlumno) => e.elegibilidad.requisitos.filter((r) => !r.cumple).map((r) => r.detalle);
+function AccionesCurso({ curso, detalle, motivo }: { curso: ElectivoAlumno; detalle: string; motivo?: string }) {
+  const [posicion, setPosicion] = useState<{ top: number; right: number } | null>(null);
+  const contenedor = useRef<HTMLDivElement>(null);
+  const boton = useRef<HTMLButtonElement>(null);
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!posicion) return;
+    contenedor.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    const cerrar = (e: PointerEvent) => {
+      if (!contenedor.current?.contains(e.target as Node)) setPosicion(null);
+    };
+    const desplazar = () => setPosicion(null);
+    document.addEventListener('pointerdown', cerrar);
+    window.addEventListener('scroll', desplazar, true);
+    window.addEventListener('resize', desplazar);
+    return () => {
+      document.removeEventListener('pointerdown', cerrar);
+      window.removeEventListener('scroll', desplazar, true);
+      window.removeEventListener('resize', desplazar);
+    };
+  }, [posicion]);
+  return (
+    <div
+      ref={contenedor}
+      className="flex justify-end"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          setPosicion(null);
+          boton.current?.focus();
+        }
+        if (e.key === 'Tab') setPosicion(null);
+        if (posicion && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+          e.preventDefault();
+          const items = Array.from(contenedor.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+          const i = items.indexOf(document.activeElement as HTMLElement);
+          items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length]?.focus();
+        }
+      }}
+    >
+      <Button
+        ref={boton}
+        variant="ghost"
+        size="icon"
+        aria-label={`Opciones de ${curso.codigo}`}
+        aria-haspopup="menu"
+        aria-expanded={!!posicion}
+        onClick={() => {
+          if (posicion) {
+            setPosicion(null);
+            return;
+          }
+          const rect = boton.current!.getBoundingClientRect();
+          setPosicion({
+            top: Math.min(rect.bottom + 4, window.innerHeight - 180),
+            right: Math.max(8, window.innerWidth - rect.right),
+          });
+        }}
+      >
+        <MoreVertical aria-hidden className="h-5 w-5" />
+      </Button>
+      {posicion && (
+        <div
+          role="menu"
+          aria-label={`Acciones de ${curso.codigo}`}
+          style={posicion}
+          className="fixed z-50 w-56 rounded-md border bg-card p-1 shadow-lg"
+        >
+          <Link
+            role="menuitem"
+            to={detalle}
+            onClick={() => setPosicion(null)}
+            className="block rounded px-3 py-2 text-sm hover:bg-accent focus:bg-accent focus:outline-none"
+          >
+            Ver detalle
+          </Link>
+          <button
+            role="menuitem"
+            aria-disabled={!!motivo}
+            className="w-full rounded px-3 py-2 text-left text-sm hover:bg-accent focus:bg-accent focus:outline-none aria-disabled:text-muted-foreground"
+            onClick={() => {
+              if (!motivo) {
+                setPosicion(null);
+                navigate(detalle);
+              }
+            }}
+          >
+            Votar individualmente
+          </button>
+          {motivo && <p className="px-3 pb-2 text-xs text-muted-foreground">{motivo}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Catalogo() {
   const { procesoId, rutaProceso } = useVotacionAlumno();
   const estado = useEstadoAlumno();
   const cliente = useQueryClient();
-  const intereses = useQuery({
-    queryKey: ['alumno', procesoId, 'intereses'],
-    queryFn: () => api.interesesAlumno(procesoId!),
-  });
-  const [marcados, setMarcados] = useState<string[]>([]);
-  const marcar = useMutation({
-    mutationFn: async ({ codigos, interesado }: { codigos: string[]; interesado: boolean }) => {
-      for (const codigo of codigos) await api.marcarInteres(procesoId!, codigo, interesado);
-    },
-    onSuccess: () => {
-      setMarcados([]);
-      toast.success('Cursos de interés actualizados');
-    },
-    onError: () => toast.error('No se pudieron guardar todos los cambios. Revisa los intereses y vuelve a intentarlo.'),
-    onSettled: () => cliente.invalidateQueries({ queryKey: ['alumno', procesoId, 'intereses'] }),
-  });
   const consulta = useQuery({ queryKey: ['alumno', procesoId, 'electivos'], queryFn: () => api.electivos(procesoId) });
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState<Filtro>('todos');
-
+  const [marcados, setMarcados] = useState<string[]>([]);
+  const [confirmando, setConfirmando] = useState(false);
+  const [franjas, setFranjas] = useState<Record<string, Franja[]>>({});
   const electivos = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return (consulta.data?.electivos ?? [])
-      .filter((e) => !q || e.codigo.toLowerCase().includes(q) || e.nombre.toLowerCase().includes(q))
-      .filter((e) =>
+      .filter((c) => !q || c.codigo.toLowerCase().includes(q) || c.nombre.toLowerCase().includes(q))
+      .filter((c) =>
         filtro === 'aptos'
-          ? e.elegibilidad.aptitud !== 'NO_APTO'
+          ? c.elegibilidad.aptitud !== 'NO_APTO'
           : filtro === 'votados'
-            ? !!e.voto
-            : filtro === 'interesados'
-              ? !!intereses.data?.includes(e.codigo)
+            ? !!c.voto
+            : filtro === 'no votados'
+              ? !c.voto
               : true,
       )
-      .sort((a, b) => {
-        const orden = { CONFIRMADO: 0, CONDICIONAL: 1, NO_APTO: 2 };
-        return orden[a.elegibilidad.aptitud] - orden[b.elegibilidad.aptitud] || a.codigo.localeCompare(b.codigo);
-      });
-  }, [consulta.data, busqueda, filtro, intereses.data]);
-
+      .sort((a, b) => a.codigo.localeCompare(b.codigo));
+  }, [consulta.data, busqueda, filtro]);
+  const seleccionados = electivos.filter(
+    (c) => marcados.includes(c.codigo) && !c.voto && c.elegibilidad.aptitud !== 'NO_APTO',
+  );
+  const votar = useMutation({
+    mutationFn: () =>
+      api.votarLote(
+        procesoId!,
+        seleccionados.map((c) => ({ cursoCodigo: c.codigo, franjas: franjas[c.codigo] ?? [] })),
+      ),
+    onSuccess: () => {
+      setConfirmando(false);
+      setMarcados([]);
+      setFranjas({});
+      toast.success('Votos registrados');
+    },
+    onError: (error: Error) => toast.error(error.message),
+    onSettled: () => cliente.invalidateQueries({ queryKey: ['alumno'] }),
+  });
   if (consulta.isLoading || estado.isLoading) return <Cargando />;
   if (consulta.error) return <ErrorCarga error={consulta.error} />;
-
-  const seleccionados = marcados.filter((codigo) => electivos.some((c) => c.codigo === codigo));
-  const todosMarcados = electivos.length > 0 && seleccionados.length === electivos.length;
-  const bloqueado = intereses.isLoading || !!intereses.error || marcar.isPending;
-  const e = estado.data;
-  const sinVotos = !!e && e.votosUsados >= e.maxCursos;
+  const e = estado.data!;
+  const disponibles = electivos.filter((c) => !c.voto && c.elegibilidad.aptitud !== 'NO_APTO');
+  const todosMarcados = disponibles.length > 0 && seleccionados.length === disponibles.length;
+  const restantes = e.maxCursos - e.votosUsados;
   const todos = consulta.data!.electivos;
   const conteo = {
-    interesados: todos.filter((x) => intereses.data?.includes(x.codigo)).length,
     todos: todos.length,
-    aptos: todos.filter((x) => x.elegibilidad.aptitud !== 'NO_APTO').length,
-    votados: todos.filter((x) => x.voto).length,
+    aptos: todos.filter((c) => c.elegibilidad.aptitud !== 'NO_APTO').length,
+    votados: todos.filter((c) => c.voto).length,
+    'no votados': todos.filter((c) => !c.voto).length,
   };
-
+  const puedeSeleccionar = e.abierto && e.terminos.aceptados && restantes > 0 && !votar.isPending;
   return (
     <div>
       <Titulo
@@ -93,35 +189,30 @@ export default function Catalogo() {
         descripcion={
           <>
             Tus créditos: {formatearCreditos(consulta.data!.creditos.aprobados)} aprobados ·{' '}
-            {formatearCreditos(consulta.data!.creditos.enCurso)} en curso
-            {e && ` · Votos usados: ${e.votosUsados} de ${e.maxCursos}`}
+            {formatearCreditos(consulta.data!.creditos.enCurso)} en curso · Votos usados: {e.votosUsados} de{' '}
+            {e.maxCursos}
           </>
         }
       />
-
-      <p className="mb-4 text-sm text-muted-foreground">
-        Selecciona cursos por fila y guarda los marcados como cursos de interés. Esto no registra votos.
-      </p>
-      {intereses.error && <p className="mb-4 text-sm text-destructive">No se pudieron cargar tus cursos de interés.</p>}
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Search aria-hidden className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-9"
             placeholder="Buscar por código o nombre"
+            aria-label="Buscar electivo"
             value={busqueda}
             onChange={(ev) => setBusqueda(ev.target.value)}
-            aria-label="Buscar electivo"
           />
         </div>
         <div className="inline-flex flex-wrap rounded-md border bg-background p-1" role="group" aria-label="Filtro">
-          {(['todos', 'aptos', 'votados', 'interesados'] as Filtro[]).map((f) => (
+          {(['todos', 'aptos', 'votados', 'no votados'] as Filtro[]).map((f) => (
             <button
               key={f}
               onClick={() => setFiltro(f)}
               aria-pressed={filtro === f}
               className={cn(
-                'rounded px-3 py-1.5 text-sm font-medium capitalize text-muted-foreground transition-colors',
+                'rounded px-3 py-1.5 text-sm font-medium capitalize text-muted-foreground',
                 filtro === f && 'bg-primary text-primary-foreground',
               )}
             >
@@ -130,34 +221,31 @@ export default function Catalogo() {
           ))}
         </div>
       </div>
-
-      {sinVotos && (
-        <p className="mb-4 rounded-md border border-sky-200 bg-sky-50 px-4 py-2 text-sm text-sky-900">
-          Ya usaste tus {e!.maxCursos} votos. Los botones de votar están deshabilitados.
+      {!e.abierto && (
+        <p className="mb-4 text-sm text-muted-foreground">
+          La votación está cerrada. Puedes consultar los detalles de los cursos.
         </p>
       )}
-
-      {electivos.length === 0 ? (
+      {!electivos.length ? (
         <Vacio>No hay electivos que coincidan con tu búsqueda.</Vacio>
       ) : (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-4">
             <p className="mr-auto text-sm font-medium" aria-live="polite">
-              {seleccionados.length} de {electivos.length} cursos marcados
+              {seleccionados.length} cursos marcados · {Math.max(0, restantes)} votos disponibles
             </p>
             <Button
-              disabled={bloqueado || !seleccionados.length}
-              onClick={() => marcar.mutate({ codigos: seleccionados, interesado: true })}
+              disabled={!puedeSeleccionar || !seleccionados.length || seleccionados.length > restantes}
+              onClick={() => {
+                setFranjas({});
+                setConfirmando(true);
+              }}
             >
-              {marcar.isPending ? 'Guardando…' : 'Guardar como interesados'}
+              Votar por los seleccionados
             </Button>
-            <Button
-              variant="outline"
-              disabled={bloqueado || !seleccionados.length}
-              onClick={() => marcar.mutate({ codigos: seleccionados, interesado: false })}
-            >
-              Quitar de interesados
-            </Button>
+            {seleccionados.length > restantes && (
+              <p className="w-full text-sm text-destructive">Selecciona como máximo {restantes} cursos.</p>
+            )}
           </div>
           <div className="overflow-x-auto rounded-lg border bg-card">
             <table className="w-full text-left">
@@ -165,93 +253,67 @@ export default function Catalogo() {
                 <tr>
                   <th className="w-12 px-4 py-3">
                     <Checkbox
-                      aria-label="Marcar todos los cursos visibles"
+                      aria-label="Marcar todos los cursos disponibles"
                       checked={todosMarcados ? true : seleccionados.length ? 'indeterminate' : false}
-                      disabled={bloqueado}
-                      onCheckedChange={(v) => setMarcados(v === true ? electivos.map((c) => c.codigo) : [])}
+                      disabled={!puedeSeleccionar || !disponibles.length}
+                      onCheckedChange={(v) => setMarcados(v === true ? disponibles.map((c) => c.codigo) : [])}
                     />
                   </th>
                   <th className="px-4 py-3">Electivo</th>
                   <th className="px-4 py-3">Créditos</th>
+                  <th className="px-4 py-3">Aptitud</th>
                   <th className="px-4 py-3">Estado</th>
-                  <th className="px-4 py-3">Acciones</th>
+                  <th className="px-4 py-3 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {electivos.map((el) => {
-                  const noApto = el.elegibilidad.aptitud === 'NO_APTO';
-                  const puedeVotar = !!e?.puedeVotar && !noApto && !el.voto && !sinVotos;
+                {electivos.map((c) => {
+                  const motivo = c.voto
+                    ? 'Ya registraste un voto por este curso.'
+                    : !e.abierto
+                      ? 'La votación está cerrada.'
+                      : !e.terminos.aceptados
+                        ? 'Acepta los términos para votar.'
+                        : restantes <= 0
+                          ? 'Ya usaste tus votos disponibles.'
+                          : c.elegibilidad.aptitud === 'NO_APTO'
+                            ? 'No cumples los requisitos de este curso.'
+                            : undefined;
                   return (
                     <tr
-                      key={el.codigo}
-                      className={cn('border-t', seleccionados.includes(el.codigo) && 'bg-blue-50/60')}
+                      key={c.codigo}
+                      className={cn('border-t', seleccionados.some((s) => s.codigo === c.codigo) && 'bg-blue-50/60')}
                     >
                       <td className="px-4 py-4">
                         <Checkbox
-                          aria-label={`Marcar ${el.codigo}`}
-                          checked={seleccionados.includes(el.codigo)}
-                          disabled={bloqueado}
+                          aria-label={`Marcar ${c.codigo}`}
+                          checked={seleccionados.some((s) => s.codigo === c.codigo)}
+                          disabled={!!motivo || votar.isPending}
                           onCheckedChange={(v) =>
                             setMarcados((actual) =>
-                              v === true ? [...new Set([...actual, el.codigo])] : actual.filter((c) => c !== el.codigo),
+                              v === true ? [...new Set([...actual, c.codigo])] : actual.filter((x) => x !== c.codigo),
                             )
                           }
                         />
                       </td>
                       <td className="min-w-[220px] px-4 py-4">
-                        <span className="font-mono text-xs font-semibold">{el.codigo}</span>
-                        <p className="mt-1 text-sm font-medium">{el.nombre}</p>
-                        {el.voto && (
+                        <span className="font-mono text-xs font-semibold">{c.codigo}</span>
+                        <p className="mt-1 text-sm font-medium">{c.nombre}</p>
+                        {c.voto && (
                           <div className="mt-2 text-xs">
-                            Tus franjas: <FranjasTexto franjas={el.voto.franjas} />
+                            Tus franjas: <FranjasTexto franjas={c.voto.franjas} />
                           </div>
                         )}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-sm">{textoCreditos(el.creditos)}</td>
+                      <td className="whitespace-nowrap px-4 py-4 text-sm">{textoCreditos(c.creditos)}</td>
                       <td className="px-4 py-4">
-                        <div className="flex flex-wrap gap-1.5">
-                          <AptitudBadge elegibilidad={el.elegibilidad} />
-                          {el.voto && <Badge>Votado</Badge>}
-                          <EtiquetaPropia estado={el.estadoPropio} />
-                          {intereses.data?.includes(el.codigo) && <Badge variant="info">Me interesa</Badge>}
-                        </div>
+                        <AptitudBadge elegibilidad={c.elegibilidad} />
                       </td>
                       <td className="px-4 py-4">
-                        <div className="flex flex-wrap gap-2">
-                          <Button asChild variant="outline" size="sm">
-                            <Link to={`${rutaProceso}/catalogo/${el.codigo}`}>Ver detalle</Link>
-                          </Button>
-                          {noApto ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span tabIndex={0} className="inline-flex items-center gap-1">
-                                  <Button size="sm" disabled>
-                                    Votar
-                                  </Button>
-                                  <Info className="h-4 w-4" aria-label="Por qué no puedes votar" />
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="mb-1 font-semibold">Te falta:</p>
-                                <ul className="list-disc space-y-0.5 pl-4">
-                                  {faltantes(el).map((f) => (
-                                    <li key={f}>{f}</li>
-                                  ))}
-                                </ul>
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : !el.voto ? (
-                            puedeVotar ? (
-                              <Button asChild size="sm">
-                                <Link to={`${rutaProceso}/catalogo/${el.codigo}`}>Votar</Link>
-                              </Button>
-                            ) : (
-                              <Button size="sm" disabled>
-                                Votar
-                              </Button>
-                            )
-                          ) : null}
-                        </div>
+                        {c.voto ? <Badge>Votado</Badge> : <Badge variant="outline">No votado</Badge>}
+                      </td>
+                      <td className="px-4 py-4">
+                        <AccionesCurso curso={c} detalle={`${rutaProceso}/catalogo/${c.codigo}`} motivo={motivo} />
                       </td>
                     </tr>
                   );
@@ -261,6 +323,69 @@ export default function Catalogo() {
           </div>
         </div>
       )}
+      <Dialog
+        open={confirmando}
+        onOpenChange={(v) => {
+          if (!votar.isPending) setConfirmando(v);
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Votar por los cursos seleccionados</DialogTitle>
+            <DialogDescription>
+              Elige de 1 a {e.maxFranjas} franjas por curso. Los electivos requeridos en simultáneo también cuentan
+              dentro del máximo de {e.maxCursos}.
+            </DialogDescription>
+          </DialogHeader>
+          {seleccionados.map((c) => (
+            <div key={c.codigo} className="space-y-3 rounded-lg border p-4">
+              <p className="text-sm font-semibold">
+                {c.codigo} · {c.nombre}
+              </p>
+              {c.elegibilidad.aptitud === 'CONDICIONAL' && (
+                <p className="text-xs text-amber-800">Tu voto depende de aprobar los requisitos que estás cursando.</p>
+              )}
+              <div className="flex flex-wrap gap-3">
+                {FRANJAS.map((f) => {
+                  const actuales = franjas[c.codigo] ?? [];
+                  const activa = actuales.includes(f.valor);
+                  return (
+                    <label key={f.valor} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={activa}
+                        disabled={votar.isPending || (!activa && actuales.length >= e.maxFranjas)}
+                        onCheckedChange={(v) =>
+                          setFranjas((prev) => ({
+                            ...prev,
+                            [c.codigo]: v === true ? [...actuales, f.valor] : actuales.filter((x) => x !== f.valor),
+                          }))
+                        }
+                      />
+                      {f.etiqueta} ({f.horario})
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <DialogFooter>
+            <Button variant="outline" disabled={votar.isPending} onClick={() => setConfirmando(false)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={
+                !puedeSeleccionar ||
+                !seleccionados.length ||
+                seleccionados.length > restantes ||
+                seleccionados.some((c) => !franjas[c.codigo]?.length)
+              }
+              onClick={() => votar.mutate()}
+            >
+              {votar.isPending ? 'Registrando…' : 'Confirmar votos'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,12 +1,7 @@
-import { IsBoolean } from 'class-validator';
 import { Body, Controller, Delete, Patch, Get, Param, Post, Query, ParseUUIDPipe } from '@nestjs/common';
 import { Roles, UsuarioActual, UsuarioSesion } from '../../common/auth.decorators';
-import { EmitirVotoDto } from './votos.dto';
+import { EmitirVotoDto, EmitirLoteDto } from './votos.dto';
 import { VotosService } from './votos.service';
-
-class InteresDto {
-  @IsBoolean() interesado: boolean;
-}
 
 /** Endpoints del alumno. Todos operan solo sobre los datos del alumno de la sesión. */
 @Roles('ALUMNO')
@@ -17,21 +12,6 @@ export class AlumnoController {
   @Get('procesos')
   procesos(@UsuarioActual() u: UsuarioSesion) {
     return this.votos.listarProcesos(u.id);
-  }
-
-  @Get('intereses')
-  intereses(@UsuarioActual() u: UsuarioSesion, @Query('procesoId', ParseUUIDPipe) id: string) {
-    return this.votos.intereses(u.id, id);
-  }
-
-  @Patch('intereses/:codigo')
-  marcarInteres(
-    @UsuarioActual() u: UsuarioSesion,
-    @Param('codigo') codigo: string,
-    @Body() dto: InteresDto,
-    @Query('procesoId', ParseUUIDPipe) id: string,
-  ) {
-    return this.votos.marcarInteres(u.id, codigo, dto.interesado, id);
   }
 
   @Get('estado')
@@ -65,6 +45,15 @@ export class AlumnoController {
     @Query('procesoId', new ParseUUIDPipe({ optional: true })) procesoId?: string,
   ) {
     return this.votos.electivo(u.id, codigo, procesoId);
+  }
+
+  @Post('votos/lote')
+  emitirLote(
+    @UsuarioActual() u: UsuarioSesion,
+    @Body() dto: EmitirLoteDto,
+    @Query('procesoId', ParseUUIDPipe) id: string,
+  ) {
+    return this.votos.emitirLote(u.id, dto.votos, id);
   }
 
   @Post('votos')

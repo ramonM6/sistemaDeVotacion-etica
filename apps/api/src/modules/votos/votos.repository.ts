@@ -8,27 +8,6 @@ type Tx = Prisma.TransactionClient;
 export class VotosRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async intereses(procesoId: string, usuarioId: string) {
-    const padron = await this.prisma.padronAlumno.findUniqueOrThrow({
-      where: { procesoId_usuarioId: { procesoId, usuarioId } },
-    });
-    return padron.intereses;
-  }
-
-  async marcarInteres(procesoId: string, usuarioId: string, codigo: string, interesado: boolean) {
-    return this.transaccion(async (tx) => {
-      if (!(await this.bloquearPadron(tx, procesoId, usuarioId))) return [];
-      const padron = await tx.padronAlumno.findUniqueOrThrow({
-        where: { procesoId_usuarioId: { procesoId, usuarioId } },
-      });
-      const intereses = interesado
-        ? [...new Set([...padron.intereses, codigo])]
-        : padron.intereses.filter((c) => c !== codigo);
-      await tx.padronAlumno.update({ where: { procesoId_usuarioId: { procesoId, usuarioId } }, data: { intereses } });
-      return intereses;
-    });
-  }
-
   transaccion<T>(fn: (tx: Tx) => Promise<T>) {
     return this.prisma.$transaction(fn, { timeout: 15_000 });
   }

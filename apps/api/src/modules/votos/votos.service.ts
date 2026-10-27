@@ -44,17 +44,6 @@ export class VotosService {
     return this.procesos.listarDelAlumno(usuarioId);
   }
 
-  async intereses(usuarioId: string, procesoId?: string) {
-    const proceso = await this.procesoDelAlumno(usuarioId, procesoId);
-    return this.repo.intereses(proceso.id, usuarioId);
-  }
-
-  async marcarInteres(usuarioId: string, codigo: string, interesado: boolean, procesoId?: string) {
-    const proceso = await this.procesoDelAlumno(usuarioId, procesoId);
-    await this.electivo(usuarioId, codigo, proceso.id);
-    return this.repo.marcarInteres(proceso.id, usuarioId, codigo.toUpperCase(), interesado);
-  }
-
   async estado(usuarioId: string, procesoId?: string) {
     const proceso = await this.procesoDelAlumno(usuarioId, procesoId);
     const [aceptacion, votosUsados] = await Promise.all([
@@ -215,6 +204,49 @@ export class VotosService {
       }
       throw e;
     }
+  }
+
+  async emitirLote(usuarioId: string, votos: EmitirVotoDto[], procesoId: string) {
+    const elegido = await this.procesoDelAlumno(usuarioId, procesoId);
+    await this.repo.transaccion(async (tx) => {
+      if (!(await this.repo.bloquearPadron(tx, elegido.id, usuarioId)))
+        throw new ForbiddenException('No estás habilitado en esta votación');
+      await tx.$queryRaw`SELECT 1 FROM "ProcesoVotacion" WHERE id = ${elegido.id} FOR SHARE`;
+      const proceso = await tx.procesoVotacion.findUniqueOrThrow({ where: { id: elegido.id } });
+      if (!estaAbierto(proceso)) throw new BadRequestException('La votación no está abierta');
+      if ((await this.repo.aceptacion(proceso.id, usuarioId, tx))?.version !== TERMINOS_VERSION)
+        throw new ForbiddenException('Debes aceptar los términos');
+      const existentes = await tx.voto.findMany({
+        where: { procesoId: proceso.id, usuarioId },
+        select: { cursoCodigo: true },
+      });
+      const elegidos = new Set(existentes.map((v) => v.cursoCodigo));
+      const nuevos = new Map<string, { aptitud: 'CONFIRMADO' | 'CONDICIONAL'; franjas: Franja[] }>();
+      const explicitos = new Map(votos.map((v) => [v.cursoCodigo, v.franjas]));
+      if (explicitos.size !== votos.length) throw new BadRequestException('No repitas cursos en la selección');
+      for (const voto of votos) {
+        if (elegidos.has(voto.cursoCodigo)) throw new ConflictException(`Ya votaste por ${voto.cursoCodigo}`);
+        if (!voto.franjas.length || voto.franjas.length > Math.min(2, proceso.maxFranjas))
+          throw new BadRequestException('Selecciona de 1 a 2 franjas por curso');
+        const plan = await this.elegibilidad.planEleccion(proceso.id, usuarioId, voto.cursoCodigo, tx);
+        for (const curso of plan) {
+          if (curso.elegibilidad.aptitud === 'NO_APTO')
+            throw new ForbiddenException(`No cumples los requisitos de ${curso.codigo}`);
+          if (!elegidos.has(curso.codigo) && !nuevos.has(curso.codigo))
+            nuevos.set(curso.codigo, {
+              aptitud: curso.elegibilidad.aptitud,
+              franjas: explicitos.get(curso.codigo) ?? voto.franjas,
+            });
+        }
+      }
+      if (elegidos.size + nuevos.size > Math.min(5, proceso.maxCursos))
+        throw new BadRequestException('Los cursos y sus dependencias exceden el máximo de 5 electivos');
+      for (const [cursoCodigo, datos] of nuevos)
+        await this.repo.crearVoto(tx, { procesoId: proceso.id, usuarioId, cursoCodigo, ...datos });
+    });
+    await this.audit.registrar('VOTO', usuarioId, { procesoId, cursos: votos.map((v) => v.cursoCodigo) });
+    this.gateway.notificar('voto', procesoId);
+    return this.misVotos(usuarioId, procesoId);
   }
 
   async cambiar(usuarioId: string, codigo: string, dto?: EmitirVotoDto, procesoId?: string) {

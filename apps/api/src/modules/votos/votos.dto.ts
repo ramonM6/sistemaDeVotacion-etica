@@ -1,6 +1,15 @@
 import { Franja } from '@prisma/client';
-import { Transform } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsEnum, IsString, Matches } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
+  IsEnum,
+  IsString,
+  Matches,
+  ValidateNested,
+} from 'class-validator';
 
 export class EmitirVotoDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
@@ -14,4 +23,13 @@ export class EmitirVotoDto {
   @ArrayUnique({ message: 'Las franjas no pueden repetirse' })
   @IsEnum(Franja, { each: true, message: 'Franja inválida' })
   franjas: Franja[];
+}
+
+export class EmitirLoteDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(5)
+  @ValidateNested({ each: true })
+  @Type(() => EmitirVotoDto)
+  votos: EmitirVotoDto[];
 }
