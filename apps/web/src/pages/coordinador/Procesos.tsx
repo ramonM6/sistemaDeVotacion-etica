@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, CalendarDays, Loader2, Plus, Users, Vote } from 'lucide-react';
+import { ArrowRight, CalendarDays, Loader2, Plus, Users, Vote, Upload, FileSpreadsheet, X } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -145,27 +145,31 @@ export function FormularioProceso({
           ).map(([tipo, titulo]) => (
             <div key={tipo} className="space-y-1">
               <Label htmlFor={`nuevo-${tipo}`}>{titulo}</Label>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant={fuentes[tipo] === undefined ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setFuentes((prev) => ({ ...prev, [tipo]: undefined }))}
-                >
-                  Subir archivo nuevo
-                </Button>
-                <Button
-                  type="button"
-                  variant={fuentes[tipo] !== undefined ? 'default' : 'outline'}
-                  size="sm"
-                  disabled={anteriores.isLoading}
-                  onClick={() => {
-                    setArchivos((prev) => ({ ...prev, [tipo]: undefined }));
-                    setFuentes((prev) => ({ ...prev, [tipo]: '' }));
-                  }}
-                >
-                  Reutilizar {tipo === 'malla' ? 'malla' : 'historial'}
-                </Button>
+              <div className="flex flex-wrap gap-5 py-2" role="radiogroup" aria-label={`Origen de ${titulo}`}>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name={`origen-${tipo}`}
+                    value="nuevo"
+                    checked={fuentes[tipo] === undefined}
+                    onChange={() => setFuentes((prev) => ({ ...prev, [tipo]: undefined }))}
+                  />
+                  Archivo nuevo
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name={`origen-${tipo}`}
+                    value="reutilizar"
+                    checked={fuentes[tipo] !== undefined}
+                    disabled={anteriores.isLoading}
+                    onChange={() => {
+                      setArchivos((prev) => ({ ...prev, [tipo]: undefined }));
+                      setFuentes((prev) => ({ ...prev, [tipo]: '' }));
+                    }}
+                  />
+                  Reutilizar de una votación anterior
+                </label>
               </div>
               {fuentes[tipo] !== undefined ? (
                 <>
@@ -194,22 +198,46 @@ export function FormularioProceso({
                     </p>
                   )}
                 </>
+              ) : archivos[tipo] ? (
+                <div className="flex items-center gap-3 rounded-md border bg-muted/30 px-3 py-2">
+                  <FileSpreadsheet aria-hidden className="h-5 w-5 shrink-0 text-emerald-700" />
+                  <div className="min-w-0 flex-1">
+                    <p className="break-all text-sm font-medium">{archivos[tipo]!.name}</p>
+                    <p className="text-xs text-muted-foreground">Archivo elegido · Se cargará al guardar</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Quitar archivo de ${titulo}`}
+                    onClick={() => setArchivos((prev) => ({ ...prev, [tipo]: undefined }))}
+                  >
+                    <X aria-hidden className="h-4 w-4" />
+                  </Button>
+                </div>
               ) : (
-                <Input
-                  key={`archivo-${tipo}`}
-                  id={`nuevo-${tipo}`}
-                  type="file"
-                  accept=".xlsx,.csv"
-                  onChange={(event) => {
-                    const archivo = event.target.files?.[0];
-                    if (archivo && (!/\.(xlsx|csv)$/i.test(archivo.name) || archivo.size > 5 * 1024 * 1024)) {
+                <label className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed px-3 py-4 text-sm hover:bg-muted/30 focus-within:ring-2 focus-within:ring-primary">
+                  <Upload aria-hidden className="h-4 w-4" /> Elegir archivo CSV o Excel
+                  <input
+                    id={`nuevo-${tipo}`}
+                    type="file"
+                    className="sr-only"
+                    aria-label={titulo}
+                    accept=".xlsx,.csv"
+                    onChange={(event) => {
+                      const archivo = event.target.files?.[0];
                       event.target.value = '';
-                      toast.error('Usa un archivo CSV o Excel (.xlsx) de máximo 5 MB');
-                      return;
-                    }
-                    setArchivos((prev) => ({ ...prev, [tipo]: archivo }));
-                  }}
-                />
+                      if (
+                        archivo &&
+                        (!/\.(xlsx|csv)$/i.test(archivo.name) || !archivo.size || archivo.size > 5 * 1024 * 1024)
+                      ) {
+                        toast.error('Usa un archivo CSV o Excel (.xlsx) con contenido y de máximo 5 MB');
+                        return;
+                      }
+                      if (archivo) setArchivos((prev) => ({ ...prev, [tipo]: archivo }));
+                    }}
+                  />
+                </label>
               )}
             </div>
           ))}
