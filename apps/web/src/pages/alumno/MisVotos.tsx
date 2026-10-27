@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FRANJAS } from '@/lib/formato';
@@ -17,6 +19,25 @@ function EditarVoto({ voto, maxFranjas }: { voto: MiVoto; maxFranjas: number }) 
   const { procesoId } = useVotacionAlumno();
   const cliente = useQueryClient();
   const [editando, setEditando] = useState(false);
+  const [menu, setMenu] = useState<{ top: number; right: number } | null>(null);
+  const boton = useRef<HTMLButtonElement>(null);
+  const opciones = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menu) return;
+    opciones.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    const cerrar = (ev: PointerEvent) => {
+      if (!opciones.current?.contains(ev.target as Node) && !boton.current?.contains(ev.target as Node)) setMenu(null);
+    };
+    const desplazar = () => setMenu(null);
+    document.addEventListener('pointerdown', cerrar);
+    window.addEventListener('scroll', desplazar, true);
+    window.addEventListener('resize', desplazar);
+    return () => {
+      document.removeEventListener('pointerdown', cerrar);
+      window.removeEventListener('scroll', desplazar, true);
+      window.removeEventListener('resize', desplazar);
+    };
+  }, [menu]);
   const [franjas, setFranjas] = useState<Franja[]>(voto.franjas);
   const cambio = useMutation({
     mutationFn: (retirar: boolean) =>
@@ -59,31 +80,80 @@ function EditarVoto({ voto, maxFranjas }: { voto: MiVoto; maxFranjas: number }) 
           </>
         ) : (
           <Button
-            size="sm"
-            variant="outline"
+            ref={boton}
+            size="icon"
+            variant="ghost"
+            aria-label={`Opciones de ${voto.cursoCodigo}`}
+            aria-haspopup="menu"
+            aria-expanded={!!menu}
+            disabled={cambio.isPending}
             onClick={() => {
-              setFranjas(voto.franjas);
-              setEditando(true);
+              const rect = boton.current!.getBoundingClientRect();
+              setMenu(
+                menu
+                  ? null
+                  : {
+                      top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 110)),
+                      right: Math.max(8, window.innerWidth - rect.right),
+                    },
+              );
             }}
           >
-            Editar franjas
+            <MoreVertical aria-hidden className="h-5 w-5" />
           </Button>
         )}
-        <Button
-          size="sm"
-          variant="destructive"
-          disabled={cambio.isPending}
-          onClick={() => {
-            if (
-              window.confirm(
-                `¿Retirar tu elección de ${voto.cursoNombre}? También se retirarán los electivos que dependan de este para llevarlos en simultáneo.`,
-              )
-            )
-              cambio.mutate(true);
-          }}
-        >
-          Retirar
-        </Button>
+        {menu &&
+          createPortal(
+            <div
+              ref={opciones}
+              role="menu"
+              aria-label={`Acciones de ${voto.cursoCodigo}`}
+              style={menu}
+              className="fixed z-50 w-44 rounded-md border bg-card p-1 shadow-lg"
+              onKeyDown={(ev) => {
+                if (ev.key === 'Escape') {
+                  setMenu(null);
+                  boton.current?.focus();
+                }
+                if (ev.key === 'Tab') setMenu(null);
+                if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+                  ev.preventDefault();
+                  const items = Array.from(opciones.current!.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+                  const i = items.indexOf(document.activeElement as HTMLButtonElement);
+                  items[(i + (ev.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length]?.focus();
+                }
+              }}
+            >
+              <button
+                role="menuitem"
+                className="w-full rounded px-3 py-2 text-left text-sm hover:bg-accent focus:bg-accent focus:outline-none"
+                onClick={() => {
+                  setMenu(null);
+                  setFranjas(voto.franjas);
+                  setEditando(true);
+                }}
+              >
+                Editar franjas
+              </button>
+              <button
+                role="menuitem"
+                className="w-full rounded px-3 py-2 text-left text-sm text-destructive hover:bg-accent focus:bg-accent focus:outline-none"
+                onClick={() => {
+                  setMenu(null);
+                  boton.current?.focus();
+                  if (
+                    window.confirm(
+                      `¿Retirar tu elección de ${voto.cursoNombre}? También se retirarán los electivos que dependan de este para llevarlos en simultáneo.`,
+                    )
+                  )
+                    cambio.mutate(true);
+                }}
+              >
+                Retirar
+              </button>
+            </div>,
+            document.body,
+          )}
       </div>
     </div>
   );
@@ -124,7 +194,11 @@ export default function MisVotos() {
                 <TableHead>Franjas</TableHead>
                 <TableHead>Aptitud al votar</TableHead>
                 <TableHead>Fecha</TableHead>
-                {estado.data?.abierto && <TableHead>Acciones</TableHead>}
+                {estado.data?.abierto && (
+                  <TableHead className="w-14">
+                    <span className="sr-only">Opciones del voto</span>
+                  </TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
