@@ -16,9 +16,11 @@ import { CursoImportado } from '../src/modules/importacion/validadores/catalogo'
 export const PASSWORD = 'Alumno#Test1';
 
 export async function crearApp(): Promise<INestApplication> {
+  const storage = new StorageFalso();
+  await storage.prepararRecursos();
   const modulo = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(StorageService)
-    .useValue(new StorageFalso())
+    .useValue(storage)
     .compile();
   const app = modulo.createNestApplication<NestExpressApplication>();
   configurarApp(app);

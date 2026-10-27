@@ -40,7 +40,7 @@ Edita `apps/api/.env` antes de cargar archivos:
 
 Cada equipo puede usar su propio Supabase o uno compartido autorizado. Las credenciales no se incluyen en el repositorio ni en el ZIP. No pongas la clave de servicio en el frontend ni en variables `VITE_`.
 
-Si usas el bucket ya preparado, sus plantillas están publicadas. Si configuras un bucket privado nuevo, publica una vez los seis recursos con `npm run plantillas:publicar -w apps/api`. Consulta [docs/PLANTILLAS_SUPABASE.md](docs/PLANTILLAS_SUPABASE.md).
+Las plantillas ya están publicadas en el bucket configurado. Si usas otro proyecto/bucket, copia allí los seis recursos respetando las rutas de [docs/PLANTILLAS_SUPABASE.md](docs/PLANTILLAS_SUPABASE.md). El arranque no los genera ni los sube.
 
 Después:
 
@@ -59,17 +59,17 @@ La instalación nueva empieza sin votaciones, alumnos ni votos. Si no cambiaste 
 
 ### Inicio con doble clic en Windows
 
-Después de configurar `.env`, puedes usar `iniciar.bat`. Comprueba dependencias, inicia PostgreSQL local mediante Docker si hace falta y ejecuta el mismo arranque con migraciones. No genera un ejecutable independiente: necesita Node.js y PostgreSQL. En Linux/macOS también puedes usar `node scripts/iniciar.mjs`.
+`iniciar.bat` es un acceso de inicio para Windows, no una versión distinta del sistema. Después de configurar `.env`, puedes ejecutarlo con doble clic en lugar de escribir los comandos de arranque. Ejecuta `npm ci` si faltan dependencias o cambió el lock, inicia PostgreSQL local mediante Docker si hace falta y ejecuta el mismo arranque con migraciones. No genera un ejecutable independiente: necesita Node.js y PostgreSQL. En Linux/macOS también puedes usar `node scripts/iniciar.mjs`.
 
 ## Preparar una votación de prueba
 
-1. Entra como coordinador, abre **Alumnos** e importa `docs/datos-prueba/02_alumnos.csv` para crear las 16 cuentas globales.
-2. Pulsa **Nueva votación**. En el borrador carga `01_malla.csv` y luego `03_historial.csv`, disponibles en [docs/datos-prueba](docs/datos-prueba) y **Plantillas**.
+1. Entra como coordinador y descarga los tres CSV de ejemplo desde **Plantillas**. En **Alumnos**, importa `02_alumnos.csv` para crear las 16 cuentas globales.
+2. Pulsa **Nueva votación**. En el borrador carga `01_malla.csv` y luego `03_historial.csv`, descargados desde **Plantillas**.
 3. Comprueba que aparecen 54 electivos, 16 alumnos y 751 registros académicos. La malla completa contiene 148 cursos, incluidos los obligatorios usados para evaluar requisitos.
 4. Abre la votación para publicarla. Las cuentas registradas ya permiten iniciar sesión; solo los alumnos incluidos en su historial verán la votación. Los demás verán «No tienes votaciones disponibles».
-5. Los códigos de prueba y sus casos están en [docs/datos-prueba/README.md](docs/datos-prueba/README.md). La contraseña de los 16 alumnos es `Alumno#2026`.
+5. Los códigos de prueba y sus casos están en [docs/DATOS_PRUEBA.md](docs/DATOS_PRUEBA.md). La contraseña de los 16 alumnos es `Alumno#2026`.
 
-Las plantillas Excel y los CSV se descargan desde **Plantillas** usando Supabase Storage. No se sirven archivos del disco de la API. Las copias en `docs/plantillas` y `docs/datos-prueba` son fuentes de publicación y fixtures de pruebas, no una alternativa de descarga local. Una nota vacía en el historial significa que el curso está en progreso.
+Las plantillas Excel y los CSV se descargan desde **Plantillas** usando Supabase Storage. No se sirven archivos del disco de la API. No hay copias Excel/CSV/ZIP en el repositorio. Las pruebas generan archivos ficticios en memoria y no dependen de Supabase real. Una nota vacía en el historial significa que el curso está en progreso.
 
 ## Si ya tenías la versión anterior
 
@@ -104,7 +104,7 @@ Para detener API y web: `Ctrl+C`. Para detener PostgreSQL conservando sus datos:
 
 - `apps/api`: API, esquema Prisma, migraciones, seed mínimo y pruebas.
 - `apps/web`: interfaz y configuración de Vite.
-- `docs`: reglas vigentes, reinicio de BD, referencia del plan y fuentes de plantillas/ejemplos para publicación y pruebas.
+- `docs`: reglas vigentes, reinicio de BD, referencia del plan, cuentas de prueba y configuración de Storage.
 - `docker-compose.yml`, `iniciar.bat`, `scripts/iniciar.mjs`: arranque local.
 - `package.json` y `package-lock.json`: dependencias y comandos reproducibles con `npm ci`.
 

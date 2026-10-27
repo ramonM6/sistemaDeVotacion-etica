@@ -1,6 +1,6 @@
 # Datos ficticios para probar una votación
 
-Las descargas de estos archivos se obtienen desde Supabase en la sección Plantillas. Las copias de este directorio solo se usan para publicar nuevas versiones y para pruebas.
+Descarga los archivos desde la sección Plantillas del sistema. Se guardan exclusivamente en Supabase Storage; no hay copias CSV/Excel en el repositorio.
 
 Estos archivos conservan las 16 cuentas y los casos académicos de la demostración original, sin crear votaciones ni votos automáticamente.
 

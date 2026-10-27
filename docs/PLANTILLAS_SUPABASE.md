@@ -13,14 +13,18 @@ sistema-votacion/recursos/v1/ejemplos/03_historial.csv
 
 Las descargas pasan por los endpoints existentes de la API y requieren coordinación. El navegador no recibe la clave de servicio. Si falta la configuración, el objeto o la conexión a Supabase, la descarga devuelve un error; no se sustituye por un archivo local.
 
-## Publicar en otro bucket o actualizar los ejemplos
+## Otro bucket o actualización de recursos
 
-Configura `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` y `SUPABASE_STORAGE_BUCKET` en `apps/api/.env`, y crea el bucket privado. Desde la raíz del repo:
+Los seis archivos ya están publicados en el bucket configurado. No hay copias ni publicador local en el repo. Para conservar los ejemplos puedes descargarlos desde Plantillas o desde el panel de Supabase Storage.
 
-```sh
-npm run plantillas:publicar -w apps/api
-```
+Si se usa otro proyecto/bucket:
 
-El comando lee las fuentes versionadas de `docs/plantillas` y `docs/datos-prueba`, sube los seis recursos y verifica sus bytes descargándolos y comparando SHA-256. Actualiza las mismas rutas al ejecutarlo de nuevo. No modifica archivos de votaciones ni cuentas, ni necesita migrar la BD. No se ejecuta automáticamente al arrancar: así no se sobrescriben las plantillas remotas en cada inicio.
+1. Descarga los seis objetos del bucket actual mientras tienes acceso a él.
+2. Crea un bucket privado en el proyecto destino.
+3. Sube los seis archivos a las mismas rutas indicadas arriba mediante el panel de Storage.
+4. Configura `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` y `SUPABASE_STORAGE_BUCKET` en `apps/api/.env`.
+5. Reinicia la API y comprueba las descargas desde Plantillas.
 
-Si tus compañeros usan el bucket donde ya se publicaron, no necesitan volver a ejecutar el comando. Para un bucket nuevo, sí. Los directorios locales se conservan como fuentes de publicación y fixtures de pruebas; la aplicación no los consulta al descargar.
+Para actualizar un recurso, reemplaza el objeto correspondiente manteniendo su nombre y ruta. Conserva la compatibilidad entre los ejemplos de cuentas, malla e historial. Los datos personales reales no deben convertirse en archivos de ejemplo.
+
+`npm run dev` e `iniciar.bat` no suben ni reemplazan estos recursos. Las migraciones de PostgreSQL tampoco crean archivos en Storage. Las pruebas usan recursos sintéticos generados en memoria; no hacen llamadas a Supabase real.

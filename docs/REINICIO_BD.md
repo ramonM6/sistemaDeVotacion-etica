@@ -30,7 +30,7 @@ La secuencia de migraciones se conserva para reconstruir la estructura completa,
 
 ## Después del reinicio
 
-Entra como coordinador, importa `02_alumnos.csv` desde Alumnos, crea una votación nueva y sube su malla e historial desde `docs/datos-prueba`. Abre la votación para habilitarla a los alumnos presentes en ese historial. Los originales se cargarán en el bucket privado configurado en Supabase. No hace falta trasladar archivos antiguos de PostgreSQL.
+Entra como coordinador, importa `02_alumnos.csv` desde Alumnos, crea una votación nueva y sube su malla e historial descargados desde Plantillas. Abre la votación para habilitarla a los alumnos presentes en ese historial. Los originales se cargarán en el bucket privado configurado en Supabase. No hace falta trasladar archivos antiguos de PostgreSQL.
 
 El reinicio elimina las referencias locales a Storage, pero no borra objetos del bucket de Supabase: pueden estar compartidos con otras instalaciones. Los originales viejos no aparecen en esta BD nueva. No vacíes un bucket compartido para reiniciar el sistema.
 

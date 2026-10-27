@@ -1,12 +1,9 @@
 import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import * as ExcelJS from 'exceljs';
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
 import request from 'supertest';
 import { Escenario, PASSWORD, crearApp, escenarioBase, sesion, voto, xlsx } from './utils';
 
-const PLANTILLAS = resolve(__dirname, '../../../docs/plantillas');
 type Agente = Awaited<ReturnType<typeof sesion>>;
 
 describe('Importación y exportación (e2e)', () => {
@@ -38,8 +35,18 @@ describe('Importación y exportación (e2e)', () => {
     coord.post(`/api/coord/import/${tipo}/preview`).attach('archivo', archivo, nombre);
 
   describe('catálogo', () => {
-    it('la plantilla oficial pasa sin errores: 148 cursos y 54 electivos', async () => {
-      const res = await subir('catalogo', readFileSync(resolve(PLANTILLAS, 'plantilla_malla_curricular.xlsx')));
+    it('importa 148 cursos con 54 electivos desde un Excel generado en memoria', async () => {
+      const archivo = await xlsx('cursos', [
+        ['codigo', 'nombre', 'creditos', 'tipo', 'requisitos'],
+        ...Array.from({ length: 148 }, (_, i) => [
+          `TST${String(i + 1).padStart(3, '0')}`,
+          `Curso de prueba ${i + 1}`,
+          3,
+          i < 54 ? 'ELECTIVO' : 'OBLIGATORIO',
+          i < 54 ? 'TST148' : null,
+        ]),
+      ]);
+      const res = await subir('catalogo', archivo);
       expect(res.status).toBe(200);
       expect(res.body.resumen).toEqual({ total: 148, validas: 148, conErrores: 0, conAdvertencias: 0 });
       expect(res.body.token).toEqual(expect.any(String));
@@ -118,7 +125,12 @@ describe('Importación y exportación (e2e)', () => {
 
   describe('cuentas', () => {
     it('crea cuentas globales sin reemplazar padrones y sin devolver contraseñas', async () => {
-      const res = await subir('cuentas', readFileSync(resolve(PLANTILLAS, 'plantilla_cuentas_alumnos.xlsx')));
+      const archivo = await xlsx('alumnos', [
+        ['codigo', 'nombres', 'apellidos', 'password'],
+        ['20201234', 'María', 'Prueba', 'Temporal#2026'],
+        ['20195678', 'Luis', 'Prueba', 'Temporal#2026'],
+      ]);
+      const res = await subir('cuentas', archivo);
       expect(res.body.resumen).toMatchObject({ total: 2, validas: 2, conErrores: 0 });
       expect(JSON.stringify(res.body)).not.toContain('Temporal#2026');
       await coord.post('/api/coord/import/cuentas/confirmar').send({ token: res.body.token }).expect(200);
