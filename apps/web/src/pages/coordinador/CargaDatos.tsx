@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { api } from '@/lib/api';
 import type { PreviewImportacion, TipoImportacion } from '@/lib/tipos';
 import { cn } from '@/lib/utils';
-import { SelectorProceso, useProcesoSeleccionado } from './LayoutCoord';
+import { useProcesoSeleccionado } from './LayoutCoord';
 
 const TARJETAS: { tipo: TipoImportacion; titulo: string; descripcion: string }[] = [
   {
@@ -238,7 +238,6 @@ export default function CargaDatos() {
       <Titulo
         titulo="Carga de datos"
         descripcion="Sube un Excel o CSV, revisa la vista previa y confirma. Padrón e historial solo se cargan antes de la primera apertura."
-        acciones={<SelectorProceso />}
       />
       <p className="text-sm text-muted-foreground">
         Las cuentas admiten columnas opcionales ingreso (AAAA o AAAA.1/AAAA.2), craest (0–100) y matriculado (si/no). El

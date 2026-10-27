@@ -18,11 +18,17 @@ Si falta un requisito simultáneo electivo, se añade junto con sus dependencias
 
 Los términos pasan a versión 2 para reflejar las elecciones editables y la privacidad.
 
+## Navegación del coordinador
+
+Al iniciar sesión, el coordinador ve **Votaciones**, un tablero de tarjetas con nombre, ciclo, estado, fechas, alumnos y votos. Desde allí puede crear una votación en borrador o entrar explícitamente a una existente.
+
+La dirección `/coord/votaciones/:procesoId` identifica la votación elegida. Dentro están su resumen, controles de apertura/cierre/edición, cursos y decisiones, resultados, carga de datos y padrón. Los enlaces conservan el identificador al navegar y recargar: nunca se cambia silenciosamente al proceso activo. **Todas las votaciones** vuelve al tablero. El catálogo base global mantiene su acceso propio y las ofertas ya abiertas conservan sus copias.
+
 ## Procesos y catálogo
 
 Se distinguen ciclo actual y objetivo. El ciclo actual es opcional para compatibilidad con procesos existentes. Al abrir por primera vez se guarda el catálogo completo y se fija el padrón y el historial académico. Una carga posterior del catálogo global sirve para próximos procesos; no modifica la elegibilidad del proceso ya abierto. Se conservan los cursos referenciados por catálogos congelados, aunque no tengan votos.
 
-En **Procesos**, el selector **Reutilizar catálogo de…** copia el catálogo de otro proceso a un borrador antes de abrirlo. Sin copia explícita, la primera apertura usa el catálogo global vigente. Una copia reutilizada prevalece sobre posteriores cambios al catálogo global.
+Dentro de cada votación en borrador, el selector **Reutilizar catálogo de…** copia el catálogo de otro proceso a un borrador antes de abrirlo. Sin copia explícita, la primera apertura usa el catálogo global vigente. Una copia reutilizada prevalece sobre posteriores cambios al catálogo global.
 
 El cierre automático existente continúa funcionando. Se puede extender y reabrir un proceso sin seguimiento del consejo: los votos permanecen y los resultados de alumnos vuelven a ocultarse. Con seguimiento registrado, la reapertura se bloquea, como en VotaInf.
 
@@ -32,7 +38,7 @@ Los alumnos ven ranking, franjas y decisiones de dictado solo al cierre. Se actu
 
 El coordinador puede alternar entre **Todos los votos**, **Solo confirmados** y **Solo condicionales**. El filtro se aplica al ranking, al mapa de calor, a los indicadores y a la exportación. No hay filtros por ingreso/CRAEst/matrícula ni agrupaciones en resultados.
 
-**Consejo** permite seleccionar manualmente cursos para revisión, registrar Aprobado/No aprobado y decidir Confirmado/No se dictará después del cierre. Solo un curso seleccionado puede recibir una decisión del consejo y solo uno aprobado puede confirmarse. No se registran docentes ni se seleccionan cursos automáticamente por cantidad de votos.
+**Cursos de la votación**, dentro del detalle de la votación elegida, permite seleccionar manualmente cursos para revisión, registrar Aprobado/No aprobado y decidir Confirmado/No se dictará después del cierre. No existe una pestaña independiente de seguimiento del consejo. Solo un curso seleccionado puede recibir una decisión del consejo y solo uno aprobado puede recibir una decisión de dictado. Cambiar la selección reinicia la decisión del consejo y el dictado; cambiar la decisión del consejo reinicia el dictado. No se registran docentes ni se seleccionan cursos automáticamente por cantidad de votos.
 
 El CSV del consejo tiene exactamente las columnas `codigo,consejo,dictado,observacion`. Los estados válidos son `PENDIENTE`, `APROBADO`/`NO_APROBADO` para consejo y `PENDIENTE`, `CONFIRMADO`/`NO_SE_DICTARA` para dictado. Primero se valida y previsualiza; después se confirma. Los cursos deben estar previamente seleccionados para revisión. Si alguna fila es inválida, no se aplica ninguna.
 

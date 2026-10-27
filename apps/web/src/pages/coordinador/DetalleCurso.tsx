@@ -13,7 +13,7 @@ import { useProcesoSeleccionado } from './LayoutCoord';
 
 export default function DetalleCurso() {
   const { codigo = '' } = useParams();
-  const { procesoId } = useProcesoSeleccionado();
+  const { procesoId, rutaProceso } = useProcesoSeleccionado();
   const consulta = useQuery({
     queryKey: ['coord', 'resultados', 'curso', codigo, procesoId],
     queryFn: () => api.detalleCurso(codigo, procesoId),
@@ -27,7 +27,7 @@ export default function DetalleCurso() {
   return (
     <div className="space-y-6">
       <Button asChild variant="ghost" size="sm" className="-ml-3">
-        <Link to="/coord/resultados">
+        <Link to={`${rutaProceso}/resultados`}>
           <ArrowLeft /> Volver a resultados
         </Link>
       </Button>

@@ -1,3 +1,5 @@
+import AdministrarVotacion from './AdministrarVotacion';
+import EstadosCursos from './EstadosCursos';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, BarChart3, Info, Percent, Upload, UserCheck, Users, Vote } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -11,22 +13,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { api, ApiError } from '@/lib/api';
 import { formatearFecha } from '@/lib/formato';
 import { useResultadosEnVivo } from '@/lib/socket';
-import { SelectorProceso, useProcesoSeleccionado } from './LayoutCoord';
+import { useProcesoSeleccionado } from './LayoutCoord';
 
 export default function Panel() {
-  const { procesoId } = useProcesoSeleccionado();
-  const consulta = useQuery({ queryKey: ['coord', 'resultados', procesoId, null], queryFn: () => api.resultadosCoord(procesoId) });
+  const { procesoId, rutaProceso } = useProcesoSeleccionado();
+  const consulta = useQuery({
+    queryKey: ['coord', 'resultados', procesoId, null],
+    queryFn: () => api.resultadosCoord(procesoId),
+  });
   const conectado = useResultadosEnVivo([['coord', 'resultados']]);
 
   if (consulta.isLoading) return <Cargando />;
   if (consulta.error instanceof ApiError && consulta.error.status === 404) {
     return (
       <div>
-        <Titulo titulo="Panel" />
+        <Titulo titulo="Votación" />
         <Alert variant="info">
           <Info />
           <AlertDescription>
-            Aún no hay procesos de votación. <Link to="/coord/procesos" className="font-medium underline">Crea el primero</Link>.
+            No se encontró esta votación.{' '}
+            <Link to="/coord" className="font-medium underline">
+              Volver al tablero
+            </Link>
+            .
           </AlertDescription>
         </Alert>
       </div>
@@ -38,11 +47,10 @@ export default function Panel() {
   return (
     <div className="space-y-6">
       <Titulo
-        titulo="Panel"
-        descripcion="Resumen del proceso y avisos."
+        titulo={proceso.nombre}
+        descripcion="Administra esta votación y los estados de sus cursos."
         acciones={
           <>
-            <SelectorProceso />
             <EnVivo conectado={conectado} />
           </>
         }
@@ -52,12 +60,13 @@ export default function Panel() {
         <CardHeader className="flex-row flex-wrap items-start justify-between gap-4 space-y-0">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <CardTitle>{proceso.nombre}</CardTitle>
+              <CardTitle>Período {proceso.cicloObjetivo}</CardTitle>
               <EstadoProcesoBadge estado={proceso.estado} />
             </div>
             <CardDescription>
-              Ciclo objetivo {proceso.cicloObjetivo} · del {formatearFecha(proceso.fechaInicio)} al {formatearFecha(proceso.fechaFin)} ·
-              máximo {proceso.maxCursos} cursos y {proceso.maxFranjas} franjas por voto
+              Ciclo objetivo {proceso.cicloObjetivo} · del {formatearFecha(proceso.fechaInicio)} al{' '}
+              {formatearFecha(proceso.fechaFin)} · máximo {proceso.maxCursos} cursos y {proceso.maxFranjas} franjas por
+              voto
             </CardDescription>
           </div>
           {proceso.estado === 'ABIERTO' && (
@@ -69,12 +78,20 @@ export default function Panel() {
         </CardHeader>
       </Card>
 
+      <AdministrarVotacion key={proceso.id} proceso={proceso} />
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Indicador titulo="Alumnos habilitados" valor={indicadores.habilitados} icono={Users} />
         <Indicador titulo="Alumnos que votaron" valor={indicadores.votaron} icono={UserCheck} />
-        <Indicador titulo="Participación" valor={`${indicadores.participacion.toLocaleString('es-PE')} %`} icono={Percent} />
+        <Indicador
+          titulo="Participación"
+          valor={`${indicadores.participacion.toLocaleString('es-PE')} %`}
+          icono={Percent}
+        />
         <Indicador titulo="Total de votos" valor={indicadores.totalVotos} icono={Vote} />
       </div>
+
+      <EstadosCursos key={proceso.id} proceso={proceso} ranking={consulta.data!.ranking} />
 
       <Card>
         <CardHeader>
@@ -96,12 +113,12 @@ export default function Panel() {
 
       <div className="flex flex-wrap gap-2">
         <Button asChild>
-          <Link to="/coord/resultados">
+          <Link to={`${rutaProceso}/resultados`}>
             <BarChart3 /> Ver dashboard de resultados
           </Link>
         </Button>
         <Button asChild variant="outline">
-          <Link to="/coord/carga">
+          <Link to={`${rutaProceso}/carga`}>
             <Upload /> Cargar datos
           </Link>
         </Button>

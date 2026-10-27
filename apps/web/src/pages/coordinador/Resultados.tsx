@@ -16,11 +16,11 @@ import { api } from '@/lib/api';
 import type { Aptitud } from '@/lib/tipos';
 import { cn } from '@/lib/utils';
 import { useResultadosEnVivo } from '@/lib/socket';
-import { SelectorProceso, useProcesoSeleccionado } from './LayoutCoord';
+import { useProcesoSeleccionado } from './LayoutCoord';
 
 /** Dashboard de resultados en vivo del coordinador. */
 export default function Resultados() {
-  const { procesoId } = useProcesoSeleccionado();
+  const { procesoId, rutaProceso } = useProcesoSeleccionado();
   const navigate = useNavigate();
   const [aptitud, setAptitud] = useState<Aptitud | undefined>();
   const [exportando, setExportando] = useState<ResultadosCoord | null>(null);
@@ -30,7 +30,7 @@ export default function Resultados() {
     queryFn: () => api.resultadosCoord(procesoId, aptitud),
   });
   const conectado = useResultadosEnVivo([['coord', 'resultados']]);
-  const irA = (codigo: string) => navigate(`/coord/resultados/${codigo}`);
+  const irA = (codigo: string) => navigate(`${rutaProceso}/resultados/${codigo}`);
 
   const exportar = async () => {
     if (!consulta.data || exportando) return;
@@ -64,9 +64,6 @@ export default function Resultados() {
         }
         acciones={
           <>
-            <fieldset disabled={!!exportando}>
-              <SelectorProceso />
-            </fieldset>
             <EnVivo conectado={conectado} />
             <Button onClick={exportar} disabled={!!exportando || consulta.isFetching}>
               <Download /> {exportando ? 'Exportando…' : 'Exportar gráficos PDF'}

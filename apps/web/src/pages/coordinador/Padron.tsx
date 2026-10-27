@@ -10,10 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { api } from '@/lib/api';
 import { formatearCreditos } from '@/lib/formato';
 import { useResultadosEnVivo } from '@/lib/socket';
-import { SelectorProceso, useProcesoSeleccionado } from './LayoutCoord';
+import { useProcesoSeleccionado } from './LayoutCoord';
 
 export default function Padron() {
-  const { procesoId } = useProcesoSeleccionado();
+  const { procesoId, rutaProceso } = useProcesoSeleccionado();
   const padron = useQuery({ queryKey: ['coord', 'padron', procesoId], queryFn: () => api.padron(procesoId) });
   useResultadosEnVivo([['coord', 'padron']]);
   const [busqueda, setBusqueda] = useState('');
@@ -34,11 +34,15 @@ export default function Padron() {
       <Titulo
         titulo="Padrón"
         descripcion={`${padron.data!.alumnos.length} alumnos habilitados en ${proceso.nombre}.`}
-        acciones={<SelectorProceso />}
       />
       <div className="relative mb-4 max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-        <Input className="pl-9" placeholder="Buscar por código o nombre" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+        <Input
+          className="pl-9"
+          placeholder="Buscar por código o nombre"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+        />
       </div>
       {padron.data!.alumnos.length === 0 ? (
         <Vacio>No se han cargado cuentas de alumnos para este proceso.</Vacio>
@@ -59,12 +63,15 @@ export default function Padron() {
               {alumnos.map((a) => (
                 <TableRow key={a.codigo}>
                   <TableCell className="font-mono text-xs">
-                    <Link to={`/coord/padron/${a.codigo}`} className="font-semibold text-primary hover:underline">
+                    <Link
+                      to={`${rutaProceso}/padron/${a.codigo}`}
+                      className="font-semibold text-primary hover:underline"
+                    >
                       {a.codigo}
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <Link to={`/coord/padron/${a.codigo}`} className="hover:underline">
+                    <Link to={`${rutaProceso}/padron/${a.codigo}`} className="hover:underline">
                       {a.apellidos}, {a.nombres}
                     </Link>
                   </TableCell>
@@ -75,7 +82,11 @@ export default function Padron() {
                   </TableCell>
                   <TableCell className="space-x-1">
                     {!a.tieneHistorial && <Badge variant="warning">Sin historial</Badge>}
-                    {a.terminosAceptados ? <Badge variant="success">Términos aceptados</Badge> : <Badge variant="muted">Sin aceptar términos</Badge>}
+                    {a.terminosAceptados ? (
+                      <Badge variant="success">Términos aceptados</Badge>
+                    ) : (
+                      <Badge variant="muted">Sin aceptar términos</Badge>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

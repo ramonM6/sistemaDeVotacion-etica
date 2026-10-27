@@ -1,7 +1,7 @@
-import { Select } from '@/components/ui/select';
+import { Link, useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Lock, Pencil, Play, Plus, RotateCcw } from 'lucide-react';
+import { ArrowRight, CalendarDays, Loader2, Plus, Users, Vote } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -9,7 +9,6 @@ import { z } from 'zod';
 import { Cargando, ErrorCarga, Titulo, Vacio } from '@/components/Estados';
 import { EstadoProcesoBadge } from '@/components/Insignias';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -20,10 +19,9 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { api } from '@/lib/api';
 import { aInputFecha, formatearFecha } from '@/lib/formato';
-import type { EstadoProceso, Proceso } from '@/lib/tipos';
+import type { Proceso } from '@/lib/tipos';
 
 const esquema = z
   .object({
@@ -45,7 +43,15 @@ const esquema = z
   });
 type Datos = z.infer<typeof esquema>;
 
-function FormularioProceso({ proceso, alTerminar }: { proceso: Proceso | null; alTerminar: () => void }) {
+export function FormularioProceso({
+  proceso,
+  alTerminar,
+  alCancelar,
+}: {
+  proceso: Proceso | null;
+  alTerminar: (proceso: Proceso) => void;
+  alCancelar: () => void;
+}) {
   const queryClient = useQueryClient();
   const ahora = new Date();
   const { register, handleSubmit, formState } = useForm<Datos>({
@@ -76,15 +82,16 @@ function FormularioProceso({ proceso, alTerminar }: { proceso: Proceso | null; a
       const datos = {
         ...d,
         cicloActual: d.cicloActual || undefined,
-        fechaInicio: new Date(d.fechaInicio).toISOString(),
+        fechaInicio:
+          proceso && proceso.estado !== 'BORRADOR' ? proceso.fechaInicio : new Date(d.fechaInicio).toISOString(),
         fechaFin: new Date(d.fechaFin).toISOString(),
       };
       return proceso ? api.editarProceso(proceso.id, datos) : api.crearProceso(datos);
     },
-    onSuccess: () => {
+    onSuccess: (guardado) => {
       toast.success(proceso ? 'Proceso actualizado' : 'Proceso creado en borrador');
       queryClient.invalidateQueries({ queryKey: ['coord'] });
-      alTerminar();
+      alTerminar(guardado);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -102,22 +109,32 @@ function FormularioProceso({ proceso, alTerminar }: { proceso: Proceso | null; a
       {campo('nombre', 'Nombre', { placeholder: 'Electivos 2027-1' })}
       {campo('cicloActual', 'Ciclo actual', {
         placeholder: '2026-2',
-        disabled: !!proceso && proceso.estado !== 'BORRADOR',
+        readOnly: !!proceso && proceso.estado !== 'BORRADOR',
       })}
       {campo('cicloObjetivo', 'Ciclo objetivo', {
         placeholder: '2027-1',
-        disabled: !!proceso && proceso.estado !== 'BORRADOR',
+        readOnly: !!proceso && proceso.estado !== 'BORRADOR',
       })}
       <div className="grid gap-4 sm:grid-cols-2">
         {campo('fechaInicio', 'Inicio', { type: 'datetime-local' })}
         {campo('fechaFin', 'Fin (cierre automático)', { type: 'datetime-local' })}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        {campo('maxCursos', 'Máximo de cursos por alumno', { type: 'number', min: 1, max: 5 })}
-        {campo('maxFranjas', 'Máximo de franjas por voto', { type: 'number', min: 1, max: 2 })}
+        {campo('maxCursos', 'Máximo de cursos por alumno', {
+          type: 'number',
+          min: 1,
+          max: 5,
+          readOnly: !!proceso && proceso.estado !== 'BORRADOR',
+        })}
+        {campo('maxFranjas', 'Máximo de franjas por voto', {
+          type: 'number',
+          min: 1,
+          max: 2,
+          readOnly: !!proceso && proceso.estado !== 'BORRADOR',
+        })}
       </div>
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={alTerminar}>
+        <Button type="button" variant="outline" onClick={alCancelar}>
           Cancelar
         </Button>
         <Button type="submit" disabled={guardar.isPending}>
@@ -130,158 +147,85 @@ function FormularioProceso({ proceso, alTerminar }: { proceso: Proceso | null; a
 }
 
 export default function Procesos() {
-  const queryClient = useQueryClient();
-  const procesos = useQuery({ queryKey: ['coord', 'procesos'], queryFn: api.procesos });
-  const [editando, setEditando] = useState<Proceso | null | undefined>(undefined);
-
-  const reutilizar = useMutation({
-    mutationFn: ({ id, origenId }: { id: string; origenId: string }) => api.reutilizarCatalogo(id, origenId),
-    onSuccess: () => {
-      toast.success('Catálogo reutilizado');
-      queryClient.invalidateQueries({ queryKey: ['coord'] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const cambiar = useMutation({
-    mutationFn: ({ id, estado }: { id: string; estado: EstadoProceso }) => api.cambiarEstado(id, estado),
-    onSuccess: (p) => {
-      toast.success(`"${p.nombre}" ahora está ${p.estado.toLowerCase()}`);
-      queryClient.invalidateQueries({ queryKey: ['coord'] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
+  const navigate = useNavigate();
+  const procesos = useQuery({ queryKey: ['coord', 'procesos'], queryFn: api.procesos, refetchInterval: 30_000 });
+  const [creando, setCreando] = useState(false);
   if (procesos.isLoading) return <Cargando />;
   if (procesos.error) return <ErrorCarga error={procesos.error} />;
-  const hayAbierto = procesos.data!.some((p) => p.estado === 'ABIERTO');
-
   return (
-    <div>
+    <div className="space-y-6">
       <Titulo
-        titulo="Procesos de votación"
-        descripcion="Solo puede haber un proceso abierto a la vez. Se cierra solo al llegar la fecha de fin."
+        titulo="Votaciones"
+        descripcion="Elige una votación para revisar sus resultados, administrar sus datos y decidir los estados de sus cursos."
         acciones={
-          <Button onClick={() => setEditando(null)}>
-            <Plus /> Nuevo proceso
+          <Button onClick={() => setCreando(true)}>
+            <Plus /> Nueva votación
           </Button>
         }
       />
-
-      {procesos.data!.length === 0 ? (
-        <Vacio>No hay procesos. Crea uno para empezar.</Vacio>
+      {!procesos.data!.length ? (
+        <Vacio>Aún no hay votaciones. Crea la primera para empezar.</Vacio>
       ) : (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Ciclo</TableHead>
-                <TableHead>Periodo</TableHead>
-                <TableHead>Límites</TableHead>
-                <TableHead>Padrón / votos</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {procesos.data!.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.nombre}</TableCell>
-                  <TableCell>{p.cicloObjetivo}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {procesos.data!.map((p) => (
+            <Link
+              key={p.id}
+              to={`/coord/votaciones/${p.id}`}
+              className="group overflow-hidden rounded-xl border bg-card shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <div
+                className={`relative flex h-32 items-end justify-between overflow-hidden p-5 ${p.estado === 'ABIERTO' ? 'bg-blue-700' : p.estado === 'CERRADO' ? 'bg-slate-700' : 'bg-teal-700'}`}
+              >
+                <div className="absolute -right-5 -top-9 h-40 w-40 rounded-full border-[22px] border-white/10" />
+                <div className="relative">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-white/75">Votación de electivos</p>
+                  <p className="mt-1 text-3xl font-bold text-white">{p.cicloObjetivo}</p>
+                </div>
+                <Vote className="relative h-9 w-9 text-white/80" />
+              </div>
+              <div className="space-y-4 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="text-lg font-semibold leading-snug group-hover:text-primary">{p.nombre}</h2>
+                  <EstadoProcesoBadge estado={p.estado} />
+                </div>
+                <p className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <CalendarDays className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
                     {formatearFecha(p.fechaInicio)}
                     <br />
-                    {formatearFecha(p.fechaFin)}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {p.maxCursos} cursos · {p.maxFranjas} franjas
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    {p._count?.padron ?? 0} / {p._count?.votos ?? 0}
-                  </TableCell>
-                  <TableCell>
-                    <EstadoProcesoBadge estado={p.estado} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditando(p)}
-                        aria-label={`Editar ${p.nombre}`}
-                      >
-                        <Pencil />
-                      </Button>
-                      {p.estado === 'BORRADOR' && (
-                        <Select
-                          aria-label={`Reutilizar catálogo en ${p.nombre}`}
-                          value=""
-                          disabled={reutilizar.isPending}
-                          className="w-48"
-                          onChange={(e) => {
-                            if (e.target.value) reutilizar.mutate({ id: p.id, origenId: e.target.value });
-                          }}
-                        >
-                          <option value="">Reutilizar catálogo de…</option>
-                          {procesos
-                            .data!.filter((o) => o.id !== p.id && o.estado !== 'BORRADOR')
-                            .map((o) => (
-                              <option value={o.id} key={o.id}>
-                                {o.nombre}
-                              </option>
-                            ))}
-                        </Select>
-                      )}
-                      {p.estado === 'BORRADOR' && (
-                        <Button
-                          size="sm"
-                          disabled={hayAbierto || cambiar.isPending}
-                          onClick={() => cambiar.mutate({ id: p.id, estado: 'ABIERTO' })}
-                        >
-                          <Play /> Abrir
-                        </Button>
-                      )}
-                      {p.estado === 'ABIERTO' && (
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          disabled={cambiar.isPending}
-                          onClick={() => cambiar.mutate({ id: p.id, estado: 'CERRADO' })}
-                        >
-                          <Lock /> Cerrar
-                        </Button>
-                      )}
-                      {p.estado === 'CERRADO' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={hayAbierto || cambiar.isPending}
-                          title="Para extender el plazo, edita la fecha de fin antes de reabrir"
-                          onClick={() => cambiar.mutate({ id: p.id, estado: 'ABIERTO' })}
-                        >
-                          <RotateCcw /> Reabrir
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+                    hasta {formatearFecha(p.fechaFin)}
+                  </span>
+                </p>
+                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <Users className="h-4 w-4" />
+                    {p._count?.padron ?? 0} alumnos
+                  </span>
+                  <span>{p._count?.votos ?? 0} votos</span>
+                </div>
+                <div className="flex items-center justify-between border-t pt-4 text-sm font-semibold text-primary">
+                  <span>Entrar a la votación</span>
+                  <ArrowRight className="h-4 w-4" />
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
       )}
-
-      <Dialog open={editando !== undefined} onOpenChange={(v) => !v && setEditando(undefined)}>
+      <Dialog open={creando} onOpenChange={setCreando}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editando ? 'Editar proceso' : 'Nuevo proceso'}</DialogTitle>
-            <DialogDescription>
-              {editando
-                ? 'Para extender el plazo de un proceso cerrado, cambia la fecha de fin y luego reábrelo.'
-                : 'El proceso se crea en borrador.'}
-            </DialogDescription>
+            <DialogTitle>Nueva votación</DialogTitle>
+            <DialogDescription>Se creará en borrador para preparar sus datos antes de abrirla.</DialogDescription>
           </DialogHeader>
-          {editando !== undefined && <FormularioProceso proceso={editando} alTerminar={() => setEditando(undefined)} />}
+          <FormularioProceso
+            proceso={null}
+            alCancelar={() => setCreando(false)}
+            alTerminar={(p) => {
+              setCreando(false);
+              navigate(`/coord/votaciones/${p.id}`);
+            }}
+          />
         </DialogContent>
       </Dialog>
     </div>

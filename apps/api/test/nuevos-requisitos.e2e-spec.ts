@@ -293,4 +293,55 @@ describe('Requisitos integrados de VotaInf', () => {
     const guardado = await db.procesoVotacion.findUniqueOrThrow({ where: { id: nuevo.body.id } });
     expect((guardado.catalogo as { codigo: string }[]).map((c) => c.codigo)).toEqual(['INF310']);
   });
+  it('al cambiar una decisión previa limpia los estados posteriores del curso', async () => {
+    await cerrar().expect(200);
+    await coord
+      .patch('/api/coord/seguimiento/INF310')
+      .send({ seleccion: 'SELECCIONADO_PARA_REVISION', consejo: 'APROBADO', dictado: 'CONFIRMADO' })
+      .expect(200);
+    await coord.patch('/api/coord/seguimiento/INF310').send({ seleccion: 'NO_SELECCIONADO' }).expect(200);
+    let decision = await db.seguimientoCurso.findFirstOrThrow();
+    expect(decision).toMatchObject({ seleccion: 'NO_SELECCIONADO', consejo: 'PENDIENTE', dictado: 'PENDIENTE' });
+    await coord
+      .patch('/api/coord/seguimiento/INF310')
+      .send({ seleccion: 'SELECCIONADO_PARA_REVISION', consejo: 'APROBADO', dictado: 'CONFIRMADO' })
+      .expect(200);
+    await coord.patch('/api/coord/seguimiento/INF310').send({ consejo: 'NO_APROBADO' }).expect(200);
+    decision = await db.seguimientoCurso.findFirstOrThrow();
+    expect(decision).toMatchObject({
+      seleccion: 'SELECCIONADO_PARA_REVISION',
+      consejo: 'NO_APROBADO',
+      dictado: 'PENDIENTE',
+    });
+    await coord.patch('/api/coord/seguimiento/INF310').send({ dictado: 'NO_SE_DICTARA' }).expect(400);
+  });
+
+  it('los estados se guardan en la votación elegida sin modificar otra votación', async () => {
+    await cerrar().expect(200);
+    const otro = await db.procesoVotacion.create({
+      data: {
+        nombre: 'Otra votación cerrada',
+        cicloObjetivo: '2027-2',
+        estado: 'CERRADO',
+        fechaInicio: new Date(Date.now() - 86400000),
+        fechaFin: new Date(Date.now() + 86400000),
+      },
+    });
+    await coord
+      .patch(`/api/coord/seguimiento/INF310?procesoId=${esc.procesoId}`)
+      .send({ seleccion: 'SELECCIONADO_PARA_REVISION' })
+      .expect(200);
+    await coord
+      .patch(`/api/coord/seguimiento/INF310?procesoId=${otro.id}`)
+      .send({ seleccion: 'NO_SELECCIONADO' })
+      .expect(200);
+    const primera = await coord.get(`/api/coord/seguimiento?procesoId=${esc.procesoId}`).expect(200);
+    const segunda = await coord.get(`/api/coord/seguimiento?procesoId=${otro.id}`).expect(200);
+    expect(primera.body.cursos.find((c: { codigo: string }) => c.codigo === 'INF310').seleccion).toBe(
+      'SELECCIONADO_PARA_REVISION',
+    );
+    expect(segunda.body.cursos.find((c: { codigo: string }) => c.codigo === 'INF310').seleccion).toBe(
+      'NO_SELECCIONADO',
+    );
+  });
 });

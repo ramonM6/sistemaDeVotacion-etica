@@ -1,4 +1,3 @@
-import Seguimiento from '@/pages/coordinador/Seguimiento';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Cargando } from '@/components/Estados';
 import { RequiereRol, inicioPorRol } from '@/components/RequiereRol';
@@ -44,15 +43,17 @@ export default function App() {
 
       <Route element={<RequiereRol rol="COORDINADOR" />}>
         <Route path="/coord" element={<LayoutCoord />}>
-          <Route index element={<Panel />} />
-          <Route path="resultados" element={<CoordResultados />} />
-          <Route path="resultados/:codigo" element={<DetalleCurso />} />
-          <Route path="seguimiento" element={<Seguimiento />} />
-          <Route path="procesos" element={<Procesos />} />
-          <Route path="carga" element={<CargaDatos />} />
-          <Route path="cursos" element={<Cursos />} />
-          <Route path="padron" element={<Padron />} />
-          <Route path="padron/:codigo" element={<DetalleAlumno />} />
+          <Route index element={<Procesos />} />
+          <Route path="catalogo" element={<Cursos />} />
+          <Route path="votaciones/:procesoId">
+            <Route index element={<Panel />} />
+            <Route path="resultados" element={<CoordResultados />} />
+            <Route path="resultados/:codigo" element={<DetalleCurso />} />
+            <Route path="carga" element={<CargaDatos />} />
+            <Route path="padron" element={<Padron />} />
+            <Route path="padron/:codigo" element={<DetalleAlumno />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/coord" replace />} />
         </Route>
       </Route>
 

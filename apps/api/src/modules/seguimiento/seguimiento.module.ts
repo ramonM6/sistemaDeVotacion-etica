@@ -77,7 +77,8 @@ class SeguimientoService {
       async (tx) => {
         await tx.$queryRaw`SELECT 1 FROM "ProcesoVotacion" WHERE id = ${proceso.id} FOR UPDATE`;
         const actual = await tx.procesoVotacion.findUniqueOrThrow({ where: { id: proceso.id } });
-        if (actual.estado !== 'CERRADO') throw new BadRequestException('El seguimiento se registra después del cierre');
+        if (actual.estado !== 'CERRADO')
+          throw new BadRequestException('Los estados de los cursos se modifican después del cierre');
         for (const { codigo, decision } of filas) {
           const curso = Array.isArray(actual.catalogo)
             ? (actual.catalogo as unknown as { codigo: string; tipo: string }[]).find((c) => c.codigo === codigo)
@@ -86,22 +87,39 @@ class SeguimientoService {
           const anterior = await tx.seguimientoCurso.findUnique({
             where: { procesoId_cursoCodigo: { procesoId: proceso.id, cursoCodigo: codigo } },
           });
+          const cambios = Object.fromEntries(
+            Object.entries(decision).filter(([, valor]) => valor !== undefined),
+          ) as DecisionDto;
+          if (
+            decision.seleccion !== undefined &&
+            (decision.seleccion !== anterior?.seleccion ||
+              (decision.consejo === undefined && decision.dictado === undefined))
+          ) {
+            if (decision.consejo === undefined) cambios.consejo = 'PENDIENTE';
+            if (decision.dictado === undefined) cambios.dictado = 'PENDIENTE';
+          }
+          if (
+            decision.consejo !== undefined &&
+            decision.consejo !== anterior?.consejo &&
+            decision.dictado === undefined
+          )
+            cambios.dictado = 'PENDIENTE';
           const datos = {
             seleccion: 'PENDIENTE',
             consejo: 'PENDIENTE',
             dictado: 'PENDIENTE',
             observacion: '',
             ...anterior,
-            ...decision,
+            ...cambios,
           };
           if (datos.consejo !== 'PENDIENTE' && datos.seleccion !== 'SELECCIONADO_PARA_REVISION')
             throw new BadRequestException(`${codigo}: selecciona el curso para revisión antes de registrar el consejo`);
-          if (datos.dictado === 'CONFIRMADO' && datos.consejo !== 'APROBADO')
-            throw new BadRequestException(`${codigo}: solo se puede confirmar un curso aprobado por el consejo`);
+          if (datos.dictado !== 'PENDIENTE' && datos.consejo !== 'APROBADO')
+            throw new BadRequestException(`${codigo}: la decisión de dictado requiere aprobación previa del consejo`);
           await tx.seguimientoCurso.upsert({
             where: { procesoId_cursoCodigo: { procesoId: proceso.id, cursoCodigo: codigo } },
-            create: { procesoId: proceso.id, cursoCodigo: codigo, ...decision },
-            update: decision,
+            create: { procesoId: proceso.id, cursoCodigo: codigo, ...cambios },
+            update: cambios,
           });
         }
         if (csv !== undefined)
@@ -172,7 +190,7 @@ class SeguimientoService {
       if (
         !curso ||
         (fila.decision.consejo !== 'PENDIENTE' && curso.seleccion !== 'SELECCIONADO_PARA_REVISION') ||
-        (fila.decision.dictado === 'CONFIRMADO' && fila.decision.consejo !== 'APROBADO')
+        (fila.decision.dictado !== 'PENDIENTE' && fila.decision.consejo !== 'APROBADO')
       )
         throw new BadRequestException(`${fila.codigo}: curso desconocido, no seleccionado o decisión incompatible`);
     }
