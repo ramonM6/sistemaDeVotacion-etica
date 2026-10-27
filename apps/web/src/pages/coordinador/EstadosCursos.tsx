@@ -1,3 +1,4 @@
+import { EstadoCursoBadge } from '@/components/EstadoCursoBadge';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -184,11 +185,12 @@ function TablaEtapa({
                   {ranking.find((r) => r.codigo === c.codigo)?.total ?? 0}
                 </td>
                 <td className="px-4 py-4">
-                  <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
-                    {c[config.campo] === 'PENDIENTE' && etapa === 'seleccion'
-                      ? 'Pendiente de selección'
-                      : etiquetas[c[config.campo]]}
-                  </span>
+                  <EstadoCursoBadge
+                    estado={c[config.campo]}
+                    texto={
+                      c[config.campo] === 'PENDIENTE' && etapa === 'seleccion' ? 'Pendiente de selección' : undefined
+                    }
+                  />
                 </td>
               </tr>
             ))}
