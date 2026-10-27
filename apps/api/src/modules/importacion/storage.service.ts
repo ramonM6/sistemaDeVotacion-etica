@@ -1,5 +1,6 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
+import { recurso, type ClaseRecurso } from './recursos';
 
 export interface OriginalGuardado {
   bucket: string;
@@ -13,8 +14,7 @@ export class StorageService {
   private configuracion(bucket?: string) {
     const url = process.env.SUPABASE_URL?.replace(/\/$/, '');
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key)
-      throw new ServiceUnavailableException('Configura Supabase Storage para guardar los archivos originales.');
+    if (!url || !key) throw new ServiceUnavailableException('Configura Supabase Storage para acceder a los archivos.');
     return {
       url,
       bucket: bucket ?? (process.env.SUPABASE_STORAGE_BUCKET || 'votainf-importaciones'),
@@ -33,6 +33,14 @@ export class StorageService {
     }
   }
   async subir(nombre: string, archivo: Buffer, prefijo: string): Promise<OriginalGuardado> {
+    const extension = nombre.toLowerCase().endsWith('.csv') ? 'csv' : 'xlsx';
+    return this.guardar(nombre, archivo, `sistema-votacion/${prefijo}/${randomUUID()}.${extension}`, false);
+  }
+  async publicarRecurso(clase: ClaseRecurso, tipo: string, archivo: Buffer) {
+    const { nombre, ruta } = recurso(clase, tipo);
+    return this.guardar(nombre, archivo, ruta, true);
+  }
+  private async guardar(nombre: string, archivo: Buffer, ruta: string, reemplazar: boolean): Promise<OriginalGuardado> {
     const c = this.configuracion();
     // Comprueba la privacidad antes de enviar archivos que podrían contener cuentas o notas.
     const bucket = await this.solicitar(`${c.url}/storage/v1/bucket/${encodeURIComponent(c.bucket)}`, {
@@ -42,11 +50,10 @@ export class StorageService {
     if (datos.public !== false)
       throw new ServiceUnavailableException('El bucket de archivos académicos debe ser privado.');
     const extension = nombre.toLowerCase().endsWith('.csv') ? 'csv' : 'xlsx';
-    const ruta = `sistema-votacion/${prefijo}/${randomUUID()}.${extension}`;
     const tipo = extension === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     await this.solicitar(`${c.url}/storage/v1/object/${encodeURIComponent(c.bucket)}/${ruta}`, {
       method: 'POST',
-      headers: { ...c.headers, 'Content-Type': tipo, 'x-upsert': 'false' },
+      headers: { ...c.headers, 'Content-Type': tipo, 'x-upsert': String(reemplazar) },
       body: new Uint8Array(archivo),
     });
     return { bucket: c.bucket, ruta, sha256: createHash('sha256').update(archivo).digest('hex') };

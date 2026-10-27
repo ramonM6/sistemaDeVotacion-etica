@@ -11,6 +11,7 @@
     "test": "jest",
     "test:e2e": "jest --config test/jest-e2e.config.js --runInBand",
     "seed": "tsx prisma/seed.ts",
+    "plantillas:publicar": "node --import tsx scripts/publicar-plantillas.ts",
     "db:reset": "prisma migrate reset --force --skip-seed && npm run seed",
     "postinstall": "prisma generate",
     "test:e2e:local": "node scripts/test-local.mjs"

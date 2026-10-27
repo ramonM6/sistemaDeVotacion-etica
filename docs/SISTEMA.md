@@ -10,7 +10,7 @@ Una votación pasa de borrador a abierta y luego a cerrada. El cierre también o
 
 Las cuentas globales, la malla curricular y el historial se cargan en CSV UTF-8 o Excel `.xlsx`, hasta 5 MB por archivo. Se validan encabezados, tipos de datos y referencias. Alumnos permite importar cuentas nuevas o actualizar las del mismo código sin eliminar las omitidas ni cambiar padrones. En cada votación solo se cargan malla e historial; al reemplazar o eliminar el historial se regenera o vacía su padrón. El historial rechaza códigos sin cuenta registrada. Las cuentas pueden importarse aunque haya votaciones abiertas.
 
-Se pueden reutilizar malla e historial de una votación anterior al crear otra, sin volver a cargar cuentas. No se copian votos ni decisiones. Supabase Storage guarda los originales en un bucket privado; PostgreSQL conserva los registros procesados y las referencias. Las descargas requieren coordinación. Desde la primera apertura se bloquean los cambios de datos académicos y malla.
+Se pueden reutilizar malla e historial de una votación anterior al crear otra, sin volver a cargar cuentas. No se copian votos ni decisiones. Supabase Storage guarda los originales en un bucket privado; PostgreSQL conserva los registros procesados y las referencias. Las descargas requieren coordinación. Las plantillas Excel y los CSV de ejemplo también se descargan exclusivamente desde Supabase Storage; no hay alternativa local en la API. Desde la primera apertura se bloquean los cambios de datos académicos y malla.
 
 ## Requisitos y voto
 

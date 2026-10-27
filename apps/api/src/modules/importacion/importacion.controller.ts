@@ -17,7 +17,6 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { IsUUID } from 'class-validator';
 import { Response } from 'express';
-import { createReadStream } from 'fs';
 import { memoryStorage } from 'multer';
 import { Roles, UsuarioActual, UsuarioSesion } from '../../common/auth.decorators';
 import { ImportacionService, TIPOS_IMPORTACION, TipoImportacion } from './importacion.service';
@@ -112,16 +111,16 @@ export class ImportacionController {
   }
 
   @Get(':tipo/ejemplo')
-  ejemplo(@Param('tipo') tipo: string, @Res({ passthrough: true }) res: Response) {
-    const { ruta, nombre } = this.importacion.rutaEjemplo(validarTipo(tipo));
+  async ejemplo(@Param('tipo') tipo: string, @Res({ passthrough: true }) res: Response) {
+    const { buffer, nombre } = await this.importacion.descargarRecurso(validarTipo(tipo), 'ejemplos');
     res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${nombre}"` });
-    return new StreamableFile(createReadStream(ruta));
+    return new StreamableFile(buffer);
   }
 
   @Get(':tipo/plantilla')
-  plantilla(@Param('tipo') tipo: string, @Res({ passthrough: true }) res: Response) {
-    const { ruta, nombre } = this.importacion.rutaPlantilla(validarTipo(tipo));
+  async plantilla(@Param('tipo') tipo: string, @Res({ passthrough: true }) res: Response) {
+    const { buffer, nombre } = await this.importacion.descargarRecurso(validarTipo(tipo), 'plantillas');
     res.set({ 'Content-Type': MIME_XLSX, 'Content-Disposition': `attachment; filename="${nombre}"` });
-    return new StreamableFile(createReadStream(ruta));
+    return new StreamableFile(buffer);
   }
 }

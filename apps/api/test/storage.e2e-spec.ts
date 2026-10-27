@@ -44,6 +44,16 @@ describe('Supabase Storage privado', () => {
     await storage.eliminar(original.bucket, original.ruta);
     expect(JSON.parse(fetchMock.mock.calls[3][1].body).prefixes).toEqual([original.ruta]);
   });
+  it('publica recursos en una ruta estable y permite actualizar solo esa copia', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ public: false })))
+      .mockResolvedValueOnce(new Response('{}'));
+    const original = await new StorageService().publicarRecurso('plantillas', 'malla', Buffer.from('xlsx'));
+    expect(original.ruta).toBe('sistema-votacion/recursos/v1/plantillas/plantilla_malla_curricular.xlsx');
+    expect(fetchMock.mock.calls[1][1].headers['x-upsert']).toBe('true');
+    expect(fetchMock.mock.calls[1][0]).toContain(original.ruta);
+  });
+
   it('rechaza buckets públicos antes de subir información', async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ public: true })));
     await expect(new StorageService().subir('alumnos.xlsx', Buffer.from('datos'), 'cuentas')).rejects.toThrow(

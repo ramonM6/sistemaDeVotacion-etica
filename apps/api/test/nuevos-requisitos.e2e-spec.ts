@@ -821,6 +821,23 @@ describe('Requisitos integrados de VotaInf', () => {
     expect(await db.archivoCarga.count({ where: { procesoId: id } })).toBe(0);
     await coord.delete(`/api/coord/import/catalogo?procesoId=${id}`).expect(400);
   });
+  it('descarga plantillas y ejemplos solo desde Storage, sin alternativa local', async () => {
+    const storage = app.get(StorageService) as unknown as StorageFalso;
+    const ruta = 'sistema-votacion/recursos/v1/ejemplos/01_malla.csv';
+    const previo = storage.recursos.get(ruta)!;
+    try {
+      storage.recursos.set(ruta, Buffer.from('codigo,nombre,creditos,tipo\nINF999,Ejemplo remoto,3,ELECTIVO'));
+      const r = await coord.get('/api/coord/import/malla/ejemplo').expect(200);
+      expect(r.text).toContain('Ejemplo remoto');
+      storage.recursos.delete(ruta);
+      await coord.get('/api/coord/import/malla/ejemplo').expect(503);
+      const p = await coord.get('/api/coord/import/malla/plantilla').expect(200);
+      expect(p.headers['content-disposition']).toContain('plantilla_malla_curricular.xlsx');
+    } finally {
+      storage.recursos.set(ruta, previo);
+    }
+  });
+
   it('ofrece ejemplos CSV descargables por tipo solo al coordinador', async () => {
     for (const [tipo, nombre, columna] of [
       ['malla', '01_malla.csv', 'codigo,nombre,creditos,tipo'],

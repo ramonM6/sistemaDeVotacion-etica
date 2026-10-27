@@ -40,6 +40,8 @@ Edita `apps/api/.env` antes de cargar archivos:
 
 Cada equipo puede usar su propio Supabase o uno compartido autorizado. Las credenciales no se incluyen en el repositorio ni en el ZIP. No pongas la clave de servicio en el frontend ni en variables `VITE_`.
 
+Si usas el bucket ya preparado, sus plantillas están publicadas. Si configuras un bucket privado nuevo, publica una vez los seis recursos con `npm run plantillas:publicar -w apps/api`. Consulta [docs/PLANTILLAS_SUPABASE.md](docs/PLANTILLAS_SUPABASE.md).
+
 Después:
 
 ```sh
@@ -67,7 +69,7 @@ Después de configurar `.env`, puedes usar `iniciar.bat`. Comprueba dependencias
 4. Abre la votación para publicarla. Las cuentas registradas ya permiten iniciar sesión; solo los alumnos incluidos en su historial verán la votación. Los demás verán «No tienes votaciones disponibles».
 5. Los códigos de prueba y sus casos están en [docs/datos-prueba/README.md](docs/datos-prueba/README.md). La contraseña de los 16 alumnos es `Alumno#2026`.
 
-Las plantillas vacías/de ejemplo Excel están en `docs/plantillas`. Los CSV de prueba son un conjunto compatible entre sí: usa los tres de esta versión. Una nota vacía en el historial significa que el curso está en progreso.
+Las plantillas Excel y los CSV se descargan desde **Plantillas** usando Supabase Storage. No se sirven archivos del disco de la API. Las copias en `docs/plantillas` y `docs/datos-prueba` son fuentes de publicación y fixtures de pruebas, no una alternativa de descarga local. Una nota vacía en el historial significa que el curso está en progreso.
 
 ## Si ya tenías la versión anterior
 
@@ -102,7 +104,7 @@ Para detener API y web: `Ctrl+C`. Para detener PostgreSQL conservando sus datos:
 
 - `apps/api`: API, esquema Prisma, migraciones, seed mínimo y pruebas.
 - `apps/web`: interfaz y configuración de Vite.
-- `docs`: reglas vigentes, reinicio de BD, referencia del plan y archivos de prueba.
+- `docs`: reglas vigentes, reinicio de BD, referencia del plan y fuentes de plantillas/ejemplos para publicación y pruebas.
 - `docker-compose.yml`, `iniciar.bat`, `scripts/iniciar.mjs`: arranque local.
 - `package.json` y `package-lock.json`: dependencias y comandos reproducibles con `npm ci`.
 

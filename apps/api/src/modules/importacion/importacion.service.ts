@@ -2,8 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { randomUUID } from 'crypto';
 import { StorageService, OriginalGuardado } from './storage.service';
 import { descifrarArchivo } from './archivos';
-import { existsSync } from 'fs';
-import { resolve } from 'path';
+import { recurso, type ClaseRecurso } from './recursos';
 import { config } from '../../config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -32,13 +31,6 @@ export type TipoImportacion = (typeof TIPOS_IMPORTACION)[number];
 
 const VIGENCIA_TOKEN_MS = 30 * 60 * 1000;
 
-const PLANTILLAS: Record<TipoImportacion, string> = {
-  catalogo: 'plantilla_malla_curricular.xlsx',
-  malla: 'plantilla_malla_curricular.xlsx',
-  cuentas: 'plantilla_cuentas_alumnos.xlsx',
-  historial: 'plantilla_historial_academico.xlsx',
-};
-
 type Pendiente =
   | { tipo: 'catalogo'; datos: CursoImportado[] }
   | { tipo: 'malla'; datos: CursoImportado[] }
@@ -52,17 +44,6 @@ interface Vista {
   pendiente: Pendiente;
   archivo: Buffer;
   nombre: string;
-}
-
-/** Directorio de las plantillas Excel (docs/plantillas en la raíz del repositorio). */
-export function directorioPlantillas(): string {
-  const candidatos = [
-    process.env.PLANTILLAS_DIR,
-    resolve(__dirname, '../../../../../docs/plantillas'),
-    resolve(process.cwd(), '../../docs/plantillas'),
-    resolve(process.cwd(), 'docs/plantillas'),
-  ].filter((c): c is string => !!c);
-  return candidatos.find((c) => existsSync(c)) ?? candidatos[0];
 }
 
 /**
@@ -81,23 +62,10 @@ export class ImportacionService {
     private readonly storage: StorageService,
   ) {}
 
-  rutaPlantilla(tipo: TipoImportacion) {
-    const ruta = resolve(directorioPlantillas(), PLANTILLAS[tipo]);
-    if (!existsSync(ruta)) throw new NotFoundException('Plantilla no disponible');
-    return { ruta, nombre: tipo === 'malla' ? 'plantilla_malla_curricular.xlsx' : PLANTILLAS[tipo] };
-  }
-
-  rutaEjemplo(tipo: TipoImportacion) {
-    const nombres: Partial<Record<TipoImportacion, string>> = {
-      malla: '01_malla.csv',
-      cuentas: '02_alumnos.csv',
-      historial: '03_historial.csv',
-    };
-    const nombre = nombres[tipo];
-    if (!nombre) throw new BadRequestException('No hay ejemplo para ese tipo');
-    const ruta = resolve(process.env.EJEMPLOS_DIR ?? resolve(directorioPlantillas(), '../datos-prueba'), nombre);
-    if (!existsSync(ruta)) throw new NotFoundException('Ejemplo no disponible');
-    return { ruta, nombre };
+  async descargarRecurso(tipo: TipoImportacion, clase: ClaseRecurso) {
+    const { nombre, ruta } = recurso(clase, tipo);
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'votainf-importaciones';
+    return { nombre, buffer: await this.storage.descargar(bucket, ruta) };
   }
 
   async preview(

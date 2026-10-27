@@ -1,5 +1,7 @@
 # Datos ficticios para probar una votación
 
+Las descargas de estos archivos se obtienen desde Supabase en la sección Plantillas. Las copias de este directorio solo se usan para publicar nuevas versiones y para pruebas.
+
 Estos archivos conservan las 16 cuentas y los casos académicos de la demostración original, sin crear votaciones ni votos automáticamente.
 
 1. En el navbar del coordinador, abre **Alumnos** y sube `02_alumnos.csv`: crea las 16 cuentas globales. Ya pueden iniciar sesión; todavía no tendrán votaciones disponibles.
