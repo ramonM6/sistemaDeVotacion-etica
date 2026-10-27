@@ -41,7 +41,15 @@ async function solicitar<T>(ruta: string, opciones: RequestInit = {}): Promise<T
   });
   if (res.status === 204) return undefined as T;
   const texto = await res.text();
-  const cuerpo = texto ? JSON.parse(texto) : null;
+  let cuerpo: { message?: string | string[]; error?: string } | null;
+  try {
+    cuerpo = texto ? JSON.parse(texto) : null;
+  } catch {
+    throw new ApiError(res.status, 'El servidor no está disponible. Inténtalo de nuevo en unos momentos.');
+  }
+  if (!res.ok && res.status >= 500) {
+    throw new ApiError(res.status, 'El servidor no está disponible. Inténtalo de nuevo en unos momentos.');
+  }
   if (!res.ok) {
     const mensaje = cuerpo?.message;
     const lista: string[] = Array.isArray(mensaje) ? mensaje : mensaje ? [String(mensaje)] : [];

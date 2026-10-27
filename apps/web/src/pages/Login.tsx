@@ -36,7 +36,13 @@ export default function Login() {
       navigate(desde && desde.startsWith(inicioPorRol(u.rol)) ? desde : inicioPorRol(u.rol), { replace: true });
     } catch (e) {
       // Mensaje genérico: no revela si el código existe.
-      setError(e instanceof ApiError && e.status === 429 ? e.message : 'Código o contraseña incorrectos');
+      setError(
+        e instanceof ApiError
+          ? e.status === 401
+            ? 'Código o contraseña incorrectos'
+            : e.message
+          : 'No se pudo conectar con el servidor. Inténtalo de nuevo en unos momentos.',
+      );
     }
   });
 
@@ -60,7 +66,9 @@ export default function Login() {
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña</Label>
               <Input id="password" type="password" autoComplete="current-password" {...register('password')} />
-              {formState.errors.password && <p className="text-xs text-destructive">{formState.errors.password.message}</p>}
+              {formState.errors.password && (
+                <p className="text-xs text-destructive">{formState.errors.password.message}</p>
+              )}
             </div>
             {error && (
               <Alert variant="destructive" className="py-2">
