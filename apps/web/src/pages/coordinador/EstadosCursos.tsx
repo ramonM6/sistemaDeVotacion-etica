@@ -19,7 +19,8 @@ export type Etapa = (typeof ETAPAS)[number];
 const configuracion = {
   seleccion: {
     titulo: 'Selección inicial',
-    descripcion: 'Marca los cursos y decide cuáles pasarán a revisión del consejo.',
+    descripcion:
+      'El coordinador decide qué electivos propondrá al consejo. «Seleccionado para revisión» incluye el curso en la siguiente etapa para evaluar su apertura. «No seleccionado» lo deja fuera de esa revisión en esta votación. Los cursos pendientes todavía no tienen una decisión.',
     campo: 'seleccion',
     opciones: ['SELECCIONADO_PARA_REVISION', 'NO_SELECCIONADO'],
     vacio: 'No hay electivos cargados en esta votación.',
@@ -27,14 +28,15 @@ const configuracion = {
   consejo: {
     titulo: 'Revisión del consejo',
     descripcion:
-      'Aquí aparecen únicamente los cursos seleccionados en la primera etapa. Registra cuáles fueron aprobados.',
+      'Aquí se registra la decisión del consejo sobre los cursos seleccionados. «Aprobado» autoriza que el curso pase a la planificación de su dictado; todavía no confirma que se ofrecerá. «No aprobado» indica que el consejo rechazó la propuesta y el curso no avanza. Los cursos pendientes aún esperan la decisión del consejo.',
     campo: 'consejo',
     opciones: ['APROBADO', 'NO_APROBADO'],
     vacio: 'Todavía no hay cursos seleccionados para revisión. Vuelve a la selección inicial para elegirlos.',
   },
   dictado: {
     titulo: 'Decisión de dictado',
-    descripcion: 'Aquí aparecen únicamente los cursos aprobados por el consejo. Confirma cuáles se dictarán.',
+    descripcion:
+      'El coordinador define la oferta final entre los cursos aprobados por el consejo. «Confirmado» indica que el curso se ofrecerá en el período de esta votación. «No se dictará» indica que, aunque fue aprobado, finalmente no se ofrecerá en ese período. Los cursos pendientes aún no tienen una decisión final de dictado.',
     campo: 'dictado',
     opciones: ['CONFIRMADO', 'NO_SE_DICTARA'],
     vacio: 'Todavía no hay cursos aprobados por el consejo. Revisa la etapa anterior.',
