@@ -107,16 +107,18 @@ export class ImportacionService {
     if (tipo === 'catalogo' || tipo === 'malla') {
       const hoja = await leerHoja(archivo, 'cursos', COLUMNAS_CATALOGO, COLUMNAS_CATALOGO_OPCIONALES, formato);
       const r = validarCatalogo(hoja);
-      const codigos = new Set(r.filas.map((f) => f.datos.codigo));
-      const conVotos = await this.prisma.curso.findMany({
-        where: { votos: { some: {} } },
-        select: { codigo: true },
-      });
-      const conservados = conVotos.map((c) => c.codigo).filter((c) => !codigos.has(c));
-      if (conservados.length) {
-        r.advertenciasGenerales.push(
-          `No vienen en el archivo pero tienen votos, así que se conservan: ${conservados.join(', ')}`,
-        );
+      if (tipo === 'catalogo') {
+        const codigos = new Set(r.filas.map((f) => f.datos.codigo));
+        const conVotos = await this.prisma.curso.findMany({
+          where: { votos: { some: {} } },
+          select: { codigo: true },
+        });
+        const conservados = conVotos.map((c) => c.codigo).filter((c) => !codigos.has(c));
+        if (conservados.length) {
+          r.advertenciasGenerales.push(
+            `No vienen en el archivo pero tienen votos, así que se conservan: ${conservados.join(', ')}`,
+          );
+        }
       }
       resultado = r;
       pendiente = { tipo, datos: r.filas.map((f) => f.datos) };

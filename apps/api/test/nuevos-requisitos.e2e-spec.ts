@@ -577,6 +577,12 @@ describe('Requisitos integrados de VotaInf', () => {
       .expect(403);
   });
   it('importa la malla del borrador con CSV o Excel y conserva su copia por votación', async () => {
+    await aceptarTerminos(db, esc.procesoId, esc.alumnos['20000001']);
+    const alumnoMalla = await sesion(app, '20000001');
+    await alumnoMalla
+      .post('/api/alumno/votos')
+      .send(voto('INF356', ['NOCHE']))
+      .expect(201);
     const creado = await coord
       .post('/api/coord/procesos')
       .send({
@@ -592,6 +598,8 @@ describe('Requisitos integrados de VotaInf', () => {
     const ruta = `/api/coord/import/malla/preview?procesoId=${id}`;
     const preview = await coord.post(ruta).attach('archivo', original, 'malla.csv').expect(200);
     expect(preview.body.proceso.id).toBe(id);
+    expect(preview.body.advertenciasGenerales.join(' ')).not.toContain('se conservan');
+    expect(preview.body.advertenciasGenerales.join(' ')).not.toContain('INF356');
     const cantidad = await db.curso.count();
     await coord.post('/api/coord/import/malla/confirmar').send({ token: preview.body.token }).expect(200);
     const proceso = await db.procesoVotacion.findUniqueOrThrow({ where: { id } });
