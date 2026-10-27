@@ -16,7 +16,7 @@ import { useResultadosEnVivo } from '@/lib/socket';
 import { useProcesoSeleccionado } from './LayoutCoord';
 
 export default function Panel() {
-  const { procesoId, rutaProceso } = useProcesoSeleccionado();
+  const { procesoId, rutaProceso, enPreparacion } = useProcesoSeleccionado();
   const consulta = useQuery({
     queryKey: ['coord', 'resultados', procesoId, null],
     queryFn: () => api.resultadosCoord(procesoId),
@@ -117,11 +117,13 @@ export default function Panel() {
             <BarChart3 /> Ver dashboard de resultados
           </Link>
         </Button>
-        <Button asChild variant="outline">
-          <Link to={`${rutaProceso}/carga`}>
-            <Upload /> Cargar datos
-          </Link>
-        </Button>
+        {enPreparacion && (
+          <Button asChild variant="outline">
+            <Link to={`${rutaProceso}/carga?preparar=1`}>
+              <Upload /> Preparar datos de la votación
+            </Link>
+          </Button>
+        )}
       </div>
     </div>
   );

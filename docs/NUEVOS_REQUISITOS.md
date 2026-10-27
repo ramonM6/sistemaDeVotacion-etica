@@ -22,7 +22,7 @@ Los términos pasan a versión 2 para reflejar las elecciones editables y la pri
 
 Al iniciar sesión, el coordinador ve **Votaciones**, un tablero de tarjetas con nombre, ciclo, estado, fechas, alumnos y votos. Desde allí puede crear una votación en borrador o entrar explícitamente a una existente.
 
-La dirección `/coord/votaciones/:procesoId` identifica la votación elegida. Dentro están su resumen, controles de apertura/cierre/edición, cursos y decisiones, resultados, carga de datos y padrón. Los enlaces conservan el identificador al navegar y recargar: nunca se cambia silenciosamente al proceso activo. **Todas las votaciones** vuelve al tablero. El catálogo base global mantiene su acceso propio y las ofertas ya abiertas conservan sus copias.
+La dirección `/coord/votaciones/:procesoId` identifica la votación elegida. La barra superior mantiene siempre **Votaciones** y **Catálogo base**. Debajo del encabezado de la votación aparecen sus pestañas locales: **Resumen y cursos**, **Resultados**, **Datos y archivos** y **Padrón**. Dentro están sus controles de apertura/cierre/edición, cursos y decisiones. Los enlaces conservan el identificador al navegar y recargar: nunca se cambia silenciosamente al proceso activo. **Todas las votaciones** vuelve al tablero. **Datos y archivos** abre por defecto en consulta: muestra el catálogo conservado, cantidades de alumnos e historial y las descargas disponibles. Solo un borrador sin apertura previa ofrece una acción explícita para preparar o actualizar datos. En votaciones abiertas o cerradas no hay formularios de subida, incluso entrando directamente con parámetros de preparación. El catálogo base global mantiene su acceso propio y las ofertas ya abiertas conservan sus copias.
 
 ## Procesos y catálogo
 

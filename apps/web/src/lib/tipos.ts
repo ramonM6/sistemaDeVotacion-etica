@@ -20,6 +20,8 @@ export interface Proceso {
   nombre: string;
   cicloObjetivo: string;
   cicloActual?: string;
+  primeraApertura?: string | null;
+  catalogo?: { codigo: string; tipo: TipoCurso }[] | null;
   fechaInicio: string;
   fechaFin: string;
   maxCursos: number;
@@ -27,7 +29,7 @@ export interface Proceso {
   estado: EstadoProceso;
   createdAt: string;
   updatedAt: string;
-  _count?: { padron: number; votos: number };
+  _count?: { padron: number; votos: number; historial?: number };
 }
 
 export interface EvaluacionRequisito {

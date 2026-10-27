@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, Loader2, Upload, XCircle } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Titulo } from '@/components/Estados';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Cargando, ErrorCarga, Titulo } from '@/components/Estados';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -231,22 +232,90 @@ function TarjetaImportacion({ tipo, titulo, descripcion }: (typeof TARJETAS)[num
 }
 
 export default function CargaDatos() {
-  const { procesoId } = useProcesoSeleccionado();
+  const { procesoId, rutaProceso, proceso, enPreparacion, cargandoProceso } = useProcesoSeleccionado();
+  const [parametros, setParametros] = useSearchParams();
+  const editar = enPreparacion && parametros.get('preparar') === '1';
   const archivos = useQuery({ queryKey: ['coord', 'archivos', procesoId], queryFn: () => api.archivos(procesoId) });
+  if (!proceso)
+    return cargandoProceso ? (
+      <Cargando />
+    ) : (
+      <ErrorCarga error={new Error('No se pudo cargar la votación. Vuelve al tablero e inténtalo de nuevo.')} />
+    );
+  const electivos = proceso.catalogo?.filter((c) => c.tipo === 'ELECTIVO').length;
   return (
     <div className="space-y-4">
       <Titulo
-        titulo="Carga de datos"
-        descripcion="Sube un Excel o CSV, revisa la vista previa y confirma. Padrón e historial solo se cargan antes de la primera apertura."
+        titulo={editar ? 'Preparar datos de la votación' : 'Datos de la votación'}
+        descripcion={
+          editar
+            ? 'Carga y valida la información antes de abrir esta votación.'
+            : 'Consulta la información y los archivos de esta votación.'
+        }
+        acciones={
+          enPreparacion ? (
+            <Button variant="outline" onClick={() => setParametros(editar ? {} : { preparar: '1' })}>
+              {editar ? 'Volver a consultar los datos' : 'Preparar o actualizar datos'}
+            </Button>
+          ) : undefined
+        }
       />
-      <p className="text-sm text-muted-foreground">
-        Las cuentas admiten columnas opcionales ingreso (AAAA o AAAA.1/AAAA.2), craest (0–100) y matriculado (si/no). El
-        catálogo cargado se reutiliza al abrir un nuevo proceso; cada proceso conserva una copia desde su primera
-        apertura.
-      </p>
-      {TARJETAS.map((t) => (
-        <TarjetaImportacion key={`${procesoId}-${t.tipo}`} {...t} />
-      ))}
+      {!editar && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Card className="p-5">
+              <p className="text-sm text-muted-foreground">Catálogo de la votación</p>
+              <p className="mt-2 text-2xl font-bold">
+                {electivos !== undefined
+                  ? `${electivos} electivos`
+                  : enPreparacion
+                    ? 'Se fijará al abrir'
+                    : 'Oferta de la votación'}
+              </p>
+              <Link to={rutaProceso} className="mt-2 inline-block text-sm text-primary underline">
+                Consultar cursos
+              </Link>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {enPreparacion
+                  ? 'El catálogo se conserva desde la primera apertura.'
+                  : 'Oferta conservada para esta votación.'}
+              </p>
+            </Card>
+            <Card className="p-5">
+              <p className="text-sm text-muted-foreground">Alumnos en el padrón</p>
+              <p className="mt-2 text-2xl font-bold">{proceso._count?.padron ?? 0}</p>
+              <Link to="../padron" relative="path" className="mt-2 inline-block text-sm text-primary underline">
+                Consultar padrón
+              </Link>
+            </Card>
+            <Card className="p-5">
+              <p className="text-sm text-muted-foreground">Historial académico</p>
+              <p className="mt-2 text-2xl font-bold">
+                {proceso._count?.historial !== undefined ? `${proceso._count.historial} registros` : 'Consultar padrón'}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">Consulta el detalle académico desde el padrón.</p>
+            </Card>
+          </div>
+          <Alert variant="info">
+            <AlertDescription>
+              {enPreparacion
+                ? 'Esta votación está en borrador. Solo prepara o actualiza los datos si todavía hace falta hacerlo.'
+                : 'Esta votación ya fue abierta. Sus datos académicos y su catálogo se conservan; aquí puedes consultarlos y descargar los archivos disponibles.'}
+            </AlertDescription>
+          </Alert>
+        </>
+      )}
+      {editar && (
+        <>
+          <p className="text-sm text-muted-foreground">
+            Sube un Excel o CSV, revisa la vista previa y confirma. Los datos académicos se bloquean desde la primera
+            apertura.
+          </p>
+          {TARJETAS.map((t) => (
+            <TarjetaImportacion key={`${procesoId}-${t.tipo}`} {...t} />
+          ))}
+        </>
+      )}
       <Card className="space-y-3 p-4">
         <h2 className="font-semibold">Archivos importados</h2>
         {archivos.error && <p className="text-sm text-destructive">No se pudo cargar el historial de archivos.</p>}
@@ -260,7 +329,7 @@ export default function CargaDatos() {
           </div>
         ))}
         {archivos.data?.length === 0 && (
-          <p className="text-sm text-muted-foreground">Todavía no hay archivos confirmados.</p>
+          <p className="text-sm text-muted-foreground">No hay archivos originales registrados para descargar.</p>
         )}
       </Card>
     </div>

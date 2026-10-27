@@ -53,7 +53,7 @@ export class ProcesosRepository {
   listar() {
     return this.prisma.procesoVotacion.findMany({
       orderBy: [{ fechaInicio: 'desc' }, { createdAt: 'desc' }],
-      include: { _count: { select: { padron: true, votos: true } } },
+      include: { _count: { select: { padron: true, votos: true, historial: true } } },
     });
   }
 

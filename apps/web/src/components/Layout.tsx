@@ -8,9 +8,18 @@ export interface EnlaceNav {
   a: string;
   texto: string;
   fin?: boolean;
+  activo?: boolean;
 }
 
-export function Layout({ enlaces, rolTexto, children }: { enlaces: EnlaceNav[]; rolTexto: string; children?: React.ReactNode }) {
+export function Layout({
+  enlaces,
+  rolTexto,
+  children,
+}: {
+  enlaces: EnlaceNav[];
+  rolTexto: string;
+  children?: React.ReactNode;
+}) {
   const { usuario, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -36,7 +45,7 @@ export function Layout({ enlaces, rolTexto, children }: { enlaces: EnlaceNav[]; 
                 className={({ isActive }) =>
                   cn(
                     'whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white',
-                    isActive && 'bg-white/15 text-white',
+                    (isActive || e.activo) && 'bg-white/15 text-white',
                   )
                 }
               >
